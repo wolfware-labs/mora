@@ -13,6 +13,7 @@ workspace = true
 
 [dependencies]
 logos.workspace = true
+rowan.workspace = true
 mora-diag.workspace = true
 mora-span.workspace = true
 unicode-ident.workspace = true

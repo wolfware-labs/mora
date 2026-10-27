@@ -4,7 +4,7 @@
 use mora_diag::Code;
 use mora_diag::codes;
 
-use super::TokenKind;
+use crate::SyntaxKind;
 
 /// The suffix of an integer literal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,13 +68,13 @@ pub fn real_value(text: &str) -> Option<(f64, RealSuffix)> {
 
 /// The kind of a number token and the problems with it, as byte ranges
 /// relative to the token.
-pub(crate) fn check(text: &str) -> (TokenKind, Vec<(Code, std::ops::Range<usize>, String)>) {
+pub(crate) fn check(text: &str) -> (SyntaxKind, Vec<(Code, std::ops::Range<usize>, String)>) {
     let whole = 0..text.len();
     let Some(parts) = split(text) else {
         let kind = if text.contains(['.', 'e', 'E']) && !text.starts_with("0x") {
-            TokenKind::RealNumber
+            SyntaxKind::RealNumber
         } else {
-            TokenKind::IntNumber
+            SyntaxKind::IntNumber
         };
         return (
             kind,
@@ -86,9 +86,9 @@ pub(crate) fn check(text: &str) -> (TokenKind, Vec<(Code, std::ops::Range<usize>
         );
     };
     let kind = if parts.real {
-        TokenKind::RealNumber
+        SyntaxKind::RealNumber
     } else {
-        TokenKind::IntNumber
+        SyntaxKind::IntNumber
     };
     let mut errors = Vec::new();
     if let Some(problem) = separators(parts.digits, parts.radix) {
@@ -238,7 +238,7 @@ fn separators(digits: &str, radix: u32) -> Option<String> {
 mod tests {
     use super::*;
 
-    fn codes_of(text: &str) -> (TokenKind, Vec<Code>) {
+    fn codes_of(text: &str) -> (SyntaxKind, Vec<Code>) {
         let (kind, errors) = check(text);
         (kind, errors.into_iter().map(|(code, _, _)| code).collect())
     }
@@ -263,7 +263,7 @@ mod tests {
             ("0xFFul", 255, IntSuffix::Ul),
             ("18446744073709551615", u64::MAX, IntSuffix::None),
         ] {
-            assert_eq!(codes_of(text), (TokenKind::IntNumber, vec![]), "{text}");
+            assert_eq!(codes_of(text), (SyntaxKind::IntNumber, vec![]), "{text}");
             assert_eq!(int_value(text), Some((value, suffix)), "{text}");
         }
     }
@@ -282,7 +282,7 @@ mod tests {
             ("3.0D", 3.0, RealSuffix::D),
             ("1e308", 1e308, RealSuffix::None),
         ] {
-            assert_eq!(codes_of(text), (TokenKind::RealNumber, vec![]), "{text}");
+            assert_eq!(codes_of(text), (SyntaxKind::RealNumber, vec![]), "{text}");
             assert_eq!(real_value(text), Some((value, suffix)), "{text}");
         }
     }
@@ -290,10 +290,10 @@ mod tests {
     #[test]
     fn too_large_is_mr0010() {
         for (text, kind) in [
-            ("18446744073709551616", TokenKind::IntNumber),
-            ("0x1_0000_0000_0000_0000", TokenKind::IntNumber),
-            ("1e309", TokenKind::RealNumber),
-            ("1e39f", TokenKind::RealNumber),
+            ("18446744073709551616", SyntaxKind::IntNumber),
+            ("0x1_0000_0000_0000_0000", SyntaxKind::IntNumber),
+            ("1e309", SyntaxKind::RealNumber),
+            ("1e39f", SyntaxKind::RealNumber),
         ] {
             assert_eq!(codes_of(text), (kind, vec![codes::MR0010]), "{text}");
         }

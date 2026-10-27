@@ -115,6 +115,7 @@ registry! {
     MR0125 = 125: "a library with top-level statements",
     MR0126 = 126: "a cycle between `static lazy` initializers",
     MR0127 = 127: "a static constructor",
+    MR0128 = 128: "a primary constructor on a class or struct",
     MR0130 = 130: "a string indexed by `int`",
     MR0131 = 131: "`null` without a target type",
     MR0132 = 132: "`return value;` is ambiguous when `T` and `E` are the same type",

@@ -29,6 +29,7 @@ These are the checks CI runs on every pull request (§20.5 of the spec). They ar
 | Crate layers and target names (§14.2, §19.4) | `cargo xtask layers` |
 | Dependency policy | `cargo deny check` |
 | Spec and error-page examples | `cargo xtask spec-examples` |
+| Generated syntax code (§14.4): `SyntaxKind` and the AST views, from `crates/mora-syntax/mora.ungram` and §3.4 | `cargo xtask codegen`; CI runs `cargo xtask codegen --check` |
 | Test coverage (§20.5) | `cargo llvm-cov --workspace --open` after `cargo install cargo-llvm-cov` and `rustup component add llvm-tools`; CI uploads it to Codecov |
 | Error-code registry | `cargo xtask error-codes` |
 | Runtime libraries (§13.2) | `cargo xtask runtime --test` for the host; CI builds and tests every hosted target. Set `CC` to a C compiler for the target, such as `musl-gcc` for `x86_64-unknown-linux-musl`, and `CFLAGS` to any flags it needs, such as `-arch x86_64` for `x86_64-apple-darwin` on an arm64 Mac |

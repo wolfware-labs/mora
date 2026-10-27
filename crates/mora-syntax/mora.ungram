@@ -1,0 +1,861 @@
+// The concrete syntax of Mora: the nodes of the syntax tree and their children.
+// `cargo xtask codegen` turns it into `SyntaxKind` and the typed views in `ast`.
+//
+// Source of truth: docs/design/mora.md. Section references are given as §n.n.
+//
+// Conventions:
+//   - `Name` is a declared identifier, `NameRef` a use. `'ident'` appears nowhere else.
+//   - A rule that is only an alternation of nodes becomes an enum.
+//   - Composite tokens the parser glues from adjacent pieces: '>=' '>>' '>>=' '>>>' '>>>=' '?['.
+//   - Contextual keywords are remapped by the parser in position (§3.4); extra ones used
+//     here: 'from' (imports), 'type' (associated types), 'allows' (constraint), '_' (discard).
+//   - C# constructs the spec removes (try/catch/throw, goto, unsafe, inheritance, block
+//     namespaces, #if, checked, typeof, x!, ...) have no nodes; the parser reports them.
+
+//*************************//
+//      Names and paths    //
+//*************************//
+
+Name =
+  'ident'
+
+NameRef =
+  'ident'
+
+// `Std.Net.Http`, `List<int>`, `Core::Text.Parser`, `TSource.Enumerator` (§4.4, §8.7).
+Path =
+  AliasQualifier? PathSegment ('.' PathSegment)*
+
+// `Alias::` picks one of two imports that put the same namespace in scope (§4.4).
+AliasQualifier =
+  NameRef '::'
+
+PathSegment =
+  NameRef GenericArgList?
+
+// `<int, string>`. The closing `>` is its own token even inside `>>` (§14.4).
+GenericArgList =
+  '<' (Type (',' Type)* ','?)? '>'
+
+//*************************//
+//      Compilation unit   //
+//*************************//
+
+// §4.2: CompilationUnit = ImportDecl* UsingDirective* FileNamespace? TopLevelItem* ;
+SourceFile =
+  ImportDecl*
+  UsingDirective*
+  FileNamespace?
+  TopLevelItem*
+
+// §4.2: Attribute* Modifier* (TypeDecl | FunctionDecl | ConstDecl | StaticDecl) | Statement.
+// A local declaration without `const`/`static` at top level is a statement (LocalDeclStmt).
+TopLevelItem =
+  Item
+| Stmt
+
+// §4.4: ImportDecl = "import" Identifier ( "from" StringLiteral )? ";" ;
+ImportDecl =
+  'import' Name ('from' source:'string_literal')? ';'
+
+// §4.3: `using X;`, `using static X;`, `using A = X;`, `global using ...;`
+UsingDirective =
+  'global'? 'using' 'static'? UsingAlias? Path ';'
+
+UsingAlias =
+  Name '='
+
+// §4.2: FileNamespace = "namespace" QualifiedName ";" ;
+FileNamespace =
+  'namespace' Path ';'
+
+//*************************//
+//      Items              //
+//*************************//
+
+Item =
+  StructDecl
+| ClassDecl
+| RecordDecl
+| UnionDecl
+| EnumDecl
+| InterfaceDecl
+| MacroDecl
+| FunctionDecl
+| FieldDecl
+
+// §6.1: TypeDecl = StructDecl | ClassDecl | RecordDecl | UnionDecl | EnumDecl | InterfaceDecl ;
+TypeDecl =
+  StructDecl
+| ClassDecl
+| RecordDecl
+| UnionDecl
+| EnumDecl
+| InterfaceDecl
+
+// §6.1 Modifier list, plus the ones the spec uses elsewhere:
+//   'move' (consuming methods §6.4, params §10.3), 'in' 'out' (param modes §10.3),
+//   'params' (§6.9), 'this' (extension methods §6.9),
+//   'abstract' (`static abstract` interface members only, §6.8, §8.5).
+// `ref struct` and `unique class` are a modifier plus the declaration keyword.
+Modifier =
+  kind:(
+    'public' | 'internal' | 'private' | 'file'
+  | 'static' | 'mut' | 'readonly' | 'unique' | 'shared' | 'ref' | 'required'
+  | 'async' | 'lazy' | 'const' | 'indirect' | 'extern'
+  | 'move' | 'in' | 'out' | 'params' | 'this' | 'abstract'
+  )
+
+// §6.11. `[Json]`, `[Cfg(Os = "linux")]`, `[Allow("MR2001"), MustUse]`.
+Attribute =
+  '[' AttributeItem (',' AttributeItem)* ','? ']'
+
+AttributeItem =
+  Path AttributeArgList?
+
+AttributeArgList =
+  '(' (AttributeArg (',' AttributeArg)* ','?)? ')'
+
+// Positional constant or `Name = constant`.
+AttributeArg =
+  (NameRef '=')? Expr
+
+// §6.1: BaseList = ":" Type ( "," Type )* ;
+BaseList =
+  ':' Type (',' Type)*
+
+// §6.2. A `ref struct` carries the `ref` modifier.
+StructDecl =
+  Attribute* Modifier*
+  'struct' Name TypeParamList? BaseList? WhereClause*
+  (MemberList | ';')
+
+// §6.3, §6.4. No primary constructors (§6.9): the parser reports one with MR0128.
+ClassDecl =
+  Attribute* Modifier*
+  'class' Name TypeParamList? BaseList? WhereClause*
+  (MemberList | ';')
+
+// §6.5. `record`, `record class` (same as `record`) and `record struct`.
+RecordDecl =
+  Attribute* Modifier*
+  'record' kind:('class' | 'struct')? Name TypeParamList? ParamList? BaseList? WhereClause*
+  (MemberList | ';')
+
+MemberList =
+  '{' Member* '}'
+
+// §6.6. Cases separated by commas; members follow a `;` after the last case.
+UnionDecl =
+  Attribute* Modifier*
+  'union' Name TypeParamList? BaseList? WhereClause*
+  UnionBody
+
+UnionBody =
+  '{'
+    (UnionCase (',' UnionCase)* ','?)?
+    (';' Member*)?
+  '}'
+
+// `Null`, `Bool(bool Value)`, `indirect Node(Tree Left, Tree Right)`.
+UnionCase =
+  Attribute* 'indirect'? Name ParamList?
+
+// §6.7. `enum Color : byte { Red, Green, Blue = 10 }`
+EnumDecl =
+  Attribute* Modifier*
+  'enum' Name EnumBase? EnumBody
+
+EnumBase =
+  ':' Type
+
+EnumBody =
+  '{' (EnumMember (',' EnumMember)* ','?)? '}'
+
+EnumMember =
+  Attribute* Name ('=' value:Expr)?
+
+// §6.8. Variance on type parameters is parsed and rejected (§8.8).
+InterfaceDecl =
+  Attribute* Modifier*
+  'interface' Name TypeParamList? BaseList? WhereClause*
+  MemberList
+
+// §9.2: MacroDecl = Attribute* Modifier* "macro" Identifier "(" MacroParams ")" AddsClause? Block ;
+MacroDecl =
+  Attribute* Modifier*
+  'macro' Name ParamList AddsClause? Block
+
+// §9.2: AddsClause = "adds" Type ( "," Type )* ;
+AddsClause =
+  'adds' Type (',' Type)*
+
+//*************************//
+//      Members            //
+//*************************//
+
+Member =
+  FieldDecl
+| PropertyDecl
+| IndexerDecl
+| FunctionDecl
+| ConstructorDecl
+| DestructorDecl
+| OperatorDecl
+| ConversionOperatorDecl
+| AssocTypeDecl
+| StructDecl
+| ClassDecl
+| RecordDecl
+| UnionDecl
+| EnumDecl
+| InterfaceDecl
+| SpliceMember
+
+// `=> expr` body shared by functions, properties, accessors, operators and constructors.
+ExprBody =
+  '=>' Expr
+
+// §6.1: FunctionDecl = Attribute* Modifier* Type Identifier TypeParams? "(" Params? ")"
+//                      Constraints* ( Block | "=>" Expr ";" | ";" ) ;
+// Also methods (§6.9), interface members (§6.8), extern functions (§13.9) and
+// explicit implementations `float IShape.Area() => ...`.
+// The name may be a splice inside `code { }` (§9.3).
+FunctionDecl =
+  Attribute* Modifier*
+  ret:Type ExplicitImpl? (Name | Splice) TypeParamList? ParamList WhereClause*
+  (Block | ExprBody ';' | ';')
+
+// `IShape.` in an explicit interface implementation (§6.8).
+ExplicitImpl =
+  Path '.'
+
+ParamList =
+  '(' (Param (',' Param)* ','?)? ')'
+
+// `in`/`ref`/`out`/`move`/`params`/`this` are Modifiers (§10.3, §6.9).
+Param =
+  Attribute* Modifier* Type Name ('=' default:Expr)?
+
+// Fields, constants and statics (§6.3, §4.7, §6.10). At namespace level this is the
+// ConstDecl/StaticDecl of §4.2: the `const` or `static` modifier is required there.
+FieldDecl =
+  Attribute* Modifier*
+  Type VariableDeclarator (',' VariableDeclarator)* ';'
+
+VariableDeclarator =
+  (Name | Splice) ('=' init:Expr)?
+
+// §6.9. `public int Step { get; set; } = 1;`, `public int Count => _count;`
+PropertyDecl =
+  Attribute* Modifier*
+  Type ExplicitImpl? (Name | Splice)
+  (AccessorList ('=' init:Expr ';')? | ExprBody ';')
+
+AccessorList =
+  '{' Accessor* '}'
+
+// `get;`, `private set;`, `get => x;`, `init { ... }`.
+Accessor =
+  Attribute* Modifier*
+  kind:('get' | 'set' | 'init')
+  (Block | ExprBody ';' | ';')
+
+// §6.9. `public T this[int i] { get => ...; }`
+IndexerDecl =
+  Attribute* Modifier*
+  Type ExplicitImpl? 'this' '[' Param (',' Param)* ','? ']'
+  (AccessorList | ExprBody ';')
+
+// §6.9. `public Counter(string name) : this(name, 1) { ... }`
+ConstructorDecl =
+  Attribute* Modifier*
+  Name ParamList ConstructorInitializer?
+  (Block | ExprBody ';')
+
+// C# constructor chaining; `base(...)` does not exist (no inheritance).
+ConstructorInitializer =
+  ':' 'this' ArgList
+
+// §6.9: no modifiers, no parameters.
+DestructorDecl =
+  Attribute*
+  '~' Name '(' ')'
+  (Block | ExprBody ';')
+
+// §6.9. `public static Vec operator +(Vec a, Vec b) => ...`
+OperatorDecl =
+  Attribute* Modifier*
+  ret:Type 'operator'
+  op:(
+    '+' | '-' | '*' | '/' | '%' | '+%' | '-%' | '*%'
+  | '&' | '|' | '^' | '!' | '~' | '<<' | '>>' | '>>>'
+  | '==' | '!=' | '<' | '>' | '<=' | '>='
+  | '++' | '--'
+  )
+  ParamList
+  (Block | ExprBody ';' | ';')
+
+// §6.9. `public static implicit operator AppError(IoError e) => Io(e);`
+ConversionOperatorDecl =
+  Attribute* Modifier*
+  kind:('implicit' | 'explicit') 'operator' Type ParamList
+  (Block | ExprBody ';' | ';')
+
+// §8.7. `type Enumerator : IEnumerator<T>;` and `type Enumerator = ListEnumerator<T>;`
+AssocTypeDecl =
+  Attribute* Modifier*
+  'type' Name BaseList? ('=' Type)? ';'
+
+// `$..members` or `$m` in a `code { }` member list (§9.3).
+SpliceMember =
+  Splice ';'?
+
+//*************************//
+//      Generics           //
+//*************************//
+
+// §6.1: TypeParams = "<" TypeParam ( "," TypeParam )* ">" ;
+TypeParamList =
+  '<' TypeParam (',' TypeParam)* ','? '>'
+
+// `in`/`out` variance is post-MVP and rejected with MR0234 (§8.8).
+TypeParam =
+  Attribute* variance:('in' | 'out')? Name
+
+// §8.2. `where T : IComparable<T>, move`
+WhereClause =
+  'where' NameRef ':' Constraint (',' Constraint)*
+
+Constraint =
+  TypeConstraint
+| KindConstraint
+| NewConstraint
+| RefStructConstraint
+
+// `where T : IFoo`
+TypeConstraint =
+  Type
+
+// `where T : struct`, `class`, `unique`, `move`
+KindConstraint =
+  kind:('struct' | 'class' | 'unique' | 'move')
+
+// `where T : new()`
+NewConstraint =
+  'new' '(' ')'
+
+// `where T : ref struct` or C# 13 `allows ref struct`
+RefStructConstraint =
+  'allows'? 'ref' 'struct'
+
+//*************************//
+//      Types (§5)         //
+//*************************//
+
+Type =
+  PathType
+| PredefinedType
+| ArrayType
+| OptionalType
+| TupleType
+| WeakType
+| SpliceType
+
+// `User`, `List<int>`, `Std.Json.JsonValue`, `Func<int, bool>` (§5.8).
+PathType =
+  Path
+
+// §5.2 primitives, `string` (§5.3) and `void` (return type meaning `()`).
+PredefinedType =
+  kind:(
+    'bool' | 'byte' | 'sbyte' | 'short' | 'ushort' | 'int' | 'uint'
+  | 'long' | 'ulong' | 'nint' | 'nuint' | 'float' | 'double' | 'char'
+  | 'string' | 'void'
+  )
+
+// §5.4. `T[]`; `T[,]` is post-MVP.
+ArrayType =
+  Type '[' ']'
+
+// §5.6. `T?`; `T??` is two nested OptionalTypes.
+OptionalType =
+  Type '?'
+
+// §5.5. `()`, `(int, string)`, `(int Id, string Name)`.
+TupleType =
+  '(' (TupleTypeElem (',' TupleTypeElem)* ','?)? ')'
+
+TupleTypeElem =
+  Type Name?
+
+// §10.7. `public weak Node Parent;`
+WeakType =
+  'weak' Type
+
+// `$t` in `code(List<$t>)` (§9.3).
+SpliceType =
+  Splice
+
+//*************************//
+//      Statements (§7.11) //
+//*************************//
+
+Stmt =
+  Block
+| LocalDeclStmt
+| DeconstructStmt
+| LocalFunctionStmt
+| ExprStmt
+| EmptyStmt
+| IfStmt
+| WhileStmt
+| DoWhileStmt
+| ForStmt
+| ForeachStmt
+| BreakStmt
+| ContinueStmt
+| ReturnStmt
+| SwitchStmt
+| AttributedStmt
+
+Block =
+  '{' Stmt* '}'
+
+// `[Cfg(...)]` on a statement (§6.11).
+AttributedStmt =
+  Attribute Attribute* Stmt
+
+// §7.10. `let x = e;`, `let T x = e;`, `var x = e;`, `T x = e;`, `let x;`, `T x;`
+LocalDeclStmt =
+  LocalDecl ';'
+
+LocalDecl =
+  kw:('let' | 'var')? Type? VariableDeclarator (',' VariableDeclarator)*
+
+// §5.5, §6.5. `let (id, name) = pair;`
+DeconstructStmt =
+  kw:('let' | 'var') TupleDesignation '=' Expr ';'
+
+Designation =
+  NameDesignation
+| TupleDesignation
+| DiscardDesignation
+
+NameDesignation =
+  Type? Name
+
+TupleDesignation =
+  '(' (Designation (',' Designation)* ','?)? ')'
+
+DiscardDesignation =
+  '_'
+
+// Local function (§7.11). At top level a function is an Item instead.
+LocalFunctionStmt =
+  FunctionDecl
+
+ExprStmt =
+  Expr ';'
+
+EmptyStmt =
+  ';'
+
+IfStmt =
+  'if' '(' condition:Expr ')' then:Stmt ElseClause?
+
+ElseClause =
+  'else' Stmt
+
+WhileStmt =
+  'while' '(' condition:Expr ')' body:Stmt
+
+DoWhileStmt =
+  'do' body:Stmt 'while' '(' condition:Expr ')' ';'
+
+ForStmt =
+  'for' '(' ForInit? ';' condition:Expr? ';' ForUpdate? ')' body:Stmt
+
+ForInit =
+  LocalDecl
+| ForInitExprs
+
+ForInitExprs =
+  Expr (',' Expr)*
+
+ForUpdate =
+  Expr (',' Expr)*
+
+// `foreach (let x in xs)`, `foreach (var x in xs)`, `foreach (ref var x in span)`,
+// `foreach (let (k, v) in dict)`.
+ForeachStmt =
+  'foreach' '(' 'ref'? kw:('let' | 'var')? Designation 'in' iterable:Expr ')' body:Stmt
+
+BreakStmt =
+  'break' ';'
+
+ContinueStmt =
+  'continue' ';'
+
+ReturnStmt =
+  'return' Expr? ';'
+
+// §7.7. Sections end at the next label; no fall-through.
+SwitchStmt =
+  'switch' '(' scrutinee:Expr ')' '{' SwitchSection* '}'
+
+SwitchSection =
+  SwitchLabel SwitchLabel* Stmt*
+
+SwitchLabel =
+  CaseLabel
+| DefaultLabel
+
+CaseLabel =
+  'case' Pattern WhenClause? ':'
+
+DefaultLabel =
+  'default' ':'
+
+WhenClause =
+  'when' Expr
+
+//*************************//
+//      Expressions (§7)   //
+//*************************//
+
+// Precedence, highest to lowest (§7.1):
+//   primary   x.y x?.y f(x) a[i] a?[i] x++ x-- new nameof default sizeof x?
+//   unary     + - ! ~ ++x --x ^x (T)x await           (right)
+//   range     x..y x.. ..y ..                           (none)
+//   switch, with                                        (left)
+//   * / % *%   then  + - +% -%   then  << >> >>>
+//   < > <= >= is as   then  == !=
+//   &  then  ^  then  |   then  &&  then  ||
+//   ??                                                  (right)
+//   c ? a : b                                           (right)
+//   = op= ??= =>                                        (right)
+Expr =
+  LiteralExpr
+| InterpString
+| PathExpr
+| PredefinedTypeExpr
+| ThisExpr
+| ParenExpr
+| TupleExpr
+| CollectionExpr
+| MemberExpr
+| CallExpr
+| IndexExpr
+| PostfixExpr
+| PropagateExpr
+| PrefixExpr
+| CastExpr
+| AwaitExpr
+| RangeExpr
+| SwitchExpr
+| WithExpr
+| BinExpr
+| IsExpr
+| AsExpr
+| ConditionalExpr
+| AssignExpr
+| LambdaExpr
+| NewExpr
+| NewArrayExpr
+| StackallocExpr
+| DefaultExpr
+| NameofExpr
+| SizeofExpr
+| QuoteExpr
+| MacroCallExpr
+| SpliceExpr
+
+// §3.5.
+LiteralExpr =
+  value:(
+    'int_number' | 'real_number' | 'char_literal'
+  | 'string_literal' | 'verbatim_string' | 'raw_string'
+  | 'true' | 'false' | 'null'
+  )
+
+// §3.5, §14.4. `$"x = {x,5:F2}"`.
+InterpString =
+  'interp_start' InterpPart* 'interp_end'
+
+InterpPart =
+  InterpTextPart
+| InterpHole
+
+InterpTextPart =
+  'interp_text'
+
+InterpHole =
+  'hole_open' value:Expr (',' alignment:Expr)? 'hole_format'? 'hole_close'
+
+// A simple or alias-qualified name, possibly generic: `x`, `Max<int>`, `Core::Parse`.
+// Dotted access parses as MemberExpr.
+PathExpr =
+  Path
+
+// `int.Parse(...)`, `string.Join(...)`.
+PredefinedTypeExpr =
+  PredefinedType
+
+ThisExpr =
+  'this'
+
+ParenExpr =
+  '(' Expr ')'
+
+// `()`, `(1, "a")`, `(Id: 1, Name: "a")` (§5.5).
+TupleExpr =
+  '(' (TupleElem (',' TupleElem)* ','?)? ')'
+
+TupleElem =
+  (NameRef ':')? Expr
+
+// §7.9. `[a, b, ..xs]`.
+CollectionExpr =
+  '[' (CollectionElem (',' CollectionElem)* ','?)? ']'
+
+CollectionElem =
+  '..'? Expr
+
+// `x.y`, `x?.y`, `req.RouteValue<int>`, `this.$f` (§7.2, §7.5, §9.3).
+MemberExpr =
+  receiver:Expr op:('.' | '?.') (NameRef | Splice) GenericArgList?
+
+// `f(x)`, `F(ref x)`, `G(out let y)`, `F(name: v)` (§7.2).
+CallExpr =
+  callee:Expr ArgList
+
+ArgList =
+  '(' (Arg (',' Arg)* ','?)? ')'
+
+Arg =
+  (name:NameRef ':')? mode:('ref' | 'out' | 'in' | 'move')? (Expr | DeclExpr)
+
+// `out var y`, `out let y`, `out int y` (§7.2, §10.3).
+DeclExpr =
+  kw:('let' | 'var')? Type? Name
+
+// `a[i]`, `a?[i]`, `s[1..^1]`.
+IndexExpr =
+  base:Expr op:('[' | '?[') Arg (',' Arg)* ','? ']'
+
+PostfixExpr =
+  Expr op:('++' | '--')
+
+// §7.4. `e?`; `await e?` parses as `(await e)?`.
+PropagateExpr =
+  Expr '?'
+
+// `^x` is an index from the end (§7.13).
+PrefixExpr =
+  op:('+' | '-' | '!' | '~' | '++' | '--' | '^') Expr
+
+// `(T)x` (§5.10).
+CastExpr =
+  '(' Type ')' Expr
+
+// §12.2.
+AwaitExpr =
+  'await' Expr
+
+// `x..y`, `x..`, `..y`, `..` (§7.13).
+RangeExpr =
+  start:Expr? '..' end:Expr?
+
+// §7.7.
+SwitchExpr =
+  scrutinee:Expr 'switch' '{' (SwitchArm (',' SwitchArm)* ','?)? '}'
+
+SwitchArm =
+  Pattern WhenClause? '=>' Expr
+
+// §6.5. `user with { Name = "Ada" }`.
+WithExpr =
+  Expr 'with' ObjectInitializer
+
+BinExpr =
+  lhs:Expr
+  op:(
+    '*' | '/' | '%' | '*%'
+  | '+' | '-' | '+%' | '-%'
+  | '<<' | '>>' | '>>>'
+  | '<' | '>' | '<=' | '>='
+  | '==' | '!='
+  | '&' | '^' | '|'
+  | '&&' | '||'
+  | '??'
+  )
+  rhs:Expr
+
+// `e is pattern` (§7.8).
+IsExpr =
+  Expr 'is' Pattern
+
+// `i as C` gives `C?` (§5.10).
+AsExpr =
+  Expr 'as' Type
+
+ConditionalExpr =
+  condition:Expr '?' then:Expr ':' else:Expr
+
+AssignExpr =
+  lhs:Expr
+  op:(
+    '=' | '+=' | '-=' | '*=' | '/=' | '%='
+  | '&=' | '|=' | '^=' | '<<=' | '>>=' | '>>>='
+  | '??=' | '+%=' | '-%=' | '*%='
+  )
+  rhs:Expr
+
+// §7.6, §10.9. `x => x * 2`, `static (int x) => x + 1`,
+// `[weak this] () => this?.Refresh()`, `[move conn] async () => await conn.Close()`.
+// Modifiers: `static`, `async`.
+LambdaExpr =
+  CaptureList? Modifier*
+  (LambdaParam | LambdaParamList)
+  '=>' (Block | Expr)
+
+LambdaParamList =
+  '(' (LambdaParam (',' LambdaParam)* ','?)? ')'
+
+// Type optional: inferred from the target function type.
+LambdaParam =
+  Attribute* Modifier* Type? Name ('=' default:Expr)?
+
+CaptureList =
+  '[' Capture (',' Capture)* ','? ']'
+
+// `weak x`, `weak this`, `move conn`.
+Capture =
+  mode:('weak' | 'move') (NameRef | 'this')
+
+// §7.3. `new T(args)`, `new T(args) { P = v }`, `new T { P = v }`, `new()`, `new(args)`.
+NewExpr =
+  'new' Type? ArgList? ObjectInitializer?
+
+ObjectInitializer =
+  '{' (MemberInit (',' MemberInit)* ','?)? '}'
+
+MemberInit =
+  NameRef '=' Expr
+
+// §5.4. `new int[10]`, `new[] { 1, 2, 3 }`, `new int[] { 1, 2 }`.
+NewArrayExpr =
+  'new' elem:Type? '[' size:Expr? ']' ArrayInitializer?
+
+ArrayInitializer =
+  '{' (Expr (',' Expr)* ','?)? '}'
+
+// §5.9. `stackalloc byte[256]`, `stackalloc int[] { 1, 2 }`.
+StackallocExpr =
+  'stackalloc' elem:Type? '[' size:Expr? ']' ArrayInitializer?
+
+// §7.13. `default`, `default(T)`.
+DefaultExpr =
+  'default' ('(' Type ')')?
+
+// §7.13.
+NameofExpr =
+  'nameof' '(' Expr ')'
+
+// §7.13.
+SizeofExpr =
+  'sizeof' '(' Type ')'
+
+// §9.3. `code { members }`, `code(expr)`, `code(type)`.
+QuoteExpr =
+  'code' (MemberList | '(' (Expr | Type) ')')
+
+// §9.2. `#Assert(total > 0)`.
+MacroCallExpr =
+  '#' NameRef ArgList
+
+// §9.3. `$x`, `$(expr)`, `$..xs`.
+SpliceExpr =
+  Splice
+
+Splice =
+  '$' '..'? (NameRef | '(' Expr ')')
+
+//*************************//
+//      Patterns (§7.8)    //
+//*************************//
+
+Pattern =
+  ConstantPattern
+| TypePattern
+| DeclarationPattern
+| BindingPattern
+| DiscardPattern
+| RelationalPattern
+| NotPattern
+| BinPattern
+| ParenPattern
+| CasePattern
+| PositionalPattern
+| PropertyPattern
+| ListPattern
+| SlicePattern
+
+// `0`, `"GET"`, `null`, `-1`, `Color.Red`, `None`. A bare or dotted name stays a
+// ConstantPattern; name resolution decides constant, enum member, fieldless case or type.
+ConstantPattern =
+  Expr
+
+// Type syntax that cannot be an expression: `int[]`, `(int, int)`, `User?`.
+TypePattern =
+  Type
+
+// `User u`, `Circle c`.
+DeclarationPattern =
+  Type Designation
+
+// `let x`, `var x`, `let (a, b)`.
+BindingPattern =
+  kw:('let' | 'var') Designation
+
+DiscardPattern =
+  '_'
+
+// `< 0`, `>= 'a'`.
+RelationalPattern =
+  op:('<' | '>' | '<=' | '>=') Expr
+
+// `not null`, `not 0`.
+NotPattern =
+  'not' Pattern
+
+// `> 0 and < 10`, `null or ""`. `and` binds tighter than `or`.
+BinPattern =
+  lhs:Pattern op:('and' | 'or') rhs:Pattern
+
+ParenPattern =
+  '(' Pattern ')'
+
+// `Circle(let r)`, `Shape.Rect(_, > 0)`.
+CasePattern =
+  Path PositionalPattern
+
+// `(0, let y)`, `(X: 0, Y: let y)`.
+PositionalPattern =
+  '(' (PatternField (',' PatternField)* ','?)? ')'
+
+// `{ Name: "Ada", Age: > 18 }`, `{ } x`, `User { Name: "Ada" } u`.
+PropertyPattern =
+  Type? '{' (PatternField (',' PatternField)* ','?)? '}' Designation?
+
+PatternField =
+  (NameRef ':')? Pattern
+
+// `[1, 2, .. let rest]`, `[_, _]`.
+ListPattern =
+  '[' (Pattern (',' Pattern)* ','?)? ']'
+
+// `..` or `.. let rest` inside a ListPattern.
+SlicePattern =
+  '..' Pattern?

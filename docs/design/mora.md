@@ -323,7 +323,7 @@ short sizeof stackalloc static string struct switch this throw true try typeof u
 ulong union unique unsafe ushort using var virtual void volatile weak where while yield
 ```
 
-Contextual keywords (keywords only in the listed position): `get`, `set`, `init`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `record` (declarations); `required`, `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9).
+Contextual keywords (keywords only in the listed position): `get`, `set`, `init`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `record` (declarations); `required`, `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows ref struct`, §8.2); `_` (discards in patterns and deconstruction, §7.8).
 
 Keywords from C# with no meaning in Mora are reserved so that C# habits produce a targeted error instead of a confusing parse error:
 
@@ -718,7 +718,7 @@ public interface IShape
 
 **Properties and indexers** use C# accessor syntax: `get`, `set`, `init`, expression-bodied getters and `this[...]` indexers. A setter on a struct is a `mut` member.
 
-**Constructors.** `public T(...) { ... }`, with C# 12 primary constructors (`class Point(int x, int y) { ... }`) whose parameters are in scope in field initializers and members. Every field without an initializer MUST be assigned on every path before the constructor returns, and `this` MUST NOT be used except to assign fields until then (`MR0140`). Object initializers (`new Options { Port = 8080 }`) assign `set` and `init` members after the constructor runs. `required` members must be set by every object initializer (`MR0144`). Constructors cannot fail; use a static factory that returns `Result<T, E>` when construction can fail.
+**Constructors.** `public T(...) { ... }`, as in C#. A constructor may first run another constructor of the same type with `: this(...)`, as in `public Counter(string name) : this(name, 1) { }`; the fields that constructor assigns count as assigned. C# 12 primary constructors on classes and structs (`class Point(int x, int y) { ... }`) are error `MR0128`, with a fix that turns the parameters into fields and a constructor: their parameters would be fields that no declaration shows, and every field's mutability and ownership must be written down (D-51). Records keep their positional parameters (§6.5), which declare properties. Every field without an initializer MUST be assigned on every path before the constructor returns, and `this` MUST NOT be used except to assign fields until then (`MR0140`). Object initializers (`new Options { Port = 8080 }`) assign `set` and `init` members after the constructor runs. `required` members must be set by every object initializer (`MR0144`). Constructors cannot fail; use a static factory that returns `Result<T, E>` when construction can fail.
 
 **Destructors.** `~T() { ... }` declares the destructor (D-17). A class, unique class or struct may have one. It takes no parameters and no modifiers. It runs exactly once, when the value dies (§10.8). Inside it, `this` is a borrow that MUST NOT escape (`MR0142`). A method called from the destructor could still store `this`; the runtime checks after every class destructor that the strong count is still zero, and aborts with `object of type T was resurrected by its destructor` otherwise (D-46). A struct with a destructor is move-only.
 
@@ -969,7 +969,12 @@ public macro Equatable(Type t) adds IEquatable<$t>
 ```mora
 // expect: True
 [Equatable]
-public class Point(int x, int y) { public int X = x; public int Y = y; }
+public class Point
+{
+    public int X;
+    public int Y;
+    public Point(int x, int y) { X = x; Y = y; }
+}
 
 Console.WriteLine(new Point(1, 2) == new Point(1, 2));
 ```
@@ -1548,7 +1553,7 @@ flowchart LR
 | `mora-cli` | The `mora` executable | `clap` |
 | `mora-testkit` | UI, run, spec-example and leak test harnesses (§20) | |
 
-`std/` holds the standard library's Mora source. The toolchain embeds it and compiles it with the program (§14.15). `xtask` holds repository tooling: the crate layering check (`cargo xtask layers`, as in the predecessor project), the spec-example extractor and the error-code registry check.
+`std/` holds the standard library's Mora source. The toolchain embeds it and compiles it with the program (§14.15). `xtask` holds repository tooling: the crate layering check (`cargo xtask layers`, as in the predecessor project), the spec-example extractor, the error-code registry check and the syntax code generator (§14.4).
 
 **Layers.** A crate may depend only on crates in lower layers: (1) `mora-span`, `mora-target`; (2) `mora-diag`, since every diagnostic points at a span; (3) `mora-syntax`; (4) `mora-hir`; (5) `mora-check`, `mora-mir`; (6) `mora-codegen`, `mora-fmt`; (7) `mora-macro`, `mora-link`, `mora-pkg`, `mora-driver`; (8) `mora-lsp`, `mora-repl`; (9) `mora-cli`, `mora-testkit`. The runtime crates sit below all of them: `mora-rt-core` depends on no other workspace crate, and `mora-rt` only on `mora-rt-core`. Any crate may take `mora-testkit` as a dev-dependency. `xtask` is outside the layers, and nothing may depend on it.
 
@@ -1562,6 +1567,7 @@ Inputs are file contents, the project graph and the target configuration. Every 
 
 - The lexer is generated by `logos` for ordinary tokens and switches to a hand-written sub-lexer inside string literals, because interpolated and raw strings need a mode stack (holes can contain strings that contain holes). An interpolated string is a sequence of tokens: its start, pieces of text, holes, and its end. A hole is its opening braces, the ordinary tokens of its expression and alignment, an optional format, and its closing braces, so the parser and the LSP see the code in a hole as code.
 - `>` is always its own token. The parser joins adjacent `>` tokens into `>>`, `>>>`, `>=`, `>>=` and `>>>=` in expressions, so `List<List<int>>` closes two type argument lists without splitting a token.
+- The nodes of the tree and their children are written down in `crates/mora-syntax/mora.ungram`, in the notation of `ungrammar`. `cargo xtask codegen` generates `SyntaxKind` from it and from the keyword lists of §3.4, together with a typed view per node (`ast::StructDecl` with `name()`, `member_list()` and so on), and CI fails when the generated code is stale.
 - The parser is hand-written recursive descent with Pratt parsing for expressions. It produces a `rowan` green tree that keeps every token and every piece of trivia, so the formatter and the LSP work on the same tree and `print(parse(text)) == text` for every input, valid or not.
 - The parser never stops at the first error. It recovers at statement and member boundaries and marks missing nodes, so the LSP can analyze code that is being typed.
 - Ambiguities inherited from C# are resolved by C#'s rules: a generic argument list `<...>` is chosen when the token after the closing `>` is one of `( ) ] } : ; , . ? == != | ^ && || & [`; casts `(T)x` by the C# cast-expression rules; and the postfix `?` by §7.4.
@@ -2133,7 +2139,7 @@ An `// expect:` example passes the run checks of §20.1. An `// error: MRnnnn` o
 
 ### 20.5 Continuous integration
 
-Required checks on every pull request: the portability guards of §19.4 rule 5, `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` on Linux, macOS and Windows, `cargo doc --workspace --no-deps` with `RUSTDOCFLAGS=-D warnings`, `cargo deny check`, `cargo xtask layers`, `cargo xtask spec-examples`, `cargo xtask error-codes` (every code used has a page; `spec-examples` compiles the pages' examples), and the acceptance test on Tier 1 targets once milestone M6 delivers it. Third-party GitHub Actions are pinned by commit SHA. A coverage job runs the workspace tests under `cargo llvm-cov`, and a separate job that runs no repository code uploads the report to Codecov through GitHub OIDC; Codecov reports project and patch coverage on each pull request that changes code (Markdown-only changes skip the job with the other build jobs) and leaves out the generated code under `crates/mora-syntax/src/generated/`. The report is best effort: pull requests from forks get no OIDC token, so they are not uploaded, and an upload that fails during a Codecov outage does not fail the build. A change that touches only Markdown may skip the Rust build jobs, except changes to `docs/design/mora.md`, `docs/errors/` and `docs/guide/`, which contain executable examples and always run `spec-examples` and `error-codes`.
+Required checks on every pull request: the portability guards of §19.4 rule 5, `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` on Linux, macOS and Windows, `cargo doc --workspace --no-deps` with `RUSTDOCFLAGS=-D warnings`, `cargo deny check`, `cargo xtask layers`, `cargo xtask spec-examples`, `cargo xtask error-codes` (every code used has a page; `spec-examples` compiles the pages' examples), `cargo xtask codegen --check` (§14.4), and the acceptance test on Tier 1 targets once milestone M6 delivers it. Third-party GitHub Actions are pinned by commit SHA. A coverage job runs the workspace tests under `cargo llvm-cov`, and a separate job that runs no repository code uploads the report to Codecov through GitHub OIDC; Codecov reports project and patch coverage on each pull request that changes code (Markdown-only changes skip the job with the other build jobs) and leaves out the generated code under `crates/mora-syntax/src/generated/`. The report is best effort: pull requests from forks get no OIDC token, so they are not uploaded, and an upload that fails during a Codecov outage does not fail the build. A change that touches only Markdown may skip the Rust build jobs, except changes to `docs/design/mora.md`, `docs/errors/` and `docs/guide/`, which contain executable examples and always run `spec-examples` and `error-codes`.
 
 ### 20.6 Budgets
 
@@ -2237,6 +2243,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-49 | Ownership, move, borrow, view and escape violations are compile errors that cannot be silenced; the remaining run-time checks panic or abort | user, author | 10 |
 | D-50 | Targets are data; layouts are computed from the target; the runtime splits into a `no_std` core and platform layers behind one platform interface; the standard library is layered by capability; CI guards portability from M0 | user, author | 19.4 |
 | D-47 | Unique objects follow struct mutation rules: `mut` methods take `ref this`, and `in` borrows are read-only | author | 6.4, 10.4 |
+| D-51 | No primary constructors on classes and structs: constructors are written out, and `: this(...)` chains them; records keep positional parameters | user | 6.9 |
 
 ## 24. Open questions
 
@@ -2267,7 +2274,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 - Lobster: the compile-time reference counting design in its memory management documentation.
 - Alex Reinking, Ningning Xie, Leonardo de Moura, Daan Leijen. *Perceus: Garbage Free Reference Counting with Reuse*. PLDI 2021.
 - Joe Duffy. The Midori blog series, on M#, a C# variant with ownership and no collector, used to write an operating system at Microsoft.
-- C# language specification: "Low level struct improvements" (ref safety rules, `scoped`, `ref struct`), file-scoped namespaces, records, primary constructors, collection expressions, raw string literals.
+- C# language specification: "Low level struct improvements" (ref safety rules, `scoped`, `ref struct`), file-scoped namespaces, records, collection expressions, raw string literals.
 - Luc Maranget. *Warnings for pattern matching*. Journal of Functional Programming, 2007.
 - David F. Bacon, V. T. Rajan. *Concurrent Cycle Collection in Reference Counted Systems*. ECOOP 2001.
 - Rust: MIR, the non-lexical lifetimes RFC (2094) and drop elaboration, which §14.7 and §14.8 follow in structure.
