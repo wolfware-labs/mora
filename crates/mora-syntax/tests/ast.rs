@@ -232,3 +232,57 @@ fn the_lexer_never_produces_joined_or_contextual_kinds() {
         assert!(!token.kind.is_node(), "{token:?}");
     }
 }
+
+#[test]
+fn nodes_tokens_and_elements() {
+    let root = build(&point());
+    assert_eq!(root.kind(), K::SourceFile);
+    assert_eq!(format!("{root:?}"), "SourceFile@0..23");
+    assert_eq!(root.to_string(), "struct Point { int X; }");
+    assert!(root.parent().is_none());
+
+    let struct_node = root.children().next().unwrap();
+    assert_eq!(struct_node.parent().unwrap(), root);
+    assert_eq!(u32::from(struct_node.text_range().len()), 23);
+    assert_eq!(struct_node.first_token().unwrap().text(), "struct");
+    assert_eq!(struct_node.last_token().unwrap().text(), "}");
+    let kinds: Vec<_> = struct_node.descendants().map(|n| n.kind()).collect();
+    assert_eq!(kinds[..3], [K::StructDecl, K::Name, K::MemberList]);
+    assert_eq!(kinds.len(), 7);
+
+    let elements: Vec<_> = struct_node.children_with_tokens().collect();
+    assert_eq!(elements.len(), 5);
+    assert_eq!(elements[0].kind(), K::StructKw);
+    assert_eq!(elements[2].kind(), K::Name);
+    assert_eq!(u32::from(elements[2].text_range().start()), 7);
+    let token = elements[0].clone().into_token().unwrap();
+    assert!(elements[0].clone().into_node().is_none());
+    assert_eq!(format!("{token:?}"), "StructKw@0..6 \"struct\"");
+    assert_eq!(token.to_string(), "struct");
+    let name = elements[2].clone().into_node().unwrap();
+    assert!(elements[2].clone().into_token().is_none());
+    assert_eq!(name.kind(), K::Name);
+}
+
+#[test]
+fn checkpoints_wrap_what_came_before() {
+    // `a + b`: the operand is added before the parser knows it is the left
+    // side of a binary expression, then wrapped from a checkpoint.
+    let mut builder = TreeBuilder::new();
+    builder.start_node(K::ExprStmt);
+    let checkpoint = builder.checkpoint();
+    builder.token(K::Ident, "a");
+    builder.start_node_at(checkpoint, K::BinExpr);
+    builder.token(K::Plus, "+");
+    builder.token(K::Ident, "b");
+    builder.finish_node();
+    builder.token(K::Semicolon, ";");
+    builder.finish_node();
+    let green = builder.finish();
+    assert_eq!(u32::from(green.text_len()), 4);
+    let root = green.root();
+    assert_eq!(root.text(), "a+b;");
+    let bin = root.children().next().unwrap();
+    assert_eq!(bin.kind(), K::BinExpr);
+    assert_eq!(bin.text(), "a+b");
+}
