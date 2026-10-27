@@ -83,8 +83,11 @@ fn literals(text: &str) -> Vec<Literal> {
     let mut line = 1;
     // The parenthesis depth inside a `cfg`, zero outside one.
     let mut cfg_depth = 0usize;
-    // The last character of code before `i`, outside comments and whitespace.
-    let mut prev = ' ';
+    // The last two characters of code before `i`, outside comments and
+    // whitespace, latest first, and whether the latest `[` opened an
+    // attribute (`#[` or `#![`).
+    let mut prev = [' ', ' '];
+    let mut attribute_bracket = false;
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
@@ -100,8 +103,8 @@ fn literals(text: &str) -> Vec<Literal> {
                 j += 1;
             }
             let word: String = chars[i..j].iter().collect();
-            let in_attribute = prev == '[';
-            prev = 'a';
+            let in_attribute = prev[0] == '[' && attribute_bracket;
+            prev = ['a', prev[0]];
             let mut k = j;
             while at(k) == '#' {
                 k += 1;
@@ -166,11 +169,11 @@ fn literals(text: &str) -> Vec<Literal> {
                 text: chars[start.1..j.min(chars.len())].iter().collect(),
                 in_cfg: cfg_depth > 0,
             });
-            prev = '"';
+            prev = ['"', prev[0]];
             i = j + 1;
         } else if c == '\'' {
             // A character literal, or a lifetime, which has no closing quote.
-            prev = '\'';
+            prev = ['\'', prev[0]];
             if at(i + 1) == '\\' {
                 let mut j = i + 2;
                 while j < chars.len() && chars[j] != '\'' {
@@ -184,7 +187,10 @@ fn literals(text: &str) -> Vec<Literal> {
             }
         } else {
             if !c.is_whitespace() {
-                prev = c;
+                if c == '[' {
+                    attribute_bracket = prev[0] == '#' || prev == ['!', '#'];
+                }
+                prev = [c, prev[0]];
             }
             if cfg_depth > 0 {
                 match c {
@@ -362,6 +368,7 @@ mod tests {
             "if cfg! /* a\n b */ (target_os = \"windows\") { f(\"x86_64\") }\n",
             "fn cfg(s: &str) {} cfg(\"linux\"); x.cfg_attr(\"macos\");\n",
             "#![cfg(unix)] #[ /* c */ cfg_attr(target_os = \"linux\", inline)] fn k() {}\n",
+            "let v = [cfg(\"windows\")]; # ! [cfg(target_os = \"macos\")]\n",
         );
         assert_eq!(
             scan(text, &words()),
@@ -374,6 +381,7 @@ mod tests {
                 (13, "x86_64".to_owned()),
                 (14, "linux".to_owned()),
                 (14, "macos".to_owned()),
+                (16, "windows".to_owned()),
             ]
         );
     }
