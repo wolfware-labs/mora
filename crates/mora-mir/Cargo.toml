@@ -1,0 +1,12 @@
+[package]
+name = "mora-mir"
+description = "MIR, lowering from HIR, move and borrow checks, async lowering, monomorphization, ARC passes and constant evaluation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

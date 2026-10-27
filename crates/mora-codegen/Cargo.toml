@@ -1,0 +1,12 @@
+[package]
+name = "mora-codegen"
+description = "The Backend trait and its Cranelift implementation: object files, JIT and debug info"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

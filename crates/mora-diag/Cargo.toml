@@ -1,0 +1,12 @@
+[package]
+name = "mora-diag"
+description = "The diagnostic type shared by every crate, the MR error-code registry and terminal rendering"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

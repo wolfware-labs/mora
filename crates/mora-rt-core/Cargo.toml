@@ -1,0 +1,12 @@
+[package]
+name = "mora-rt-core"
+description = "The portable runtime core. no_std; reaches the platform only through the mora_pal_* interface"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
