@@ -15,6 +15,10 @@ Mora is in design and early development. Nothing here is ready to install.
 
 The MVP is done when a REST API with JSON bodies, written in Mora, builds into a native executable on Linux, macOS and Windows, and a C# developer can install the toolchain with one command and get diagnostics in VS Code.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Contributions require signing the [Contributor Licence Agreement](CLA.md), and security problems go through [SECURITY.md](SECURITY.md).
+
 ## License
 
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT) at your option.

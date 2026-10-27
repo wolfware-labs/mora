@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest a change or an addition to Mora.
+labels: ["kind/feature", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to do, and what makes it hard or impossible today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How you would like it to work. Mora source examples help.
+    validations:
+      required: true
+  - type: textarea
+    id: csharp
+    attributes:
+      label: How C# does it
+      description: If C# has an equivalent, how it looks there, and what Mora should keep or change.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Workarounds or other designs you considered.
