@@ -943,21 +943,25 @@ fn rustfmt(root: &Path, source: &str) -> Result<String, String> {
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|err| format!("cannot run rustfmt: {err}"))?;
-    child
-        .stdin
-        .take()
-        .ok_or("rustfmt has no stdin")?
-        .write_all(source.as_bytes())
-        .map_err(|err| format!("cannot write to rustfmt: {err}"))?;
+    // Feed the input from another thread while this one reads the output,
+    // so neither side can block on a full pipe.
+    let mut stdin = child.stdin.take().ok_or("rustfmt has no stdin")?;
+    let input = source.to_owned();
+    let writer = std::thread::spawn(move || stdin.write_all(input.as_bytes()));
     let output = child
         .wait_with_output()
         .map_err(|err| format!("rustfmt failed: {err}"))?;
+    let written = writer
+        .join()
+        .map_err(|_| "the thread writing to rustfmt panicked".to_owned())?;
+    // rustfmt's own error explains a pipe it closed early, so it goes first.
     if !output.status.success() {
         return Err(format!(
             "rustfmt rejected the generated code:\n{}",
             String::from_utf8_lossy(&output.stderr)
         ));
     }
+    written.map_err(|err| format!("cannot write to rustfmt: {err}"))?;
     String::from_utf8(output.stdout).map_err(|err| format!("rustfmt wrote invalid UTF-8: {err}"))
 }
 
