@@ -10,3 +10,10 @@ publish = false
 
 [lints]
 workspace = true
+
+[dependencies]
+logos.workspace = true
+mora-diag.workspace = true
+mora-span.workspace = true
+unicode-ident.workspace = true
+unicode-normalization.workspace = true
