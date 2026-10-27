@@ -23,22 +23,22 @@ pub const LAYERS: &[(&str, u8)] = &[
     ("mora-rt-core", 0),
     ("mora-rt", 0),
     ("mora-span", 1),
-    ("mora-diag", 1),
     ("mora-target", 1),
-    ("mora-syntax", 2),
-    ("mora-hir", 3),
-    ("mora-check", 4),
-    ("mora-mir", 4),
-    ("mora-codegen", 5),
-    ("mora-fmt", 5),
-    ("mora-macro", 6),
-    ("mora-link", 6),
-    ("mora-pkg", 6),
-    ("mora-driver", 6),
-    ("mora-lsp", 7),
-    ("mora-repl", 7),
-    ("mora-cli", 8),
-    ("mora-testkit", 8),
+    ("mora-diag", 2),
+    ("mora-syntax", 3),
+    ("mora-hir", 4),
+    ("mora-check", 5),
+    ("mora-mir", 5),
+    ("mora-codegen", 6),
+    ("mora-fmt", 6),
+    ("mora-macro", 7),
+    ("mora-link", 7),
+    ("mora-pkg", 7),
+    ("mora-driver", 7),
+    ("mora-lsp", 8),
+    ("mora-repl", 8),
+    ("mora-cli", 9),
+    ("mora-testkit", 9),
 ];
 
 /// The only workspace crates each runtime crate may depend on.
@@ -262,13 +262,13 @@ mod tests {
         assert_eq!(
             v.problem,
             Problem::NotLower {
-                from_layer: 2,
-                to_layer: 3
+                from_layer: 3,
+                to_layer: 4
             }
         );
         assert_eq!(
             v.to_string(),
-            "mora-syntax (layer 2) -> mora-hir (layer 3) (normal): a crate may only depend on lower layers"
+            "mora-syntax (layer 3) -> mora-hir (layer 4) (normal): a crate may only depend on lower layers"
         );
     }
 
@@ -279,8 +279,8 @@ mod tests {
         assert_eq!(
             single(meta).problem,
             Problem::NotLower {
-                from_layer: 4,
-                to_layer: 4
+                from_layer: 5,
+                to_layer: 5
             }
         );
     }
@@ -332,8 +332,8 @@ mod tests {
         assert_eq!(
             single(meta).problem,
             Problem::NotLower {
-                from_layer: 2,
-                to_layer: 8
+                from_layer: 3,
+                to_layer: 9
             }
         );
     }

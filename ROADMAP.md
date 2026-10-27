@@ -102,7 +102,7 @@ Done when:
 
 Spec: [§17.6](docs/design/mora.md#176-diagnostics). Crates: `mora-diag`. Blocked by: M0.5.
 
-The one `Diagnostic` type of §17.6: code, severity, primary and secondary labeled spans, message, note, fixes as text edits. Terminal rendering with `ariadne` in the layout §17.6 shows, and `--message-format json` output with one object per line.
+The one `Diagnostic` type of §17.6: code, severity, primary and secondary labeled spans, message, note, fixes as text edits. Terminal rendering with `annotate-snippets` in the layout §17.6 shows, and `--message-format json` output with one object per line.
 
 Done when:
 

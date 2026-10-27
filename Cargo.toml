@@ -60,7 +60,7 @@ mora-testkit = { path = "crates/mora-testkit", version = "0.0.0" }
 mora-rt-core = { path = "crates/mora-rt-core", version = "0.0.0" }
 mora-rt = { path = "crates/mora-rt", version = "0.0.0" }
 # Third-party versions from §14.2 of the spec. Crates add them as they need them.
-ariadne = "0.6.0"
+annotate-snippets = "0.12.17"
 backtrace = "0.3.76"
 blake3 = "1.8.7"
 cargo_metadata = "0.23.1"
