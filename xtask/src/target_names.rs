@@ -73,8 +73,8 @@ struct Literal {
 /// comments included, are skipped, and character literals are told apart
 /// from lifetimes. A literal inside the parentheses of `cfg`, `cfg!` or
 /// `cfg_attr` is marked, since `cfg` describes the host the code is built
-/// for. Escapes are kept as written, which is enough to compare against
-/// target names.
+/// for. Escapes in ordinary strings are decoded, so `"\x6cinux"` is
+/// `linux`; raw strings are taken as written.
 fn literals(text: &str) -> Vec<Literal> {
     let chars: Vec<char> = text.chars().collect();
     let at = |i: usize| chars.get(i).copied().unwrap_or_default();
@@ -166,7 +166,7 @@ fn literals(text: &str) -> Vec<Literal> {
             }
             found.push(Literal {
                 line: start.0,
-                text: chars[start.1..j.min(chars.len())].iter().collect(),
+                text: unescape(&chars[start.1..j.min(chars.len())]),
                 in_cfg: cfg_depth > 0,
             });
             prev = ['"', prev[0]];
@@ -203,6 +203,76 @@ fn literals(text: &str) -> Vec<Literal> {
         }
     }
     found
+}
+
+/// The value of an ordinary string literal's contents: `\n`, `\r`, `\t`,
+/// `\0`, `\\`, `\'`, `\"`, `\xHH`, `\u{...}` and a backslash before a line
+/// break, which drops the break and the whitespace after it. An escape that
+/// does not decode is kept as written.
+fn unescape(raw: &[char]) -> String {
+    let mut out = String::new();
+    let mut i = 0;
+    while i < raw.len() {
+        if raw[i] != '\\' || i + 1 == raw.len() {
+            out.push(raw[i]);
+            i += 1;
+            continue;
+        }
+        let simple = match raw[i + 1] {
+            'n' => Some('\n'),
+            'r' => Some('\r'),
+            't' => Some('\t'),
+            '0' => Some('\0'),
+            '\\' => Some('\\'),
+            '\'' => Some('\''),
+            '"' => Some('"'),
+            _ => None,
+        };
+        if let Some(c) = simple {
+            out.push(c);
+            i += 2;
+        } else if raw[i + 1] == '\n' {
+            i += 2;
+            while i < raw.len() && raw[i].is_whitespace() {
+                i += 1;
+            }
+        } else if raw[i + 1] == 'x' && i + 3 < raw.len() {
+            let hex: String = raw[i + 2..i + 4].iter().collect();
+            match u8::from_str_radix(&hex, 16) {
+                Ok(byte) => {
+                    out.push(char::from(byte));
+                    i += 4;
+                }
+                Err(_) => {
+                    out.push('\\');
+                    i += 1;
+                }
+            }
+        } else if raw[i + 1] == 'u' && raw.get(i + 2) == Some(&'{') {
+            let close = raw[i..].iter().position(|&c| c == '}').map(|k| i + k);
+            let decoded = close.and_then(|close| {
+                let hex: String = raw[i + 3..close].iter().filter(|&&c| c != '_').collect();
+                let c = u32::from_str_radix(&hex, 16)
+                    .ok()
+                    .and_then(char::from_u32)?;
+                Some((c, close))
+            });
+            match decoded {
+                Some((c, close)) => {
+                    out.push(c);
+                    i = close + 1;
+                }
+                None => {
+                    out.push('\\');
+                    i += 1;
+                }
+            }
+        } else {
+            out.push('\\');
+            i += 1;
+        }
+    }
+    out
 }
 
 /// The index just past the comment that starts at `i`, if one does. Block
@@ -384,6 +454,35 @@ mod tests {
                 (16, "windows".to_owned()),
             ]
         );
+    }
+
+    #[test]
+    fn escapes_are_decoded_before_matching() {
+        let text = concat!(
+            r#"let a = "\x6cinux"; let b = "\u{6d}a\u{63}os";"#,
+            "\n",
+            r#"let c = "x86\x5f64"; let d = "win\
+                  dows"; let e = r"\x6cinux";"#,
+            "\n",
+            r#"let f = "aarch64\n"; let g = "\u{zz}"; let h = "\q";"#,
+            "\n",
+        );
+        assert_eq!(
+            scan(text, &words()),
+            [
+                (1, "linux".to_owned()),
+                (1, "macos".to_owned()),
+                (2, "x86_64".to_owned()),
+                (2, "windows".to_owned()),
+            ]
+        );
+        let chars = |s: &str| s.chars().collect::<Vec<_>>();
+        assert_eq!(unescape(&chars(r#"\t\"\\\0\'"#)), "\t\"\\\0'");
+        assert_eq!(
+            unescape(&chars(r"\u{1F600}\u{10_FFFF}")),
+            "\u{1F600}\u{10FFFF}"
+        );
+        assert_eq!(unescape(&chars(r"\u{zz}\x4\q\")), r"\u{zz}\x4\q\");
     }
 
     #[test]
