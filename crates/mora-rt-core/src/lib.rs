@@ -3,3 +3,9 @@
 #![no_std]
 // One of the crates allowed to contain `unsafe` code (CONTRIBUTING.md).
 #![allow(unsafe_code)]
+
+pub mod pal;
+
+/// Whether this is the debug runtime (`libmora_rt_debug.a`, §13.2), which
+/// adds poisoning, leak tracking and extra assertions.
+pub const DEBUG: bool = cfg!(feature = "debug");

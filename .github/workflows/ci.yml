@@ -117,10 +117,95 @@ jobs:
         if: ${{ !cancelled() }}
         run: cargo test --workspace --locked
 
+  # Portability guard (spec §19.4 rule 5): the runtime core builds for a
+  # 32-bit bare-metal target.
+  thumbv7em:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install
+          rustup target add thumbv7em-none-eabihf
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: build mora-rt-core
+        run: cargo build -p mora-rt-core --target thumbv7em-none-eabihf --locked
+      - name: build mora-rt-core (debug runtime)
+        if: ${{ !cancelled() }}
+        run: cargo build -p mora-rt-core --target thumbv7em-none-eabihf --features debug --locked
+
+  # Both runtime libraries (spec §13.2) for every hosted target of §19.1.
+  # On the runners that can execute the target, a C program linked against
+  # each one must exit with the code its `__mora_main` returns.
+  runtime:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, test: "--test", cc: musl-gcc }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, test: "--test", cc: musl-gcc }
+          - { os: macos-latest, target: aarch64-apple-darwin, test: "--test", cc: cc }
+          - { os: macos-latest, target: x86_64-apple-darwin, test: "", cc: cc }
+          - { os: windows-2025, target: x86_64-pc-windows-gnullvm, test: "--test", cc: x86_64-w64-mingw32-clang, mingw: x86_64 }
+          - { os: windows-11-arm, target: aarch64-pc-windows-gnullvm, test: "--test", cc: aarch64-w64-mingw32-clang, mingw: aarch64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          rustup toolchain install
+          rustup target add "$TARGET"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: ${{ matrix.target }}
+      - name: Install musl-gcc
+        if: ${{ matrix.cc == 'musl-gcc' }}
+        run: sudo apt-get install -y --no-install-recommends musl-tools
+      # The C compiler for the test program. `cargo xtask sysroot` (M0.11)
+      # will fetch the same toolchain for development builds.
+      - name: Install llvm-mingw
+        if: ${{ matrix.mingw }}
+        shell: pwsh
+        env:
+          ARCH: ${{ matrix.mingw }}
+          VERSION: "20261006"
+          SHA256_X86_64: 317492c456aa27ee607a5919f1d2d38dcdc1112516a24d0bf4b00d078f52d17a
+          SHA256_AARCH64: 9a835d5179c9f3a5a783c11a7f14062a249b4765dd11add64a66786864e82ab2
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          $name = "llvm-mingw-$env:VERSION-ucrt-$env:ARCH"
+          $zip = Join-Path $env:RUNNER_TEMP "$name.zip"
+          Invoke-WebRequest -Uri "https://github.com/mstorsjo/llvm-mingw/releases/download/$env:VERSION/$name.zip" -OutFile $zip
+          $expected = if ($env:ARCH -eq 'x86_64') { $env:SHA256_X86_64 } else { $env:SHA256_AARCH64 }
+          $actual = (Get-FileHash $zip -Algorithm SHA256).Hash
+          if ($actual -ne $expected) { throw "llvm-mingw checksum mismatch: $actual" }
+          Expand-Archive $zip -DestinationPath $env:RUNNER_TEMP
+          Join-Path $env:RUNNER_TEMP "$name\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+      - name: xtask runtime
+        shell: bash
+        env:
+          CC: ${{ matrix.cc }}
+          TARGET: ${{ matrix.target }}
+          TEST: ${{ matrix.test }}
+        run: cargo xtask runtime $TEST "$TARGET"
+
   # One stable check name for rulesets: passes when every job above passed
   # or was skipped by the change filter.
   ci-ok:
-    needs: [changes, linux, platforms]
+    needs: [changes, linux, platforms, thumbv7em, runtime]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

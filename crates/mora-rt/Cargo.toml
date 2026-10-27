@@ -16,3 +16,7 @@ workspace = true
 
 [dependencies]
 mora-rt-core.workspace = true
+
+[features]
+# The debug runtime (§13.2).
+debug = ["mora-rt-core/debug"]
