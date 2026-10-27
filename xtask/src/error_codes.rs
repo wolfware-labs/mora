@@ -34,7 +34,29 @@ pub struct Repo {
     /// File name and text of every file in `docs/errors/`.
     pub pages: Vec<(String, String)>,
     pub uses: Vec<Use>,
+    /// Lines in crate sources that name a code in a way the check cannot
+    /// follow, with the reason.
+    pub bypasses: Vec<(String, &'static str)>,
 }
+
+/// The crate that owns the registry, where constructing codes is allowed.
+const REGISTRY_CRATE: &str = "mora-diag";
+
+/// Ways of naming a code that would hide a use from the check.
+const BYPASSES: &[(&str, &str)] = &[
+    (
+        "Code::new(",
+        "report registered codes as `codes::MRnnnn`, not `Code::new`",
+    ),
+    (
+        "codes::{",
+        "name each code as `codes::MRnnnn`; a braced import hides the use",
+    ),
+    (
+        "codes::*",
+        "name each code as `codes::MRnnnn`; a glob import hides the use",
+    ),
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Problem {
@@ -71,6 +93,11 @@ pub enum Problem {
         file: String,
         reason: String,
     },
+    /// A crate names a code in a way that hides the use.
+    Bypass {
+        at: String,
+        reason: &'static str,
+    },
 }
 
 impl fmt::Display for Problem {
@@ -106,6 +133,7 @@ impl fmt::Display for Problem {
                 "{PAGES}/{file}: not README.md or a page for a registered code"
             ),
             Problem::BadPage { file, reason } => write!(f, "{PAGES}/{file}: {reason}"),
+            Problem::Bypass { at, reason } => write!(f, "{at}: {reason}"),
         }
     }
 }
@@ -202,6 +230,12 @@ pub fn check(repo: &Repo, ranges: &[CodeRange], codes: &[Entry]) -> Vec<Problem>
             }
             _ => problems.push(Problem::StrayPage { file: file.clone() }),
         }
+    }
+    for (at, reason) in &repo.bypasses {
+        problems.push(Problem::Bypass {
+            at: at.clone(),
+            reason,
+        });
     }
     problems.dedup();
     problems
@@ -377,9 +411,21 @@ pub fn load(root: &Path) -> io::Result<Repo> {
     pages.sort();
 
     let mut uses = Vec::new();
-    for file in files_with_extension(&root.join("crates"), "rs")? {
-        if !file.components().any(|c| c.as_os_str() == "src") {
+    let mut bypasses = Vec::new();
+    let crates = root.join("crates");
+    for file in files_with_extension(&crates, "rs")? {
+        let Some(crate_name) = source_crate(&crates, &file) else {
             continue;
+        };
+        if crate_name != REGISTRY_CRATE {
+            let text = fs::read_to_string(&file)?;
+            for (index, line) in text.lines().enumerate() {
+                for (pattern, reason) in BYPASSES {
+                    if line.contains(pattern) {
+                        bypasses.push((format!("{}:{}", shown(root, &file), index + 1), *reason));
+                    }
+                }
+            }
         }
         scan(root, &file, &mut uses, |line| {
             line.match_indices("codes::")
@@ -402,7 +448,30 @@ pub fn load(root: &Path) -> io::Result<Repo> {
                 .collect()
         })?;
     }
-    Ok(Repo { spec, pages, uses })
+    Ok(Repo {
+        spec,
+        pages,
+        uses,
+        bypasses,
+    })
+}
+
+/// The crate a file belongs to when it is in that crate's `src`
+/// directory: `crates/<name>/src/...`. Only the path below `crates` counts,
+/// so a checkout inside a directory named `src` changes nothing.
+fn source_crate<'a>(crates: &Path, file: &'a Path) -> Option<&'a str> {
+    let mut components = file.strip_prefix(crates).ok()?.components();
+    let name = components.next()?.as_os_str().to_str()?;
+    (components.next()?.as_os_str() == "src").then_some(name)
+}
+
+/// A path relative to the repository root, with `/` separators.
+fn shown(root: &Path, file: &Path) -> String {
+    file.strip_prefix(root)
+        .unwrap_or(file)
+        .display()
+        .to_string()
+        .replace('\\', "/")
 }
 
 fn scan(
@@ -412,12 +481,7 @@ fn scan(
     codes: impl Fn(&str) -> Vec<Code>,
 ) -> io::Result<()> {
     let text = fs::read_to_string(file)?;
-    let shown = file
-        .strip_prefix(root)
-        .unwrap_or(file)
-        .display()
-        .to_string();
-    let shown = shown.replace('\\', "/");
+    let shown = shown(root, file);
     for (index, line) in text.lines().enumerate() {
         for code in codes(line) {
             uses.push(Use {
@@ -488,6 +552,7 @@ A file that is not UTF-8 is error `MR0001`.
                     at: (*at).into(),
                 })
                 .collect(),
+            ..Repo::default()
         }
     }
 
@@ -507,6 +572,9 @@ A file that is not UTF-8 is error `MR0001`.
             [
                 "docs/design/mora.md:7: MR0004 is not in crates/mora-diag/src/registry.rs",
                 "tests/ui/nested/unknown.mr:2: MR0042 is not in crates/mora-diag/src/registry.rs",
+                "crates/demo/src/bypass.rs:1: name each code as `codes::MRnnnn`; a braced import hides the use",
+                "crates/demo/src/bypass.rs:2: name each code as `codes::MRnnnn`; a glob import hides the use",
+                "crates/demo/src/bypass.rs:5: report registered codes as `codes::MRnnnn`, not `Code::new`",
             ]
         );
     }
@@ -527,6 +595,17 @@ A file that is not UTF-8 is error `MR0001`.
                 "tests/ui/nested/unknown.mr:2 MR0042",
             ]
         );
+    }
+
+    #[test]
+    fn only_paths_below_crates_decide_what_is_a_source() {
+        let crates = Path::new("/home/dev/src/mora/crates");
+        let file = |rest: &str| crates.join(rest);
+        assert_eq!(source_crate(crates, &file("demo/src/lib.rs")), Some("demo"));
+        assert_eq!(source_crate(crates, &file("demo/src/a/b.rs")), Some("demo"));
+        assert_eq!(source_crate(crates, &file("demo/tests/t.rs")), None);
+        assert_eq!(source_crate(crates, &file("demo/benches/src/x.rs")), None);
+        assert_eq!(source_crate(crates, &file("lib.rs")), None);
     }
 
     #[test]
