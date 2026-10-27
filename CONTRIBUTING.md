@@ -31,7 +31,7 @@ These are the checks CI runs on every pull request (§20.5 of the spec). They ar
 | Spec and error-page examples | `cargo xtask spec-examples` |
 | Error-code registry | `cargo xtask error-codes` |
 | Runtime libraries (§13.2) | `cargo xtask runtime --test` for the host; CI builds every hosted target and tests those its runners can execute. Set `CC` to a C compiler for the target, such as `musl-gcc` for `x86_64-unknown-linux-musl` |
-| Portability guards (§19.4) | `rustup target add thumbv7em-none-eabihf`, then `cargo build -p mora-rt-core --target thumbv7em-none-eabihf`. CI also runs the run tests on `riscv64gc-linux` under QEMU |
+| Portability guards (§19.4) | `rustup target add thumbv7em-none-eabihf`, then `cargo build -p mora-rt-core --target thumbv7em-none-eabihf`. The run tests on `riscv64gc-linux` under QEMU join with M1.18 |
 
 CI sets `RUSTFLAGS=-D warnings`, so a warning fails the build. Set the same flags locally: `export RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D warnings"` in a Unix shell, or `$env:RUSTFLAGS="-D warnings"` and `$env:RUSTDOCFLAGS="-D warnings"` in PowerShell.
 
