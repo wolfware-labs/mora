@@ -4,7 +4,7 @@ Version 0.1 (draft). Status: under review.
 
 Mora is a programming language that reads and writes like modern C#, manages memory without a garbage collector, and compiles to a single native executable. This document is the design the MVP is built against. It defines the language, its memory model, the runtime, the standard library surface the MVP ships, the compiler architecture and the toolchain. Work that comes after the MVP is specified at the level needed to keep MVP decisions compatible with it.
 
-The name comes from Mora, a golden retriever. In linguistics a *mora* is the unit of timing that decides a syllable's weight, which suits a language well enough.
+In linguistics a *mora* is the unit of timing that decides a syllable's weight, written μ. In Spanish, *mora* is a blackberry.
 
 ## Contents
 
