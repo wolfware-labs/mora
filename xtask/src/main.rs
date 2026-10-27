@@ -1,6 +1,9 @@
 //! Repository tooling, run as `cargo xtask <command>`. Commands arrive with
 //! the M0 deliverables that need them.
 
+// Test and tooling code may unwrap (CONTRIBUTING.md, Code rules).
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
