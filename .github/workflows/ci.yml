@@ -213,8 +213,44 @@ jobs:
 
   # One stable check name for rulesets: passes when every job above passed
   # or was skipped by the change filter.
+  # Test coverage, uploaded to Codecov (spec §20.5). OIDC instead of a
+  # stored token, so there is no secret to rotate; pull requests from forks
+  # cannot mint one, so their upload is best effort.
+  coverage:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install
+          rustup component add llvm-tools
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          # Instrumented builds; kept apart so they do not evict the plain ones.
+          key: coverage
+      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        with:
+          tool: cargo-llvm-cov
+      - name: coverage
+        run: cargo llvm-cov --workspace --locked --lcov --output-path lcov.info
+      - name: upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: lcov.info
+          use_oidc: true
+          # A Codecov outage must not fail a pull request; the tests are the gate.
+          fail_ci_if_error: false
+
   ci-ok:
-    needs: [changes, linux, platforms, thumbv7em, runtime]
+    needs: [changes, linux, platforms, thumbv7em, runtime, coverage]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
