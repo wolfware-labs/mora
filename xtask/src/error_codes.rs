@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 
 use mora_diag::Code;
 use mora_diag::registry::{CodeRange, Entry};
+use mora_testkit::ui;
 
 /// Where the spec lives, relative to the repository root.
 pub const SPEC: &str = "docs/design/mora.md";
@@ -22,6 +23,7 @@ pub const PAGES: &str = "docs/errors";
 /// A code at a place in the repository.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Use {
+    /// The code used.
     pub code: Code,
     /// `path:line`, relative to the repository root.
     pub at: String,
@@ -30,9 +32,11 @@ pub struct Use {
 /// The parts of the repository the check reads.
 #[derive(Debug, Default)]
 pub struct Repo {
+    /// The text of `docs/design/mora.md`.
     pub spec: String,
     /// File name and text of every file in `docs/errors/`.
     pub pages: Vec<(String, String)>,
+    /// Every code that crate sources, UI tests and executable examples use.
     pub uses: Vec<Use>,
     /// Lines in crate sources that name a code in a way the check cannot
     /// follow, with the reason.
@@ -65,39 +69,22 @@ pub enum Problem {
         spec: Vec<String>,
         registry: Vec<String>,
     },
-    Unsorted {
-        code: Code,
-    },
-    OutOfRange {
-        code: Code,
-        at: String,
-    },
+    /// A registered code that does not come after the one before it.
+    Unsorted { code: Code },
+    /// A registered code outside every range.
+    OutOfRange { code: Code, at: String },
     /// A code the spec or a use names, missing from the registry.
-    Unregistered {
-        code: Code,
-        at: String,
-    },
+    Unregistered { code: Code, at: String },
     /// A registered code the spec never mentions.
-    NotInSpec {
-        code: Code,
-    },
-    MissingPage {
-        code: Code,
-        at: String,
-    },
+    NotInSpec { code: Code },
+    /// A used code without a page in `docs/errors/`.
+    MissingPage { code: Code, at: String },
     /// A file in `docs/errors/` that is not a page for a registered code.
-    StrayPage {
-        file: String,
-    },
-    BadPage {
-        file: String,
-        reason: String,
-    },
+    StrayPage { file: String },
+    /// A page whose title, sections or examples do not follow the template.
+    BadPage { file: String, reason: String },
     /// A crate names a code in a way that hides the use.
-    Bypass {
-        at: String,
-        reason: &'static str,
-    },
+    Bypass { at: String, reason: &'static str },
 }
 
 impl fmt::Display for Problem {
@@ -312,7 +299,6 @@ fn marked_code(line: &str, markers: &[&str]) -> Option<Code> {
 }
 
 const EXAMPLE_MARKERS: &[&str] = &["// error:", "// warning:"];
-const UI_MARKERS: &[&str] = &["//~ ERROR", "//~ WARNING"];
 
 /// Codes expected by the executable examples of a Markdown file: `mora`
 /// blocks whose first line is `// error: MRnnnn` or `// warning: MRnnnn`.
@@ -441,9 +427,9 @@ pub fn load(root: &Path) -> io::Result<Repo> {
     }
     for file in files_with_extension(&root.join("tests/ui"), "mr")? {
         scan(root, &file, &mut uses, |line| {
-            line.find("//~")
-                .and_then(|at| marked_code(&line[at..], UI_MARKERS))
+            ui::line_annotations(line)
                 .into_iter()
+                .filter_map(|annotation| annotation.ok().map(|(_, code)| code))
                 .collect()
         })?;
     }
@@ -582,6 +568,7 @@ A file that is not UTF-8 is error `MR0001`.
             problems,
             [
                 "docs/design/mora.md:7: MR0004 is not in crates/mora-diag/src/registry.rs",
+                "tests/ui/encoding.mr:2: MR2002 is not in crates/mora-diag/src/registry.rs",
                 "tests/ui/nested/unknown.mr:2: MR0042 is not in crates/mora-diag/src/registry.rs",
                 "crates/demo/src/bypass.rs:1: name each code as `codes::MRnnnn`; a braced import hides the use",
                 "crates/demo/src/bypass.rs:2: name each code as `codes::MRnnnn`; a glob import hides the use",
@@ -603,6 +590,8 @@ A file that is not UTF-8 is error `MR0001`.
             [
                 "crates/demo/src/lib.rs:2 MR0001",
                 "tests/ui/encoding.mr:1 MR0001",
+                "tests/ui/encoding.mr:2 MR0001",
+                "tests/ui/encoding.mr:2 MR2002",
                 "tests/ui/nested/unknown.mr:2 MR0042",
             ]
         );

@@ -1,1 +1,2 @@
 let x = "\xff";  //~ ERROR MR0001
+let x = 1; //~ ERROR MR0001 //~ WARNING MR2002

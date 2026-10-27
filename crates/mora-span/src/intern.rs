@@ -17,6 +17,7 @@ pub struct Symbol(u32);
 /// interner per session.
 #[derive(Default, Debug)]
 pub struct Interner {
+    /// The symbol of each interned string.
     ids: FxHashMap<Arc<str>, Symbol>,
     /// The same allocations as the map keys, indexed by symbol.
     strings: Vec<Arc<str>>,

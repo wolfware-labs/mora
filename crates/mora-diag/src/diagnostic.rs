@@ -72,13 +72,19 @@ impl Fix {
 /// The one diagnostic type every crate reports (§17.6).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Diagnostic {
+    /// The registered code, from [`crate::codes`].
     pub code: Code,
+    /// Whether the diagnostic stops the build.
     pub severity: Severity,
     /// One line, shown after `error[MRnnnn]: `.
     pub message: String,
+    /// Where the problem is; the label points at the cause.
     pub primary: Label,
+    /// Other places that explain it, such as where a value was moved.
     pub secondary: Vec<Label>,
+    /// Extra explanation, shown after the source as `= note:`.
     pub note: Option<String>,
+    /// Suggested changes, shown as `help:` with the patched source.
     pub fixes: Vec<Fix>,
 }
 
