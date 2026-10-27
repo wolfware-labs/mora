@@ -943,7 +943,7 @@ Generic variance is post-MVP (OQ-3). When it lands it keeps the C# spelling, `in
 
 ## 9. Macros
 
-Macros generate code at compile time (D-48). They are the one place where Mora departs from C# on purpose: C# source generators are powerful but verbose to write, and Rust's procedural macros make authors parse token streams. A Mora macro is a plain Mora function that receives a typed model of the code it is attached to and returns quoted Mora code. Writing one should take minutes, and reading one should need no knowledge beyond this section.
+Macros generate code at compile time (D-48). They are the one place where Mora departs from C# on purpose: C# source generators take a lot of boilerplate to write, and Rust's procedural macros make authors parse token streams. A Mora macro is a plain Mora function that receives a typed model of the code it is attached to and returns quoted Mora code. Writing one should take minutes, and reading one should need no knowledge beyond this section.
 
 ### 9.1 A complete example
 
@@ -1647,7 +1647,7 @@ The MVP compiles the standard library from source together with the program, and
 
 ## 15. Standard library (MVP surface)
 
-The standard library keeps the .NET names a C# developer reaches for first, and drops what depends on reflection, exceptions or a collector. This section lists the MVP surface. The API reference generated from `std/` doc comments is the full contract; a name listed here and missing there is a bug in one of the two.
+The standard library keeps the .NET names a C# developer reaches for first, and drops what depends on reflection, exceptions or a collector. The API reference generated from `std/` doc comments is the full contract; a name listed here and missing there is a bug in one of the two.
 
 ### 15.1 Prelude (`Std`)
 
@@ -1945,7 +1945,7 @@ Monomorphized generics mean `List<MyType>` cannot exist in the library's compile
 
 ### 18.3 Linking libraries
 
-- **Wasm app, static (default):** libraries link into one module with one linear memory, so `List<T>` and spans cross library boundaries for free.
+- **Wasm app, static (default):** libraries link into one module with one linear memory, so `List<T>` and spans cross library boundaries without copying.
 - **Wasm, dynamic:** libraries stay separate modules that import a shared memory and allocator from the host, for plugins.
 - **Component Model:** `--emit component` exports `public` APIs as WIT interfaces. It is shared-nothing and copies at the boundary: the cross-language and sandboxed-plugin path, not the default link.
 - **Native:** the compiler reads each dependency's `mora.ir` and compiles the whole program (§14). A plain wasm module without `mora.ir`, written in another language, is translated ahead of time from wasm to native code through Cranelift, runs sandboxed in its own memory, and is called through the Component Model boundary.

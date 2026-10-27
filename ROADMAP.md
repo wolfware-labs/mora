@@ -603,7 +603,7 @@ Done when:
 
 ## M3: Expressive core
 
-**Goal.** Unions, enums, patterns, options, results, operators, generics, interfaces, statics and local imports: the language C# developers write every day.
+**Goal.** Unions, enums, patterns, options, results, operators, generics, interfaces, statics and local imports.
 
 **Exit criteria.** Run and UI tests for every construct of §§5 to 8; every §2.4 example runs.
 
@@ -668,7 +668,7 @@ The usefulness algorithm of Maranget over unions, enums, `bool`, options, result
 Done when:
 
 - UI tests show the missing case text, for example `missing case: Rect(_, _)`.
-- A property test checks that every reported missing value is indeed unmatched.
+- A property test checks that no arm matches any reported missing value.
 
 ### M3.5 Options, null and flow narrowing
 
@@ -1293,7 +1293,7 @@ Done when:
 
 Spec: [§17.6](docs/design/mora.md#176-diagnostics). Crates: `docs/errors`. Blocked by: M6.8.
 
-A page for every code in use, written in C# terms, never using the words of §17.6 that are banned, with both examples executable.
+A page for every code in use, written in C# terms, without the words §17.6 bans, with both examples executable.
 
 Done when:
 
