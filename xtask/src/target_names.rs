@@ -4,8 +4,8 @@
 //! Elsewhere, a string literal that equals the name, triple, `os` or `arch`
 //! of a built-in target is a violation, unless the file is in [`ALLOW`].
 //! Literals are found by a small lexer, so comments never count, and
-//! literals on a line with a Rust `cfg`, `cfg!` or `cfg_attr` are skipped:
-//! `cfg` describes the host the code is built for, not a Mora target.
+//! literals inside a Rust `cfg`, `cfg!` or `cfg_attr` are skipped: `cfg`
+//! describes the host the code is built for, not a Mora target.
 
 use std::fmt;
 use std::io;
@@ -56,32 +56,36 @@ pub fn words() -> Vec<String> {
 
 /// The 1-based line numbers and words of the target names quoted in `text`.
 pub fn scan(text: &str, words: &[String]) -> Vec<(usize, String)> {
-    let lines: Vec<&str> = text.lines().collect();
-    let is_cfg = |line: usize| {
-        let code = lines.get(line - 1).copied().unwrap_or_default();
-        ["cfg(", "cfg!(", "cfg_attr("]
-            .iter()
-            .any(|cfg| code.contains(cfg))
-    };
     literals(text)
         .into_iter()
-        .filter(|(line, literal)| words.contains(literal) && !is_cfg(*line))
+        .filter(|literal| !literal.in_cfg && words.contains(&literal.text))
+        .map(|literal| (literal.line, literal.text))
         .collect()
 }
 
-/// The string literals of Rust source `text`, with the 1-based line each
-/// starts on. Comments, nested block comments included, are skipped, and
-/// character literals are told apart from lifetimes. Escapes are kept as
-/// written, which is enough to compare against target names.
-fn literals(text: &str) -> Vec<(usize, String)> {
+struct Literal {
+    line: usize,
+    text: String,
+    in_cfg: bool,
+}
+
+/// The string literals of Rust source `text`. Comments, nested block
+/// comments included, are skipped, and character literals are told apart
+/// from lifetimes. A literal inside the parentheses of `cfg`, `cfg!` or
+/// `cfg_attr` is marked, since `cfg` describes the host the code is built
+/// for. Escapes are kept as written, which is enough to compare against
+/// target names.
+fn literals(text: &str) -> Vec<Literal> {
     let chars: Vec<char> = text.chars().collect();
     let at = |i: usize| chars.get(i).copied().unwrap_or_default();
+    let is_ident = |c: char| c.is_alphanumeric() || c == '_';
     let mut found = Vec::new();
     let mut line = 1;
+    // The parenthesis depth inside a `cfg`, zero outside one.
+    let mut cfg_depth = 0usize;
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
-        let ident_before = i > 0 && (chars[i - 1].is_alphanumeric() || chars[i - 1] == '_');
         if c == '\n' {
             line += 1;
             i += 1;
@@ -106,28 +110,48 @@ fn literals(text: &str) -> Vec<(usize, String)> {
                     i += 1;
                 }
             }
-        } else if c == 'r' && !ident_before && matches!(at(i + 1), '"' | '#') {
-            // A raw string: r"...", r#"..."#, and so on.
-            let mut j = i + 1;
-            while at(j) == '#' {
+        } else if (c.is_alphabetic() || c == '_') && !(i > 0 && is_ident(chars[i - 1])) {
+            let mut j = i;
+            while j < chars.len() && is_ident(chars[j]) {
                 j += 1;
             }
-            if at(j) != '"' {
-                i += 1;
+            let word: String = chars[i..j].iter().collect();
+            let mut k = j;
+            while at(k) == '#' {
+                k += 1;
+            }
+            if matches!(word.as_str(), "r" | "br" | "cr") && at(k) == '"' {
+                // A raw string: r"...", r#"..."#, and so on.
+                let hashes = k - j;
+                let start = (line, k + 1);
+                let mut end = k + 1;
+                while end < chars.len() {
+                    if chars[end] == '"' && (1..=hashes).all(|h| at(end + h) == '#') {
+                        break;
+                    }
+                    line += usize::from(chars[end] == '\n');
+                    end += 1;
+                }
+                found.push(Literal {
+                    line: start.0,
+                    text: chars[start.1..end.min(chars.len())].iter().collect(),
+                    in_cfg: cfg_depth > 0,
+                });
+                i = end + 1 + hashes;
                 continue;
             }
-            let hashes = j - i - 1;
-            let start = (line, j + 1);
-            j += 1;
-            while j < chars.len() {
-                if chars[j] == '"' && (1..=hashes).all(|k| at(j + k) == '#') {
-                    break;
+            i = j;
+            if cfg_depth == 0 && matches!(word.as_str(), "cfg" | "cfg_attr") {
+                let mut k = j;
+                while at(k).is_whitespace() || at(k) == '!' {
+                    k += 1;
                 }
-                line += usize::from(chars[j] == '\n');
-                j += 1;
+                if at(k) == '(' {
+                    line += chars[j..k].iter().filter(|&&c| c == '\n').count();
+                    cfg_depth = 1;
+                    i = k + 1;
+                }
             }
-            found.push((start.0, chars[start.1..j.min(chars.len())].iter().collect()));
-            i = j + 1 + hashes;
         } else if c == '"' {
             let start = (line, i + 1);
             let mut j = i + 1;
@@ -138,7 +162,11 @@ fn literals(text: &str) -> Vec<(usize, String)> {
                 line += usize::from(at(j) == '\n');
                 j += 1;
             }
-            found.push((start.0, chars[start.1..j.min(chars.len())].iter().collect()));
+            found.push(Literal {
+                line: start.0,
+                text: chars[start.1..j.min(chars.len())].iter().collect(),
+                in_cfg: cfg_depth > 0,
+            });
             i = j + 1;
         } else if c == '\'' {
             // A character literal, or a lifetime, which has no closing quote.
@@ -154,6 +182,13 @@ fn literals(text: &str) -> Vec<(usize, String)> {
                 i += 1;
             }
         } else {
+            if cfg_depth > 0 {
+                match c {
+                    '(' => cfg_depth += 1,
+                    ')' => cfg_depth -= 1,
+                    _ => {}
+                }
+            }
             i += 1;
         }
     }
@@ -266,6 +301,29 @@ mod tests {
                 (3, "aarch64".to_owned()),
                 (4, "windows".to_owned()),
                 (5, "x86_64".to_owned()),
+                (8, "riscv64".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn only_literals_inside_cfg_parentheses_are_skipped() {
+        let text = concat!(
+            "let marker = \"cfg(\"; let t = \"linux\";\n",
+            "let n = 0; // cfg(\n",
+            "let w = \"windows\";\n",
+            "#[cfg (target_os = \"linux\")]\n",
+            "#[cfg_attr(all(target_os = \"macos\", unix), allow(dead_code))] fn g() -> &'static str { \"macos\" }\n",
+            "if cfg!\n(target_arch = \"x86_64\") { f(\"aarch64\") }\n",
+            "let config = \"riscv64\";\n",
+        );
+        assert_eq!(
+            scan(text, &words()),
+            [
+                (1, "linux".to_owned()),
+                (3, "windows".to_owned()),
+                (5, "macos".to_owned()),
+                (7, "aarch64".to_owned()),
                 (8, "riscv64".to_owned()),
             ]
         );
