@@ -185,7 +185,8 @@ impl LineIndex {
             utf16 += wide.utf16_len;
             utf8 += wide.utf8_len;
         }
-        let col = utf8 + (pos.col - utf16);
+        // Checked: a column far past the line end must give `None`, not overflow.
+        let col = utf8.checked_add(pos.col.checked_sub(utf16)?)?;
         (col <= u32::from(range.len())).then_some(LineCol {
             line: pos.line,
             col,
@@ -317,5 +318,13 @@ mod tests {
         assert_eq!(index.offset(lc(2, 0)), None);
         assert_eq!(index.to_utf8(u16(1, 3)), None);
         assert_eq!(index.to_utf16(lc(5, 0)), None);
+    }
+
+    #[test]
+    fn huge_utf16_column_is_rejected_without_overflow() {
+        let index = LineIndex::new("𝄞é\nx");
+        assert_eq!(index.to_utf8(u16(0, u32::MAX)), None);
+        assert_eq!(index.to_utf8(u16(1, u32::MAX)), None);
+        assert_eq!(index.offset(lc(0, u32::MAX)), None);
     }
 }
