@@ -522,7 +522,7 @@ public union Option<T>
 - The C# operators work on options: `a ?? b`, `a ??= b`, `a?.Member`, `a?[i]`, and the patterns `null`, `not null`, `T x` and `{ } x` (§7.8).
 - Members: `HasValue`, `Value` (panics on `None`, with the message `called Value on a null T?`), `GetValueOrDefault(T fallback)`, `Expect(string message)`, `Map`, `AndThen`.
 - `T??` is legal and distinct from `T?`. The compiler warns (`MR2001`) when it appears in source.
-- **Layout.** `T?` of a shared class, unique class, `string`, array or other non-null pointer type is one pointer, with zero as `None`. Other `T?` use a tag byte plus `T` (§13.5).
+- **Layout.** `T?` of a type that holds a non-null pointer has the same size as `T` and no tag: a null pointer means `None`. For shared and unique classes, `string`, arrays and escaping closures that is one pointer; for a dynamic interface value it stays two words, with a null data pointer as `None`. Other `T?` use a tag byte plus `T` (§13.5).
 
 Flow typing narrows an option after a check, as the C# nullable analysis does, but here it is a real type change: after `if (user is null) return;` the variable `user` has type `User`, not `User?`.
 
@@ -1449,7 +1449,7 @@ Every shared class object, array, string, box and escaping closure environment s
 ### 13.5 Value layouts
 
 - **Structs and tuples** order fields by decreasing alignment, then by declaration order, unless the struct has `[Layout(C)]`, which keeps declaration order with C alignment rules. Size is rounded up to the alignment.
-- **Unions** are a tag (`u8`, or `u16` beyond 256 cases) followed by the largest case payload. `T?` of a pointer type (shared or unique class, string, array, escaping closure, interface value) uses the null pointer for `None` and has no tag. Further niche optimizations (for `bool?`, enums) are post-MVP.
+- **Unions** are a tag (`u8`, or `u16` beyond 256 cases) followed by the largest case payload. `T?` of a pointer type (shared or unique class, string, array, escaping closure) is one pointer, null for `None`. `T?` of a dynamic interface value keeps both words and uses a null data pointer for `None`. Neither has a tag. Further niche optimizations (for `bool?`, enums) are post-MVP.
 - **`indirect` cases** store a pointer to an immortal-capable shared box holding the payload.
 - **Interface values** are two words: data pointer, vtable pointer.
 - **Closure structs** (§10.9) are laid out like structs, with one field per capture; calling one is a direct call.
@@ -1754,6 +1754,8 @@ await app.RunAsync("127.0.0.1:8080")?;            // address argument overrides 
 **Protocol.** HTTP/1.1 with persistent connections, `Content-Length` request bodies and chunked request bodies, `Content-Length` responses, `Date` and `Server: mora` headers, `Connection: close` handling, and `Expect: 100-continue`. HTTP/2, TLS and WebSockets are post-MVP; production deployments are expected to sit behind a reverse proxy that terminates TLS, which the documentation shows.
 
 **Limits**, configurable through `WebAppOptions`: request head 16 KiB, body 1 MiB (413 beyond), 100 headers, header read timeout 10 s, idle keep-alive timeout 60 s, 10,000 concurrent connections. Exceeding the head limit returns 431.
+
+**Body memory budget.** Buffered request bodies across all connections share one budget, 64 MiB by default (`WebAppOptions.MaxBufferedBodyBytes`). A request reserves its `Content-Length` before the server reads the body; a chunked body reserves in 64 KiB steps as it arrives. While the budget is exhausted the server stops reading request bodies, which applies TCP backpressure to clients. A request that waits more than 5 s for a reservation gets 503 with `Retry-After: 1` and its connection is closed. A reservation is released when the handler's future completes. The worst case for buffered bodies is therefore the budget, not connections times body limit, and head buffers add at most 16 KiB per connection.
 
 **Concurrency.** Each accepted connection runs as a task in the app's task scope on the single executor thread (§12.1). Requests on one connection are handled in order. `RunAsync` completes on SIGINT or SIGTERM (Ctrl+C or Ctrl+Break on Windows): it stops accepting, waits up to 5 s for in-flight requests and then cancels them.
 

@@ -1165,11 +1165,12 @@ Done when:
 
 Spec: [§16.1](docs/design/mora.md#161-http-server-stdnethttp). Crates: `std`, `mora-rt`. Blocked by: M6.5.
 
-Request-head parsing with `httparse` in the runtime, keep-alive, `Content-Length` and chunked request bodies, `Expect: 100-continue`, `Connection: close`, `Date` and `Server` headers, every limit and timeout of §16.1 with its status code.
+Request-head parsing with `httparse` in the runtime, keep-alive, `Content-Length` and chunked request bodies, `Expect: 100-continue`, `Connection: close`, `Date` and `Server` headers, every limit and timeout of §16.1 with its status code, and the global body memory budget with backpressure.
 
 Done when:
 
 - Protocol tests over raw TCP for each limit (413, 431, idle timeout).
+- With the body budget set to 1 MiB, 64 clients each sending a 1 MiB body are served one budget at a time, and a client that waits more than 5 s gets 503 with `Retry-After: 1`.
 - Pipelined requests on one connection are answered in order.
 
 ### M6.7 WebApp, routing and results
