@@ -128,6 +128,13 @@ fn numbers() {
             (K::RParen, ")"),
         ]
     );
+    // As in C#, a real needs a digit after the dot: `1._5` is member access.
+    assert_eq!(
+        tokens("1._5"),
+        [(K::IntNumber, "1"), (K::Dot, "."), (K::Ident, "_5")]
+    );
+    assert!(errors("1._5").is_empty());
+    assert!(errors("\"\"\"\n  \"\"\"").is_empty());
     assert_eq!(
         errors("18446744073709551616 1e400 0xZ 1.5m"),
         [

@@ -65,7 +65,8 @@ fn raw_value(text: &str) -> Option<String> {
     let first_break = content.find('\n')? + 1;
     let last_break = content.rfind('\n')?;
     let indent = &content[last_break + 1..];
-    let body = &content[first_break..last_break];
+    // With no content lines, the opening and closing lines share one break.
+    let body = content.get(first_break..last_break).unwrap_or_default();
     let mut value = String::with_capacity(body.len());
     for line in body.split_inclusive('\n') {
         value.push_str(
@@ -119,6 +120,8 @@ mod tests {
                 false,
             ),
             ("\"\"\"\n  a\n\n  b\n  \"\"\"u8", "a\n\nb", true),
+            ("\"\"\"\n  \"\"\"", "", false),
+            ("\"\"\"\r\n\"\"\"", "", false),
         ] {
             assert_eq!(string_value(text), Some((value.to_owned(), utf8)), "{text}");
         }
