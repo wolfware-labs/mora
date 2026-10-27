@@ -1015,8 +1015,9 @@ The result has type `Code`. Quoted code is ordinary Mora: it is parsed when the 
 
 ### 9.4 Hygiene
 
+- **One scope per expansion.** Every `code` fragment built during one invocation of a macro shares one hygiene scope. When fragments are spliced into each other, the combined code is resolved as one piece, so a name introduced by one fragment is visible in the fragments spliced inside it. In §9.1, `other` inside `code(this.$f == other.$f)` refers to the parameter that the outer `code { }` declares.
 - Locals, parameters and labels introduced inside `code` are renamed so that they never collide with the user's names or with another expansion's names.
-- Names written literally inside `code` resolve where the **macro** is declared. In a macro from `Std.Json`, `JsonWriter` means `Std.Json.JsonWriter` whatever the user's `using` directives say.
+- Names written literally inside `code` that the expansion itself does not declare resolve where the **macro** is declared. In a macro from `Std.Json`, `JsonWriter` means `Std.Json.JsonWriter` whatever the user's `using` directives say.
 - Names inserted with `$` resolve where the macro is **used**.
 - Member names the macro declares (`public bool Equals`) are the type's API and are not renamed. A generated member that clashes with an existing one is error `MR0612`, pointing at both.
 
@@ -1046,7 +1047,7 @@ Records keep their automatic `Equatable`, `Hashable` and `Display` (§6.5): the 
 - Macros are compiled with the JIT (§14.16) and run inside the compiler during a build, after declarations and signatures are resolved and before function bodies are type-checked (§14.1).
 - **Sandbox.** A macro, and everything it calls, may not use a function marked `[RequiresCapability]`: no files, network, environment, clock or randomness (`MR0613`). Its output therefore depends only on its inputs, which is what makes caching sound.
 - **Limits.** Each invocation gets 5 seconds and 256 MiB. A macro that exceeds them, or panics, fails the build with an error at the use site that includes the macro's panic message and location.
-- **Caching.** An expansion is cached under a hash of the macro's MIR and of the model it read, so editing a function body never reruns a macro, and editing a field reruns only the macros on that type.
+- **Caching.** An expansion is cached under a hash of the toolchain version, the model it read, and the MIR of the macro and of every function the macro calls, directly or transitively. Editing a helper that a macro calls therefore reruns that macro; editing an ordinary function body reruns no macro, and editing a field reruns only the macros on that type.
 - **Same project.** A macro may be used in the project that declares it, as long as the macro and the functions it calls do not themselves depend on types that use the macro (`MR0614`, which shows the cycle).
 
 ### 9.8 Seeing and debugging expansions

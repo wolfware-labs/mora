@@ -876,12 +876,13 @@ Done when:
 
 Spec: [§9.7](docs/design/mora.md#97-running-macros). Crates: `mora-macro`. Blocked by: M4.4.
 
-Caching each expansion under a hash of the macro's MIR and the model it read, in the `salsa` database and on disk.
+Caching each expansion under a hash of the toolchain version, the model it read, and the MIR of the macro and every function it calls transitively, in the `salsa` database and on disk.
 
 Done when:
 
 - Editing a method body does not rerun any macro (counter in `--verbose`).
 - Editing a field reruns only the macros on that type.
+- Editing a helper function a macro calls reruns that macro.
 
 ### M4.7 Seeing and testing expansions
 
