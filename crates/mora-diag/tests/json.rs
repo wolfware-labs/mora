@@ -2,7 +2,8 @@
 #![allow(clippy::unwrap_used)]
 
 use mora_diag::{
-    Code, Diagnostic, Files, Fix, JsonDiagnostic, JsonSpan, Label, Severity, TextEdit, to_json_line,
+    Code, Diagnostic, Files, Fix, JsonDiagnostic, JsonSpan, Label, Severity, TextEdit, render,
+    to_json_line,
 };
 use mora_span::{Span, TextRange};
 
@@ -130,4 +131,21 @@ fn bad_spans_are_clamped_onto_the_text() {
         (s.line_start, s.column_start, s.line_end, s.column_end),
         (1, 1, 2, 1)
     );
+}
+
+#[test]
+fn wide_characters_give_the_same_column_as_the_terminal_header() {
+    // `日` and `本` are two columns wide on screen but count as one each.
+    let mut files = Files::new();
+    let text = "let 日本 = x;";
+    let file = files.add("src/W.mr", text);
+    let start = u32::try_from(text.find('x').unwrap()).unwrap();
+    let span = Span::new(file, TextRange::new(start.into(), (start + 1).into()));
+    let diagnostic = Diagnostic::error(Code::new(201), "not in scope", Label::unlabeled(span));
+    let json = JsonDiagnostic::new(&diagnostic, &files);
+    assert_eq!(
+        (json.primary.span.line_start, json.primary.span.column_start),
+        (1, 10)
+    );
+    assert!(render(&diagnostic, &files, false).contains("--> src/W.mr:1:10\n"));
 }

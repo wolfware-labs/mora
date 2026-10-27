@@ -1525,7 +1525,7 @@ flowchart LR
 | Crate | Responsibility | Main dependencies |
 |---|---|---|
 | `mora-span` | File ids, spans, line index, interning, the database trait | `salsa` |
-| `mora-diag` | One diagnostic type for every crate, the error code registry and its explanations (`docs/errors/MRnnnn.md`), terminal and JSON rendering | `annotate-snippets`, `serde_json` |
+| `mora-diag` | One diagnostic type for every crate, the error code registry and its explanations (`docs/errors/MRnnnn.md`), terminal and JSON rendering | `annotate-snippets`, `serde`, `serde_json` |
 | `mora-syntax` | Lexer, parser, lossless syntax tree, typed AST views | `logos`, `rowan` |
 | `mora-hir` | Item tree, name resolution, types, inference, HIR bodies; defines the macro-runner interface | `salsa`, `la-arena` |
 | `mora-macro` | Compiles macros with the JIT, runs them in the sandbox, builds the `Std.Meta` model, parses `code` output, caches expansions | `cranelift-jit` through `mora-codegen` |
