@@ -1,0 +1,48 @@
+name: Bug report
+description: Mora behaves differently from the docs or the spec.
+labels: ["kind/bug", "needs-triage"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: program
+    attributes:
+      label: Program
+      description: The smallest Mora program or project that shows the problem.
+      render: csharp
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Compiler or program output
+      description: The full diagnostic, panic message or backtrace. Run with `MORA_BACKTRACE=1` for a panic.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Mora version or commit
+      description: Output of `mora version`, or a commit hash.
+    validations:
+      required: true
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Host platforms
+      multiple: true
+      options:
+        - Linux
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: Target
+      description: The `--target` you built for, if it is not the host.

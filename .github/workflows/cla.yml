@@ -1,0 +1,49 @@
+name: CLA
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+permissions:
+  actions: write
+  contents: write
+  # The action locks a pull request's conversation after it merges.
+  issues: write
+  pull-requests: write
+  statuses: write
+
+# One group per pull request. A newer run may replace a pending one, which
+# loses nothing: every run reads all of the pull request's comments again.
+# The merged-close run has its own group, so a comment run cannot replace it
+# and skip the lock.
+concurrency:
+  group: cla-${{ github.event.action == 'closed' && 'close-' || '' }}${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  cla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Comments only count on pull requests. The sentence must match
+    # custom-pr-sign-comment below (expression comparison ignores case).
+    # A closed event only runs after a merge, when the action locks the
+    # pull request.
+    if: >-
+      (github.event_name == 'pull_request_target' &&
+        (github.event.action != 'closed' || github.event.pull_request.merged)) ||
+      (github.event.issue.pull_request &&
+        (github.event.comment.body == 'recheck' ||
+         github.event.comment.body == 'I have read the CLA document and I hereby sign the CLA'))
+    steps:
+      - name: Check CLA signatures
+        uses: wolfware-labs/cla-action@c14e53c86af3e9583c1e0020e6d2f365e5016eb4 # main, 2026-10-14
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-document: https://github.com/wolfware-labs/mora/blob/main/CLA.md
+          path-to-signatures: signatures/cla.json
+          branch: cla-signatures
+          custom-pr-sign-comment: I have read the CLA document and I hereby sign the CLA
+          allowlist: santoro-mariano,dependabot[bot],renovate[bot]
