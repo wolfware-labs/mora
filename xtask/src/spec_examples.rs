@@ -61,7 +61,17 @@ pub fn extract(path: &str, prefix: &str, text: &str) -> Vec<Example> {
             section = number.to_owned();
             continue;
         }
-        if line.trim() != "```mora" {
+        let fence = line.trim();
+        if !fence.starts_with("```") {
+            continue;
+        }
+        if fence != "```mora" {
+            // Another language: its lines are not headings.
+            for (_, line) in lines.by_ref() {
+                if line.trim() == "```" {
+                    break;
+                }
+            }
             continue;
         }
         let Some((index, first)) = lines.next() else {
@@ -244,7 +254,6 @@ pub fn check(repo: &Repo, compiler: &dyn Compiler) -> Outcome {
                 id: id.clone(),
                 line,
             });
-            continue;
         }
         if !repo.examples.iter().any(|example| example.id == *id) {
             outcome.problems.push(Problem::NoSuchExample {
@@ -370,6 +379,10 @@ Console.WriteLine(\"Hello\");
 // expect: not Mora
 ```
 
+```sh
+# 9.9 a shell comment, not a heading
+```
+
 ```mora
 // error: MR0300 used after a move
 var b = a;
@@ -396,8 +409,8 @@ F();
             [
                 ("0#1", "doc.md:4"),
                 ("2.1#1", "doc.md:12"),
-                ("2.1#2", "doc.md:25"),
-                ("2.2#1", "doc.md:33"),
+                ("2.1#2", "doc.md:29"),
+                ("2.2#1", "doc.md:37"),
             ]
         );
         assert_eq!(
@@ -500,7 +513,7 @@ F();
         let [Problem::Fails { id, at, problems }] = &outcome.problems[..] else {
             panic!("{:?}", outcome.problems);
         };
-        assert_eq!((id.as_str(), at.as_str()), ("2.1#2", "doc.md:25"));
+        assert_eq!((id.as_str(), at.as_str()), ("2.1#2", "doc.md:29"));
         assert_eq!(
             problems,
             &["panicked: not implemented: the driver cannot compile yet"]
@@ -520,14 +533,15 @@ F();
 
     #[test]
     fn the_pending_list_must_name_examples_and_deliverables() {
-        let pending = "2.1#1 M1.15\n2.1#1 M1.15\n9.9#1 M2.8\n2.2#1 M9.99\nnonsense\n";
+        let pending = "2.1#1 M1.15\n2.1#1 M9.98\n9.9#1 M2.8\n2.2#1 M9.99\nnonsense\n";
         let outcome = check(&repo(pending), &Obedient);
         let lines: Vec<_> = outcome.problems.iter().map(ToString::to_string).collect();
         assert_eq!(
-            lines[..4],
+            lines[..5],
             [
                 "tests/spec-examples.pending:5: write `id deliverable`, such as `2.1#1 M1.15`",
                 "tests/spec-examples.pending:2: 2.1#1 is listed twice",
+                "tests/spec-examples.pending:2: 2.1#1 waits for M9.98, which is not in ROADMAP.md",
                 "tests/spec-examples.pending:3: no example has the id 9.9#1",
                 "tests/spec-examples.pending:4: 2.2#1 waits for M9.99, which is not in ROADMAP.md",
             ]
