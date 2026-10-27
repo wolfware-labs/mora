@@ -3,10 +3,12 @@
 pub mod ast;
 mod generated;
 pub mod lexer;
+mod parser;
 mod tree;
 
 pub use generated::SyntaxKind;
-pub use lexer::{LexError, Lexed, Token, lex};
+pub use lexer::{Lexed, SyntaxError, Token, lex};
+pub use parser::{Parse, parse};
 pub use tree::{
     Checkpoint, GreenNode, SyntaxElement, SyntaxNode, SyntaxNodeChildren, SyntaxToken, TreeBuilder,
 };

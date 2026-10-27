@@ -1,0 +1,11 @@
+Console.WriteLine("Hello, world!");
+let name = "Mora";
+var count = 0;
+let int total = 1 + 2 * 3;
+string label = $"{name} has {count,5:D2} items";
+const int Max = 100;
+static int Calls;
+
+int Add(int a, int b) => a + b;
+
+T First<T>(List<T> items) { return items[0]; }

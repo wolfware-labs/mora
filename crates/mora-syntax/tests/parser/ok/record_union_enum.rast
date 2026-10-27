@@ -1,0 +1,268 @@
+SourceFile@0..391
+  RecordDecl@0..40
+    Modifier@0..6
+      PublicKw@0..6 "public"
+    Whitespace@6..7 " "
+    RecordKw@7..13 "record"
+    Whitespace@13..14 " "
+    Name@14..18
+      Ident@14..18 "User"
+    ParamList@18..39
+      LParen@18..19 "("
+      Param@19..25
+        PredefinedType@19..22
+          IntKw@19..22 "int"
+        Whitespace@22..23 " "
+        Name@23..25
+          Ident@23..25 "Id"
+      Comma@25..26 ","
+      Whitespace@26..27 " "
+      Param@27..38
+        PredefinedType@27..33
+          StringKw@27..33 "string"
+        Whitespace@33..34 " "
+        Name@34..38
+          Ident@34..38 "Name"
+      RParen@38..39 ")"
+    Semicolon@39..40 ";"
+  Newline@40..41 "\n"
+  RecordDecl@41..101
+    Modifier@41..47
+      PublicKw@41..47 "public"
+    Whitespace@47..48 " "
+    RecordKw@48..54 "record"
+    Whitespace@54..55 " "
+    StructKw@55..61 "struct"
+    Whitespace@61..62 " "
+    Name@62..67
+      Ident@62..67 "Money"
+    ParamList@67..79
+      LParen@67..68 "("
+      Param@68..78
+        PredefinedType@68..72
+          LongKw@68..72 "long"
+        Whitespace@72..73 " "
+        Name@73..78
+          Ident@73..78 "Cents"
+      RParen@78..79 ")"
+    Whitespace@79..80 " "
+    BaseList@80..100
+      Colon@80..81 ":"
+      Whitespace@81..82 " "
+      PathType@82..100
+        Path@82..100
+          PathSegment@82..100
+            NameRef@82..93
+              Ident@82..93 "IComparable"
+            GenericArgList@93..100
+              Lt@93..94 "<"
+              PathType@94..99
+                Path@94..99
+                  PathSegment@94..99
+                    NameRef@94..99
+                      Ident@94..99 "Money"
+              Gt@99..100 ">"
+    Semicolon@100..101 ";"
+  Newline@101..102 "\n"
+  RecordDecl@102..170
+    RecordKw@102..108 "record"
+    Whitespace@108..109 " "
+    ClassKw@109..114 "class"
+    Whitespace@114..115 " "
+    Name@115..118
+      Ident@115..118 "Tag"
+    ParamList@118..132
+      LParen@118..119 "("
+      Param@119..131
+        PredefinedType@119..125
+          StringKw@119..125 "string"
+        Whitespace@125..126 " "
+        Name@126..131
+          Ident@126..131 "Value"
+      RParen@131..132 ")"
+    Newline@132..133 "\n"
+    MemberList@133..170
+      LBrace@133..134 "{"
+      Newline@134..135 "\n"
+      Whitespace@135..139 "    "
+      PropertyDecl@139..168
+        Modifier@139..145
+          PublicKw@139..145 "public"
+        Whitespace@145..146 " "
+        PredefinedType@146..152
+          StringKw@146..152 "string"
+        Whitespace@152..153 " "
+        Name@153..158
+          Ident@153..158 "Upper"
+        Whitespace@158..159 " "
+        ExprBody@159..167
+          FatArrow@159..161 "=>"
+          Whitespace@161..162 " "
+          PathExpr@162..167
+            Path@162..167
+              PathSegment@162..167
+                NameRef@162..167
+                  Ident@162..167 "Value"
+        Semicolon@167..168 ";"
+      Newline@168..169 "\n"
+      RBrace@169..170 "}"
+  Newline@170..171 "\n"
+  Newline@171..172 "\n"
+  UnionDecl@172..333
+    Modifier@172..178
+      PublicKw@172..178 "public"
+    Whitespace@178..179 " "
+    UnionKw@179..184 "union"
+    Whitespace@184..185 " "
+    Name@185..189
+      Ident@185..189 "Json"
+    Newline@189..190 "\n"
+    UnionBody@190..333
+      LBrace@190..191 "{"
+      Newline@191..192 "\n"
+      Whitespace@192..196 "    "
+      UnionCase@196..200
+        Name@196..200
+          Ident@196..200 "Null"
+      Comma@200..201 ","
+      Newline@201..202 "\n"
+      Whitespace@202..206 "    "
+      UnionCase@206..222
+        Name@206..210
+          Ident@206..210 "Bool"
+        ParamList@210..222
+          LParen@210..211 "("
+          Param@211..221
+            PredefinedType@211..215
+              BoolKw@211..215 "bool"
+            Whitespace@215..216 " "
+            Name@216..221
+              Ident@216..221 "Value"
+          RParen@221..222 ")"
+      Comma@222..223 ","
+      Newline@223..224 "\n"
+      Whitespace@224..228 "    "
+      UnionCase@228..258
+        Attribute@228..237
+          LBracket@228..229 "["
+          AttributeItem@229..236
+            Path@229..236
+              PathSegment@229..236
+                NameRef@229..236
+                  Ident@229..236 "Default"
+          RBracket@236..237 "]"
+        Whitespace@237..238 " "
+        Name@238..244
+          Ident@238..244 "Number"
+        ParamList@244..258
+          LParen@244..245 "("
+          Param@245..257
+            PredefinedType@245..251
+              DoubleKw@245..251 "double"
+            Whitespace@251..252 " "
+            Name@252..257
+              Ident@252..257 "Value"
+          RParen@257..258 ")"
+      Comma@258..259 ","
+      Newline@259..260 "\n"
+      Whitespace@260..264 "    "
+      UnionCase@264..296
+        IndirectKw@264..272 "indirect"
+        Whitespace@272..273 " "
+        Name@273..278
+          Ident@273..278 "Array"
+        ParamList@278..296
+          LParen@278..279 "("
+          Param@279..295
+            PathType@279..289
+              Path@279..289
+                PathSegment@279..289
+                  NameRef@279..283
+                    Ident@279..283 "List"
+                  GenericArgList@283..289
+                    Lt@283..284 "<"
+                    PathType@284..288
+                      Path@284..288
+                        PathSegment@284..288
+                          NameRef@284..288
+                            Ident@284..288 "Json"
+                    Gt@288..289 ">"
+            Whitespace@289..290 " "
+            Name@290..295
+              Ident@290..295 "Items"
+          RParen@295..296 ")"
+      Semicolon@296..297 ";"
+      Newline@297..298 "\n"
+      Newline@298..299 "\n"
+      Whitespace@299..303 "    "
+      PropertyDecl@303..331
+        Modifier@303..309
+          PublicKw@303..309 "public"
+        Whitespace@309..310 " "
+        PredefinedType@310..314
+          BoolKw@310..314 "bool"
+        Whitespace@314..315 " "
+        Name@315..321
+          Ident@315..321 "IsNull"
+        Whitespace@321..322 " "
+        ExprBody@322..330
+          FatArrow@322..324 "=>"
+          Whitespace@324..325 " "
+          LiteralExpr@325..330
+            FalseKw@325..330 "false"
+        Semicolon@330..331 ";"
+      Newline@331..332 "\n"
+      RBrace@332..333 "}"
+  Newline@333..334 "\n"
+  Newline@334..335 "\n"
+  EnumDecl@335..390
+    EnumKw@335..339 "enum"
+    Whitespace@339..340 " "
+    Name@340..345
+      Ident@340..345 "Color"
+    Whitespace@345..346 " "
+    EnumBase@346..352
+      Colon@346..347 ":"
+      Whitespace@347..348 " "
+      PredefinedType@348..352
+        ByteKw@348..352 "byte"
+    Whitespace@352..353 " "
+    EnumBody@353..390
+      LBrace@353..354 "{"
+      Whitespace@354..355 " "
+      EnumMember@355..358
+        Name@355..358
+          Ident@355..358 "Red"
+      Comma@358..359 ","
+      Whitespace@359..360 " "
+      EnumMember@360..369
+        Name@360..365
+          Ident@360..365 "Green"
+        Whitespace@365..366 " "
+        Eq@366..367 "="
+        Whitespace@367..368 " "
+        LiteralExpr@368..369
+          IntNumber@368..369 "2"
+      Comma@369..370 ","
+      Whitespace@370..371 " "
+      EnumMember@371..387
+        Name@371..375
+          Ident@371..375 "Blue"
+        Whitespace@375..376 " "
+        Eq@376..377 "="
+        Whitespace@377..378 " "
+        BinExpr@378..387
+          PathExpr@378..383
+            Path@378..383
+              PathSegment@378..383
+                NameRef@378..383
+                  Ident@378..383 "Green"
+          Whitespace@383..384 " "
+          Plus@384..385 "+"
+          Whitespace@385..386 " "
+          LiteralExpr@386..387
+            IntNumber@386..387 "1"
+      Comma@387..388 ","
+      Whitespace@388..389 " "
+      RBrace@389..390 "}"
+  Newline@390..391 "\n"

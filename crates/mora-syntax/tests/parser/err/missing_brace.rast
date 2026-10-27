@@ -1,0 +1,60 @@
+SourceFile@0..95
+  ClassDecl@0..94
+    Modifier@0..6
+      PublicKw@0..6 "public"
+    Whitespace@6..7 " "
+    ClassKw@7..12 "class"
+    Whitespace@12..13 " "
+    Name@13..14
+      Ident@13..14 "B"
+    Newline@14..15 "\n"
+    MemberList@15..94
+      LBrace@15..16 "{"
+      Newline@16..17 "\n"
+      Whitespace@17..21 "    "
+      FunctionDecl@21..62
+        Modifier@21..27
+          PublicKw@21..27 "public"
+        Whitespace@27..28 " "
+        PredefinedType@28..32
+          VoidKw@28..32 "void"
+        Whitespace@32..33 " "
+        Name@33..38
+          Ident@33..38 "First"
+        ParamList@38..40
+          LParen@38..39 "("
+          RParen@39..40 ")"
+        Newline@40..41 "\n"
+        Whitespace@41..45 "    "
+        Block@45..62
+          LBrace@45..46 "{"
+          Newline@46..47 "\n"
+          Whitespace@47..55 "        "
+          Ident@55..59 "Work"
+          LParen@59..60 "("
+          RParen@60..61 ")"
+          Semicolon@61..62 ";"
+      Newline@62..63 "\n"
+      Newline@63..64 "\n"
+      Whitespace@64..68 "    "
+      FunctionDecl@68..92
+        Modifier@68..74
+          PublicKw@68..74 "public"
+        Whitespace@74..75 " "
+        PredefinedType@75..79
+          VoidKw@75..79 "void"
+        Whitespace@79..80 " "
+        Name@80..86
+          Ident@80..86 "Second"
+        ParamList@86..88
+          LParen@86..87 "("
+          RParen@87..88 ")"
+        Whitespace@88..89 " "
+        Block@89..92
+          LBrace@89..90 "{"
+          Whitespace@90..91 " "
+          RBrace@91..92 "}"
+      Newline@92..93 "\n"
+      RBrace@93..94 "}"
+  Newline@94..95 "\n"
+error MR0110 62..62: expected `}`

@@ -1,0 +1,17 @@
+let a = x >> 2 >>> 1;
+let b = x >= y && !done || flag ?? fallback;
+let c = Max<int>(1, 2) + list.Count - -1;
+let d = new List<int>() { Capacity = 4 };
+let e = new() { Port = 80 };
+let f = new int[10];
+let g = new[] { 1, 2, 3 };
+let h = [1, 2, ..rest];
+let i = (1, "a");
+let j = (Id: 1, Name: "a");
+let k = (a + b) * c;
+let l = items?[0]?.Name;
+let m = default(int) + sizeof(long) + int.MaxValue;
+let n = #Assert(total > 0);
+let o = a < b;
+let p = F(name: v, ref w, out z);
+let q = $@"{a}""x""";

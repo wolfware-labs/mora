@@ -1,0 +1,14 @@
+/// A point on the plane.
+public struct Point
+{
+    public int X;
+    public int Y;
+    mut int _visits = 0;
+}
+
+public ref struct Cursor<T> where T : struct
+{
+    Span<T> _items;
+}
+
+public readonly struct Pair<A, B> : IEquatable<Pair<A, B>> where A : IEquatable<A>, new() where B : allows ref struct;

@@ -1,0 +1,50 @@
+SourceFile@0..65
+  ClassDecl@0..64
+    Modifier@0..6
+      PublicKw@0..6 "public"
+    Whitespace@6..7 " "
+    ClassKw@7..12 "class"
+    Whitespace@12..13 " "
+    Name@13..14
+      Ident@13..14 "C"
+    Newline@14..15 "\n"
+    MemberList@15..64
+      LBrace@15..16 "{"
+      Newline@16..17 "\n"
+      Whitespace@17..21 "    "
+      FieldDecl@21..34
+        Modifier@21..27
+          PublicKw@21..27 "public"
+        Whitespace@27..28 " "
+        PredefinedType@28..31
+          IntKw@28..31 "int"
+        Whitespace@31..32 " "
+        VariableDeclarator@32..33
+          Name@32..33
+            Ident@32..33 "X"
+        Semicolon@33..34 ";"
+      Newline@34..35 "\n"
+      Whitespace@35..39 "    "
+      Error@39..44
+        RParen@39..40 ")"
+        Whitespace@40..41 " "
+        RParen@41..42 ")"
+        Whitespace@42..43 " "
+        Semicolon@43..44 ";"
+      Newline@44..45 "\n"
+      Whitespace@45..49 "    "
+      FieldDecl@49..62
+        Modifier@49..55
+          PublicKw@49..55 "public"
+        Whitespace@55..56 " "
+        PredefinedType@56..59
+          IntKw@56..59 "int"
+        Whitespace@59..60 " "
+        VariableDeclarator@60..61
+          Name@60..61
+            Ident@60..61 "Y"
+        Semicolon@61..62 ";"
+      Newline@62..63 "\n"
+      RBrace@63..64 "}"
+  Newline@64..65 "\n"
+error MR0110 39..40: expected a member

@@ -1,0 +1,38 @@
+public class Counter
+{
+    public string Name { get; }
+    public int Step { get; private set; } = 1;
+    public int Doubled => Step * 2;
+    static readonly int Limit = 1 << 10;
+    mut int _count, _peak = 0;
+
+    public Counter(string name, int step)
+    {
+        Name = name;
+    }
+
+    public Counter(string name) : this(name, 1) { }
+
+    ~Counter() { }
+
+    public int this[int i] { get => i; }
+
+    public T Max<T>(T a, T b) where T : IComparable<T> => a;
+
+    public void Add(in Counter other, ref int total, out int seen, params ReadOnlySpan<int> rest) { }
+
+    public static Counter operator +(Counter a, Counter b) => a;
+
+    public static bool operator >=(Counter a, Counter b) => true;
+
+    public static implicit operator string(Counter c) => c.Name;
+
+    float IShape.Area() => 0.0f;
+
+    int IList<int>.Count => 0;
+}
+
+public unique class Connection
+{
+    public void Close() { }
+}

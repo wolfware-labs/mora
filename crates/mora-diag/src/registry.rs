@@ -107,6 +107,7 @@ registry! {
     MR0107 = 107: "`fixed` or `unsafe`",
     MR0108 = 108: "class inheritance keywords such as `virtual`, `override` or `base`",
     MR0109 = 109: "`checked(...)` or `unchecked(...)`",
+    MR0110 = 110: "a token that the grammar does not allow where it appears",
     MR0120 = 120: "a block-scoped namespace declaration",
     MR0121 = 121: "`using` as a disposal statement",
     MR0122 = 122: "an unsupported source form",
