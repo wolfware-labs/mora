@@ -292,6 +292,7 @@ public static Result<int, ParseError> Total(string csv)
 ### 3.1 Source files
 
 - Source files have the extension `.mr` (D-2) and MUST be UTF-8. A leading byte order mark is accepted and ignored. Any other encoding is error `MR0001`.
+- A source file MUST be smaller than 4 GiB (2^32 bytes), because offsets are 32-bit; a larger file is error `MR0003`.
 - Line endings may be LF or CRLF. The lexer treats CRLF as one newline. A lone CR is whitespace.
 - Identifiers are normalized to NFC before comparison. Two identifiers that differ only in normalization are the same identifier.
 

@@ -10,3 +10,8 @@ publish = false
 
 [lints]
 workspace = true
+
+[dependencies]
+rustc-hash.workspace = true
+salsa.workspace = true
+text-size.workspace = true
