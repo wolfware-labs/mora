@@ -178,8 +178,8 @@ jobs:
       - name: Install Rosetta 2
         if: ${{ matrix.rosetta }}
         run: sudo softwareupdate --install-rosetta --agree-to-license
-      # The C compiler for the test program. `cargo xtask sysroot` (M0.11)
-      # will fetch the same toolchain for development builds.
+      # The C compiler for the test program. `cargo xtask sysroot` installs
+      # lld and the MinGW-w64 pieces from the same release, but no compiler.
       - name: Install llvm-mingw
         if: ${{ matrix.mingw }}
         shell: pwsh
@@ -206,6 +206,10 @@ jobs:
           TARGET: ${{ matrix.target }}
           TEST: ${{ matrix.test }}
         run: cargo xtask runtime $TEST "$TARGET"
+      # Checks the pinned linker and sysroot downloads for this host.
+      - name: xtask sysroot
+        if: ${{ !cancelled() }}
+        run: cargo xtask sysroot
 
   # One stable check name for rulesets: passes when every job above passed
   # or was skipped by the change filter.

@@ -8,6 +8,7 @@ mod error_codes;
 mod layers;
 mod runtime;
 mod spec_examples;
+mod sysroot;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -15,8 +16,7 @@ use std::process::ExitCode;
 use cargo_metadata::MetadataCommand;
 use mora_diag::registry;
 
-const USAGE: &str =
-    "usage: cargo xtask <layers | error-codes | spec-examples | runtime [--test] [target...]>";
+const USAGE: &str = "usage: cargo xtask <layers | error-codes | spec-examples | runtime [--test] [target...] | sysroot>";
 
 /// `cargo metadata --no-deps` for the workspace that contains this crate.
 fn metadata_command() -> MetadataCommand {
@@ -151,6 +151,37 @@ fn run_runtime(args: &[&str]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// Installs the pinned linker and C runtime pieces for this host into
+/// `target/sysroot`.
+fn run_sysroot() -> ExitCode {
+    let root = root();
+    let archives = match sysroot::archives(std::env::consts::ARCH, std::env::consts::OS) {
+        Ok(archives) => archives,
+        Err(err) => {
+            eprintln!("sysroot: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    // Cargo resolves a relative target directory against the root.
+    let out = root
+        .join(std::env::var_os("CARGO_TARGET_DIR").unwrap_or_else(|| "target".into()))
+        .join("sysroot");
+    match sysroot::install(&archives, &root.join("LICENSES"), &out) {
+        Ok(sysroot::Installed::UpToDate) => {
+            println!("sysroot: {} is up to date", out.display());
+            ExitCode::SUCCESS
+        }
+        Ok(sysroot::Installed::Fresh(lld)) => {
+            println!("sysroot: installed into {} ({lld})", out.display());
+            ExitCode::SUCCESS
+        }
+        Err(err) => {
+            eprintln!("sysroot: {err}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
@@ -158,6 +189,7 @@ fn main() -> ExitCode {
         ["error-codes"] => run_error_codes(),
         ["spec-examples"] => run_spec_examples(),
         ["runtime", ref rest @ ..] => run_runtime(rest),
+        ["sysroot"] => run_sysroot(),
         _ => {
             eprintln!("{USAGE}");
             ExitCode::from(2)

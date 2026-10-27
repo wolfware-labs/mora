@@ -13,6 +13,7 @@ workspace = true
 cargo_metadata.workspace = true
 mora-diag.workspace = true
 mora-testkit.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 mora-span.workspace = true

@@ -132,7 +132,8 @@ pub fn test(root: &Path, target: &str, built: &Built) -> Result<(), String> {
         .arg("-o")
         .arg(&exe);
     // Rust ships some libraries a target needs, such as musl's libunwind,
-    // beside its standard library. The sysroots of M0.11 replace this.
+    // beside its standard library. The C compiler links the test here;
+    // `mora build` links with `target/sysroot` instead (§14.14).
     if let Some(dir) = self_contained(target) {
         command.arg(format!("-L{}", dir.display()));
     }
