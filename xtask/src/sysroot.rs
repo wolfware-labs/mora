@@ -332,31 +332,54 @@ fn install_rust_std(root: &Path, target: &str, dir: &str, out: &Path) -> Result<
 /// older layout is not trusted.
 const LAYOUT: u32 = 1;
 
-/// Whether everything an install produces is still there and `lld` runs.
-fn complete(out: &Path) -> bool {
-    let dirs = ["ld/bin", "LICENSES"]
-        .into_iter()
-        .map(|dir| out.join(dir))
-        .chain(
-            MINGW_TARGETS
-                .iter()
-                .map(|(_, dir)| *dir)
-                .chain(RUST_STD_MUSL.iter().map(|(_, dir, _)| *dir))
-                .map(|dir| out.join("sysroot").join(dir)),
-        );
-    let has_files =
-        |dir: PathBuf| fs::read_dir(dir).is_ok_and(|mut entries| entries.next().is_some());
-    let exe = std::env::consts::EXE_SUFFIX;
-    let files = [
-        format!("ld/bin/ld.lld{exe}"),
-        format!("ld/bin/lld-link{exe}"),
-        "LICENSES/LICENSE-MIT".to_owned(),
-        "LICENSES/LICENSE-APACHE".to_owned(),
-    ];
-    // `exists` follows the Unix symlinks to `lld`, so a dangling one fails.
-    dirs.into_iter().all(has_files)
-        && files.iter().all(|file| out.join(file).exists())
-        && lld_version(out).is_ok()
+/// Every file and symlink an install put under `ld/` and `sysroot/`,
+/// relative to `out` with `/` separators, sorted.
+fn manifest(out: &Path) -> Vec<String> {
+    fn walk(dir: &Path, prefix: &str, files: &mut Vec<String>) {
+        let Ok(entries) = fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = format!("{prefix}/{}", entry.file_name().to_string_lossy());
+            if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+                walk(&entry.path(), &path, files);
+            } else {
+                files.push(path);
+            }
+        }
+    }
+    let mut files = Vec::new();
+    for top in ["ld", "sysroot"] {
+        walk(&out.join(top), top, &mut files);
+    }
+    files.sort();
+    files
+}
+
+/// Whether the stamp records an install of the same archives and layout,
+/// and every file it lists is still there. `exists` follows symlinks, so a
+/// dangling `ld.lld` fails too.
+fn stamped(out: &Path, header: &str) -> bool {
+    let Ok(stamp) = fs::read_to_string(out.join("stamp")) else {
+        return false;
+    };
+    let Some(files) = stamp.strip_prefix(header) else {
+        return false;
+    };
+    let mut files = files.lines().peekable();
+    files.peek().is_some() && files.all(|file| out.join(file).exists())
+}
+
+/// Replaces `out/LICENSES` with the repository's `LICENSES/` and Mora's own
+/// `LICENSE-*` files beside it, the set the toolchain's `LICENSES/` holds.
+fn copy_licenses(licenses: &Path, out: &Path) -> Result<(), String> {
+    let dir = out.join("LICENSES");
+    let _ = fs::remove_dir_all(&dir);
+    copy_files(licenses, &dir, |_| true)?;
+    if let Some(repo) = licenses.parent() {
+        copy_files(repo, &dir, |name| name.starts_with("LICENSE-"))?;
+    }
+    Ok(())
 }
 
 /// Deletes downloads that no pinned archive names any more, such as the
@@ -388,19 +411,22 @@ pub enum Installed {
 
 /// Installs every archive into `out` (normally `target/sysroot`), keeping
 /// downloads in `out/downloads`. `licenses` is the repository's
-/// `LICENSES/`; Mora's `LICENSE-*` files beside it are copied too. Does
-/// nothing when the stamp names the same archives and the install is
-/// complete.
+/// `LICENSES/`; Mora's `LICENSE-*` files beside it are copied too. Only
+/// the licenses are copied again when the stamp names the same archives
+/// and layout, every file it lists is there and `ld.lld` runs.
 pub fn install(archives: &[Archive], licenses: &Path, out: &Path) -> Result<Installed, String> {
     let stamp_file = out.join("stamp");
-    let stamp: String = std::iter::once(format!("layout {LAYOUT}\n"))
+    let header: String = std::iter::once(format!("layout {LAYOUT}\n"))
         .chain(
             archives
                 .iter()
                 .map(|archive| format!("{} {}\n", archive.sha256, archive.file)),
         )
+        .chain(std::iter::once("files\n".to_owned()))
         .collect();
-    if fs::read_to_string(&stamp_file).is_ok_and(|old| old == stamp) && complete(out) {
+    if stamped(out, &header) && lld_version(out).is_ok() {
+        // Cheap, and keeps them in step with the repository.
+        copy_licenses(licenses, out)?;
         return Ok(Installed::UpToDate);
     }
     let downloads = out.join("downloads");
@@ -430,14 +456,11 @@ pub fn install(archives: &[Archive], licenses: &Path, out: &Path) -> Result<Inst
         }
     }
     let _ = fs::remove_dir_all(&work);
-    copy_files(licenses, &out.join("LICENSES"), |_| true)?;
-    // Mora's own license, which the toolchain's `LICENSES/` also holds.
-    if let Some(repo) = licenses.parent() {
-        copy_files(repo, &out.join("LICENSES"), |name| {
-            name.starts_with("LICENSE-")
-        })?;
-    }
+    copy_licenses(licenses, out)?;
     let version = lld_version(out)?;
+    let stamp: String = std::iter::once(header)
+        .chain(manifest(out).into_iter().map(|file| file + "\n"))
+        .collect();
     fs::write(&stamp_file, stamp)
         .map_err(|err| format!("cannot write {}: {err}", stamp_file.display()))?;
     Ok(Installed::Fresh(version))
@@ -580,15 +603,33 @@ mod tests {
     }
 
     #[test]
-    fn an_incomplete_install_is_not_up_to_date() {
-        let out = scratch("incomplete");
-        assert!(!complete(&out));
-        for dir in ["ld/bin", "LICENSES", "sysroot/x86_64-linux"] {
-            fs::create_dir_all(out.join(dir)).unwrap();
-            fs::write(out.join(dir).join("f"), "").unwrap();
+    fn the_stamp_lists_every_installed_file() {
+        let out = scratch("stamp");
+        for file in [
+            "ld/bin/ld.lld",
+            "ld/lib/libLLVM.so",
+            "sysroot/x86_64-linux/libc.a",
+        ] {
+            fs::create_dir_all(out.join(file).parent().unwrap()).unwrap();
+            fs::write(out.join(file), "").unwrap();
         }
-        // The other sysroots and a working lld are still missing.
-        assert!(!complete(&out));
+        let header = "layout 1\nfiles\n";
+        let files = manifest(&out);
+        assert_eq!(
+            files,
+            [
+                "ld/bin/ld.lld",
+                "ld/lib/libLLVM.so",
+                "sysroot/x86_64-linux/libc.a"
+            ]
+        );
+        let stamp: String = files.iter().map(|file| format!("{file}\n")).collect();
+        fs::write(out.join("stamp"), format!("{header}{stamp}")).unwrap();
+        assert!(stamped(&out, header));
+        assert!(!stamped(&out, "layout 2\nfiles\n"));
+
+        fs::remove_file(out.join("sysroot/x86_64-linux/libc.a")).unwrap();
+        assert!(!stamped(&out, header));
     }
 
     #[test]
