@@ -421,16 +421,15 @@ pub fn load(root: &Path) -> io::Result<Repo> {
             let text = fs::read_to_string(&file)?;
             for (index, line) in text.lines().enumerate() {
                 for (pattern, reason) in BYPASSES {
-                    if line.contains(pattern) {
+                    if path_matches(line, pattern).next().is_some() {
                         bypasses.push((format!("{}:{}", shown(root, &file), index + 1), *reason));
                     }
                 }
             }
         }
         scan(root, &file, &mut uses, |line| {
-            line.match_indices("codes::")
-                .filter_map(|(index, path)| {
-                    let rest = &line[index + path.len()..];
+            path_matches(line, "codes::")
+                .filter_map(|rest| {
                     let boundary = rest
                         .as_bytes()
                         .get(6)
@@ -463,6 +462,18 @@ fn source_crate<'a>(crates: &Path, file: &'a Path) -> Option<&'a str> {
     let mut components = file.strip_prefix(crates).ok()?.components();
     let name = components.next()?.as_os_str().to_str()?;
     (components.next()?.as_os_str() == "src").then_some(name)
+}
+
+/// The text after each match of `pattern` in `line` that starts a path
+/// segment: `codes::` in `mora_diag::codes::MR0001`, but not in
+/// `barcodes::X`.
+fn path_matches<'a>(line: &'a str, pattern: &'a str) -> impl Iterator<Item = &'a str> + 'a {
+    line.match_indices(pattern)
+        .filter_map(move |(index, found)| {
+            let before = line[..index].chars().next_back();
+            let starts_segment = before.is_none_or(|c| !(c.is_alphanumeric() || c == '_'));
+            starts_segment.then(|| &line[index + found.len()..])
+        })
 }
 
 /// A path relative to the repository root, with `/` separators.
@@ -606,6 +617,24 @@ A file that is not UTF-8 is error `MR0001`.
         assert_eq!(source_crate(crates, &file("demo/tests/t.rs")), None);
         assert_eq!(source_crate(crates, &file("demo/benches/src/x.rs")), None);
         assert_eq!(source_crate(crates, &file("lib.rs")), None);
+    }
+
+    #[test]
+    fn patterns_must_start_a_path_segment() {
+        let after = |line: &'static str, pattern: &'static str| -> Vec<&'static str> {
+            path_matches(line, pattern).collect()
+        };
+        assert_eq!(after("mora_diag::codes::MR0001;", "codes::"), ["MR0001;"]);
+        assert_eq!(after("codes::MR0001", "codes::"), ["MR0001"]);
+        assert_eq!(
+            after("barcodes::{A} my_codes::B", "codes::"),
+            Vec::<&str>::new()
+        );
+        assert_eq!(
+            after("ErrorCode::new(1) Code::new(2)", "Code::new("),
+            ["2)"]
+        );
+        assert_eq!(after("mora_diag::Code::new(3)", "Code::new("), ["3)"]);
     }
 
     #[test]
