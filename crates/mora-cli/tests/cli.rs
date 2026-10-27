@@ -88,15 +88,25 @@ fn post_mvp_commands_are_unknown() {
 
 #[test]
 fn a_bad_option_value_is_a_usage_error() {
-    let output = mora(&["--color", "purple", "version"]);
-    assert_eq!(output.status.code(), Some(2));
-    assert!(stderr(&output).contains("invalid value 'purple'"));
+    let calls: &[&[&str]] = &[
+        &["--color", "purple", "version"],
+        &["new", "app", "--template", "purple"],
+        &["build", "--emit", "purple"],
+    ];
+    for args in calls {
+        let output = mora(args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}");
+        assert!(
+            stderr(&output).contains("invalid value 'purple'"),
+            "{args:?}"
+        );
+    }
 }
 
 #[test]
 fn commands_not_built_yet_say_so_and_exit_2() {
     let calls: &[&[&str]] = &[
-        &["new", "app"],
+        &["new", "app", "--template", "web"],
         &["build", "--release", "--emit", "mir"],
         &["run", "--", "arg"],
         &["check"],

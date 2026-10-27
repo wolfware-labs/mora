@@ -48,6 +48,12 @@ enum MessageFormat {
 }
 
 #[derive(Clone, Copy, ValueEnum)]
+enum Template {
+    /// The program of §2.2 trimmed to one endpoint.
+    Web,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
 enum Emit {
     /// An object file.
     Obj,
@@ -68,8 +74,8 @@ enum Command {
         #[arg(long)]
         lib: bool,
         /// Start from a template.
-        #[arg(long)]
-        template: Option<String>,
+        #[arg(long, value_enum)]
+        template: Option<Template>,
     },
     /// Build the project into its target directory.
     Build {
