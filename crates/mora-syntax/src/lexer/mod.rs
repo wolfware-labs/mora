@@ -443,8 +443,9 @@ impl<'a> Lexer<'a> {
             return;
         };
         if c == '#' && self.line_start {
+            // The whole word after `#`, so `#if1` and `#region_x` are not directives.
             let name_len = rest[1..]
-                .find(|c: char| !c.is_ascii_alphabetic())
+                .find(|c: char| !is_ident_continue(c))
                 .unwrap_or(rest.len() - 1);
             if DIRECTIVES.contains(&&rest[1..1 + name_len]) {
                 self.push(TokenKind::Directive, line_len(rest));
@@ -736,9 +737,7 @@ impl<'a> Lexer<'a> {
             return;
         }
         // More than one character: take the rest up to a quote on this line.
-        let line_end = rest[i..]
-            .find(['\n', '\r'])
-            .map_or(rest.len(), |end| i + end);
+        let line_end = i + line_len(&rest[i..]);
         match rest[i..line_end].find('\'') {
             Some(close) => {
                 let len = i + close + 1;

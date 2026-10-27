@@ -175,6 +175,11 @@ fn comments_and_trivia() {
 
 #[test]
 fn directives_start_a_line() {
+    assert_eq!(
+        tokens("#if1\n#region_x")[0..2],
+        [(K::Hash, "#"), (K::Ident, "if1")]
+    );
+    assert_eq!(tokens("#region_x")[1], (K::Ident, "region_x"));
     let text = "#region Setup\n  #endregion\nx #region\n#if DEBUG\r\n#Log(x)";
     assert_eq!(
         tokens(text),
@@ -221,6 +226,8 @@ fn characters() {
         ]
     );
     assert_eq!(tokens("'\n"), [(K::Char, "'"), (K::Newline, "\n")]);
+    // A lone carriage return does not end the line (§3.1).
+    assert_eq!(errors("'a\rb'"), [(codes::MR0015, "'a\rb'")]);
 }
 
 #[test]
