@@ -7,18 +7,17 @@
 //! strings need a mode stack: a hole holds code, and that code can hold
 //! another interpolated string.
 //!
-//! An interpolated string becomes several tokens: [`TokenKind::InterpStart`],
-//! then [`TokenKind::InterpText`] pieces and holes, then
-//! [`TokenKind::InterpEnd`]. A hole is [`TokenKind::HoleOpen`], the ordinary
+//! An interpolated string becomes several tokens: [`SyntaxKind::InterpStart`],
+//! then [`SyntaxKind::InterpText`] pieces and holes, then
+//! [`SyntaxKind::InterpEnd`]. A hole is [`SyntaxKind::HoleOpen`], the ordinary
 //! tokens of its expression (and of an alignment after a comma), an optional
-//! [`TokenKind::HoleFormat`], and [`TokenKind::HoleClose`].
+//! [`SyntaxKind::HoleFormat`], and [`SyntaxKind::HoleClose`].
 //!
 //! `>` is always its own token, so `List<List<int>>` closes two type
 //! argument lists; the parser joins adjacent `>`, `>=` and `>>` pieces in
 //! expressions with [`Lexed::is_joined`].
 
 mod escape;
-mod kind;
 pub mod literal;
 pub mod number;
 
@@ -30,12 +29,12 @@ use mora_diag::codes;
 use mora_span::{TextRange, TextSize};
 use unicode_normalization::{UnicodeNormalization, is_nfc};
 
-pub use kind::TokenKind;
+use crate::SyntaxKind;
 
 /// One token: its kind and where it is in the text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Token {
-    pub kind: TokenKind,
+    pub kind: SyntaxKind,
     pub range: TextRange,
 }
 
@@ -300,71 +299,71 @@ enum Raw {
 }
 
 impl Raw {
-    fn kind(self) -> TokenKind {
+    fn kind(self) -> SyntaxKind {
         match self {
-            Raw::Whitespace => TokenKind::Whitespace,
-            Raw::Newline => TokenKind::Newline,
-            Raw::LineComment => TokenKind::LineComment,
-            Raw::DocComment => TokenKind::DocComment,
+            Raw::Whitespace => SyntaxKind::Whitespace,
+            Raw::Newline => SyntaxKind::Newline,
+            Raw::LineComment => SyntaxKind::LineComment,
+            Raw::DocComment => SyntaxKind::DocComment,
             // Classified by `number::check`.
-            Raw::Number => TokenKind::IntNumber,
-            Raw::LBrace => TokenKind::LBrace,
-            Raw::RBrace => TokenKind::RBrace,
-            Raw::LBracket => TokenKind::LBracket,
-            Raw::RBracket => TokenKind::RBracket,
-            Raw::LParen => TokenKind::LParen,
-            Raw::RParen => TokenKind::RParen,
-            Raw::Dot => TokenKind::Dot,
-            Raw::DotDot => TokenKind::DotDot,
-            Raw::Comma => TokenKind::Comma,
-            Raw::Colon => TokenKind::Colon,
-            Raw::ColonColon => TokenKind::ColonColon,
-            Raw::Semicolon => TokenKind::Semicolon,
-            Raw::Question => TokenKind::Question,
-            Raw::QuestionQuestion => TokenKind::QuestionQuestion,
-            Raw::QuestionQuestionEq => TokenKind::QuestionQuestionEq,
-            Raw::QuestionDot => TokenKind::QuestionDot,
-            Raw::FatArrow => TokenKind::FatArrow,
-            Raw::ThinArrow => TokenKind::ThinArrow,
-            Raw::At => TokenKind::At,
-            Raw::Dollar => TokenKind::Dollar,
-            Raw::Hash => TokenKind::Hash,
-            Raw::Plus => TokenKind::Plus,
-            Raw::Minus => TokenKind::Minus,
-            Raw::Star => TokenKind::Star,
-            Raw::Slash => TokenKind::Slash,
-            Raw::Percent => TokenKind::Percent,
-            Raw::Amp => TokenKind::Amp,
-            Raw::Pipe => TokenKind::Pipe,
-            Raw::Caret => TokenKind::Caret,
-            Raw::Bang => TokenKind::Bang,
-            Raw::Tilde => TokenKind::Tilde,
-            Raw::Shl => TokenKind::Shl,
-            Raw::EqEq => TokenKind::EqEq,
-            Raw::BangEq => TokenKind::BangEq,
-            Raw::Lt => TokenKind::Lt,
-            Raw::Gt => TokenKind::Gt,
-            Raw::LtEq => TokenKind::LtEq,
-            Raw::AmpAmp => TokenKind::AmpAmp,
-            Raw::PipePipe => TokenKind::PipePipe,
-            Raw::Eq => TokenKind::Eq,
-            Raw::PlusEq => TokenKind::PlusEq,
-            Raw::MinusEq => TokenKind::MinusEq,
-            Raw::StarEq => TokenKind::StarEq,
-            Raw::SlashEq => TokenKind::SlashEq,
-            Raw::PercentEq => TokenKind::PercentEq,
-            Raw::AmpEq => TokenKind::AmpEq,
-            Raw::PipeEq => TokenKind::PipeEq,
-            Raw::CaretEq => TokenKind::CaretEq,
-            Raw::ShlEq => TokenKind::ShlEq,
-            Raw::PlusPlus => TokenKind::PlusPlus,
-            Raw::MinusMinus => TokenKind::MinusMinus,
-            Raw::PlusPercent => TokenKind::PlusPercent,
-            Raw::MinusPercent => TokenKind::MinusPercent,
-            Raw::StarPercent => TokenKind::StarPercent,
-            Raw::PlusPercentEq => TokenKind::PlusPercentEq,
-            Raw::MinusPercentEq => TokenKind::MinusPercentEq,
-            Raw::StarPercentEq => TokenKind::StarPercentEq,
+            Raw::Number => SyntaxKind::IntNumber,
+            Raw::LBrace => SyntaxKind::LBrace,
+            Raw::RBrace => SyntaxKind::RBrace,
+            Raw::LBracket => SyntaxKind::LBracket,
+            Raw::RBracket => SyntaxKind::RBracket,
+            Raw::LParen => SyntaxKind::LParen,
+            Raw::RParen => SyntaxKind::RParen,
+            Raw::Dot => SyntaxKind::Dot,
+            Raw::DotDot => SyntaxKind::DotDot,
+            Raw::Comma => SyntaxKind::Comma,
+            Raw::Colon => SyntaxKind::Colon,
+            Raw::ColonColon => SyntaxKind::ColonColon,
+            Raw::Semicolon => SyntaxKind::Semicolon,
+            Raw::Question => SyntaxKind::Question,
+            Raw::QuestionQuestion => SyntaxKind::QuestionQuestion,
+            Raw::QuestionQuestionEq => SyntaxKind::QuestionQuestionEq,
+            Raw::QuestionDot => SyntaxKind::QuestionDot,
+            Raw::FatArrow => SyntaxKind::FatArrow,
+            Raw::ThinArrow => SyntaxKind::ThinArrow,
+            Raw::At => SyntaxKind::At,
+            Raw::Dollar => SyntaxKind::Dollar,
+            Raw::Hash => SyntaxKind::Hash,
+            Raw::Plus => SyntaxKind::Plus,
+            Raw::Minus => SyntaxKind::Minus,
+            Raw::Star => SyntaxKind::Star,
+            Raw::Slash => SyntaxKind::Slash,
+            Raw::Percent => SyntaxKind::Percent,
+            Raw::Amp => SyntaxKind::Amp,
+            Raw::Pipe => SyntaxKind::Pipe,
+            Raw::Caret => SyntaxKind::Caret,
+            Raw::Bang => SyntaxKind::Bang,
+            Raw::Tilde => SyntaxKind::Tilde,
+            Raw::Shl => SyntaxKind::Shl,
+            Raw::EqEq => SyntaxKind::EqEq,
+            Raw::BangEq => SyntaxKind::BangEq,
+            Raw::Lt => SyntaxKind::Lt,
+            Raw::Gt => SyntaxKind::Gt,
+            Raw::LtEq => SyntaxKind::LtEq,
+            Raw::AmpAmp => SyntaxKind::AmpAmp,
+            Raw::PipePipe => SyntaxKind::PipePipe,
+            Raw::Eq => SyntaxKind::Eq,
+            Raw::PlusEq => SyntaxKind::PlusEq,
+            Raw::MinusEq => SyntaxKind::MinusEq,
+            Raw::StarEq => SyntaxKind::StarEq,
+            Raw::SlashEq => SyntaxKind::SlashEq,
+            Raw::PercentEq => SyntaxKind::PercentEq,
+            Raw::AmpEq => SyntaxKind::AmpEq,
+            Raw::PipeEq => SyntaxKind::PipeEq,
+            Raw::CaretEq => SyntaxKind::CaretEq,
+            Raw::ShlEq => SyntaxKind::ShlEq,
+            Raw::PlusPlus => SyntaxKind::PlusPlus,
+            Raw::MinusMinus => SyntaxKind::MinusMinus,
+            Raw::PlusPercent => SyntaxKind::PlusPercent,
+            Raw::MinusPercent => SyntaxKind::MinusPercent,
+            Raw::StarPercent => SyntaxKind::StarPercent,
+            Raw::PlusPercentEq => SyntaxKind::PlusPercentEq,
+            Raw::MinusPercentEq => SyntaxKind::MinusPercentEq,
+            Raw::StarPercentEq => SyntaxKind::StarPercentEq,
         }
     }
 }
@@ -413,7 +412,7 @@ impl<'a> Lexer<'a> {
         &self.text[self.pos..]
     }
 
-    fn push(&mut self, kind: TokenKind, len: usize) {
+    fn push(&mut self, kind: SyntaxKind, len: usize) {
         debug_assert!(len > 0, "empty {kind:?} token");
         let end = self.pos + len;
         self.out.tokens.push(Token {
@@ -422,8 +421,8 @@ impl<'a> Lexer<'a> {
         });
         self.pos = end;
         self.line_start = match kind {
-            TokenKind::Newline => true,
-            TokenKind::Whitespace => self.line_start,
+            SyntaxKind::Newline => true,
+            SyntaxKind::Whitespace => self.line_start,
             _ => false,
         };
     }
@@ -448,7 +447,7 @@ impl<'a> Lexer<'a> {
                 .find(|c: char| !is_ident_continue(c))
                 .unwrap_or(rest.len() - 1);
             if DIRECTIVES.contains(&&rest[1..1 + name_len]) {
-                self.push(TokenKind::Directive, line_len(rest));
+                self.push(SyntaxKind::Directive, line_len(rest));
                 return;
             }
         }
@@ -468,9 +467,9 @@ impl<'a> Lexer<'a> {
                     .find(|&(i, c)| i > 0 && !is_ident_continue(c))
                     .map_or(rest.len() - start, |(i, _)| i);
             let kind = if ident_at == 0 {
-                TokenKind::keyword(&rest[..len]).unwrap_or(TokenKind::Ident)
+                SyntaxKind::keyword(&rest[..len]).unwrap_or(SyntaxKind::Ident)
             } else {
-                TokenKind::Ident
+                SyntaxKind::Ident
             };
             self.push(kind, len);
             return;
@@ -479,14 +478,14 @@ impl<'a> Lexer<'a> {
             let len = c.len_utf8();
             // A byte order mark is accepted only at the start of the file (§3.1).
             if c == '\u{FEFF}' && self.pos == 0 {
-                self.push(TokenKind::Whitespace, len);
+                self.push(SyntaxKind::Whitespace, len);
             } else {
                 self.error(
                     codes::MR0017,
                     self.pos..self.pos + len,
                     format!("`{c}` (U+{:04X}) cannot start a token", u32::from(c)),
                 );
-                self.push(TokenKind::Unknown, len);
+                self.push(SyntaxKind::Unknown, len);
             }
             return;
         }
@@ -511,7 +510,7 @@ impl<'a> Lexer<'a> {
                     self.pos..self.pos + c.len_utf8(),
                     format!("`{}` cannot start a token", c.escape_default()),
                 );
-                self.push(TokenKind::Unknown, c.len_utf8());
+                self.push(SyntaxKind::Unknown, c.len_utf8());
             }
         }
     }
@@ -521,7 +520,7 @@ impl<'a> Lexer<'a> {
         let rest = self.rest();
         if depth == 0 {
             if run(rest, b'}') >= s.dollars {
-                self.push(TokenKind::HoleClose, s.dollars);
+                self.push(SyntaxKind::HoleClose, s.dollars);
                 if let Some(range) = self.holes.get_mut(hole) {
                     range.1 = self.pos;
                 }
@@ -533,7 +532,7 @@ impl<'a> Lexer<'a> {
                 let stop =
                     |c: char| c == '}' || (c == '"' && s.quotes == 0) || (c == '\n' && plain);
                 let len = rest.find(stop).unwrap_or(rest.len());
-                self.push(TokenKind::HoleFormat, len);
+                self.push(SyntaxKind::HoleFormat, len);
                 return;
             }
         }
@@ -544,8 +543,10 @@ impl<'a> Lexer<'a> {
             return;
         }
         let depth = match self.out.tokens[before].kind {
-            TokenKind::LBrace | TokenKind::LParen | TokenKind::LBracket => depth + 1,
-            TokenKind::RBrace | TokenKind::RParen | TokenKind::RBracket => depth.saturating_sub(1),
+            SyntaxKind::LBrace | SyntaxKind::LParen | SyntaxKind::LBracket => depth + 1,
+            SyntaxKind::RBrace | SyntaxKind::RParen | SyntaxKind::RBracket => {
+                depth.saturating_sub(1)
+            }
             _ => depth,
         };
         self.replace_top(Frame::Hole(s, depth, hole));
@@ -589,7 +590,7 @@ impl<'a> Lexer<'a> {
                 dollars: if raw { dollars } else { 1 },
                 first_hole: self.holes.len(),
             };
-            self.push(TokenKind::InterpStart, prefix);
+            self.push(SyntaxKind::InterpStart, prefix);
             self.stack.push(Frame::Text(s));
             return true;
         }
@@ -656,7 +657,7 @@ impl<'a> Lexer<'a> {
             }
         }
         let len = i + self.u8_suffix(i);
-        self.push(TokenKind::String, len);
+        self.push(SyntaxKind::String, len);
     }
 
     fn verbatim_string(&mut self) {
@@ -676,7 +677,7 @@ impl<'a> Lexer<'a> {
             }
         }
         let len = i + self.u8_suffix(i);
-        self.push(TokenKind::VerbatimString, len);
+        self.push(SyntaxKind::VerbatimString, len);
     }
 
     fn raw_string(&mut self) {
@@ -706,7 +707,7 @@ impl<'a> Lexer<'a> {
             }
         }
         let len = i + self.u8_suffix(i);
-        self.push(TokenKind::RawString, len);
+        self.push(SyntaxKind::RawString, len);
     }
 
     fn char_literal(&mut self) {
@@ -721,19 +722,19 @@ impl<'a> Lexer<'a> {
                     self.pos..self.pos + 2,
                     "a character literal holds one character; `''` is empty",
                 );
-                self.push(TokenKind::Char, 2);
+                self.push(SyntaxKind::Char, 2);
                 return;
             }
             Some(c) if !ends_line(&rest[1..]) => i += c.len_utf8(),
             _ => {
                 self.unterminated(1, "this character literal is not closed");
-                self.push(TokenKind::Char, 1);
+                self.push(SyntaxKind::Char, 1);
                 return;
             }
         }
         let rest = self.rest();
         if rest[i..].starts_with('\'') {
-            self.push(TokenKind::Char, i + 1);
+            self.push(SyntaxKind::Char, i + 1);
             return;
         }
         // More than one character: take the rest up to a quote on this line.
@@ -746,11 +747,11 @@ impl<'a> Lexer<'a> {
                     self.pos..self.pos + len,
                     "a character literal holds one character; use a string for more",
                 );
-                self.push(TokenKind::Char, len);
+                self.push(SyntaxKind::Char, len);
             }
             None => {
                 self.unterminated(i, "this character literal is not closed");
-                self.push(TokenKind::Char, i);
+                self.push(SyntaxKind::Char, i);
             }
         }
     }
@@ -768,7 +769,7 @@ impl<'a> Lexer<'a> {
                 rest.len()
             }
         };
-        self.push(TokenKind::BlockComment, len);
+        self.push(SyntaxKind::BlockComment, len);
     }
 
     /// Reports a literal that starts at `pos` and is not closed by `pos + len`.
@@ -877,12 +878,12 @@ impl<'a> Lexer<'a> {
             }
         };
         if i > 0 {
-            self.push(TokenKind::InterpText, i);
+            self.push(SyntaxKind::InterpText, i);
         }
         match stop {
             Stop::Hole(n) => {
                 self.holes.push((self.pos, usize::MAX));
-                self.push(TokenKind::HoleOpen, n);
+                self.push(SyntaxKind::HoleOpen, n);
                 self.replace_top(Frame::Hole(s, 0, self.holes.len() - 1));
             }
             Stop::End(n) => {
@@ -890,7 +891,7 @@ impl<'a> Lexer<'a> {
                     let holes = self.holes[s.first_hole..].to_vec();
                     self.check_raw(s.start + s.prefix - s.quotes, s.quotes, self.pos, &holes);
                 }
-                self.push(TokenKind::InterpEnd, n);
+                self.push(SyntaxKind::InterpEnd, n);
                 self.stack.pop();
                 if self.stack.is_empty() {
                     self.holes.clear();

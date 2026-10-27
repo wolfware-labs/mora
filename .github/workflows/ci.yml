@@ -93,6 +93,9 @@ jobs:
       - name: xtask spec-examples
         if: ${{ !cancelled() }}
         run: cargo xtask spec-examples
+      - name: xtask codegen
+        if: ${{ !cancelled() }}
+        run: cargo xtask codegen --check
 
   # Lints and tests on the other Tier 1 and Tier 2 hosts (spec §19.1).
   platforms:

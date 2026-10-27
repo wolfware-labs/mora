@@ -15,6 +15,7 @@ mora-diag.workspace = true
 mora-target.workspace = true
 mora-testkit.workspace = true
 sha2.workspace = true
+ungrammar.workspace = true
 
 [dev-dependencies]
 mora-span.workspace = true
