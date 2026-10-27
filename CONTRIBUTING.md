@@ -4,6 +4,8 @@ Everyone taking part in the project is expected to follow the [Code of Conduct](
 
 ## Setup
 
+The Cargo workspace, `rust-toolchain.toml` and `deny.toml` arrive with M0.2 ([#17](https://github.com/wolfware-labs/mora/issues/17)). Until it is merged, the repository holds only documents, and the steps below apply from then on.
+
 1. Install [rustup](https://rustup.rs).
 2. Clone the repository. The toolchain version is pinned in `rust-toolchain.toml`, and `rustup` installs it with `rustfmt` and `clippy` the first time you run `cargo` in the repo.
 3. Install `cargo-deny`:
@@ -28,6 +30,7 @@ These are the checks CI runs on every pull request (§20.5 of the spec). They ar
 | Dependency policy | `cargo deny check` |
 | Spec and error-page examples | `cargo xtask spec-examples` |
 | Error-code registry | `cargo xtask error-codes` |
+| Portability guards (§19.4) | CI only: builds `mora-rt-core` for `thumbv7em-none-eabihf` and runs the run tests on `riscv64gc-linux` under QEMU |
 
 CI sets `RUSTFLAGS=-D warnings`, so a warning fails the build. Set the same flags locally: `export RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D warnings"` in a Unix shell, or `$env:RUSTFLAGS="-D warnings"` and `$env:RUSTDOCFLAGS="-D warnings"` in PowerShell.
 
