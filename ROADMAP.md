@@ -1326,12 +1326,12 @@ Done when:
 
 Spec: [§19.3](docs/design/mora.md#193-installation). Crates: `install`, `mora-cli`. Blocked by: M7.10.
 
-`install.sh`, `install.ps1` with checksum verification, the `wolfware-labs/tap` Homebrew formula, the winget manifest `Wolfware.Mora`, and `mora self update`.
+`install.sh` and `install.ps1` with checksum verification and optional `cosign` signature verification, the `wolfware-labs/tap` Homebrew formula, the winget manifest `Wolfware.Mora`, and `mora self update` with built-in Sigstore verification, all as the table in §19.3 specifies.
 
 Done when:
 
-- Install-script tests on clean CI runners for every Tier 1 target.
-- `mora self update` from a release candidate to the next one.
+- Install-script tests on clean CI runners for every Tier 1 target, with and without `cosign` on `PATH`.
+- `mora self update` from a release candidate to the next one, and refusal of an archive whose signature identity does not match.
 
 ### M7.12 Benchmarks and budgets
 
