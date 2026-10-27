@@ -8,6 +8,10 @@ mod pending;
 
 fn main() -> ExitCode {
     let options = Options::parse(std::env::args().skip(1));
+    if options.bless {
+        eprintln!("run tests have no snapshots; --bless applies to the ui suite");
+        return ExitCode::FAILURE;
+    }
     match run_suite(&pending::Pending, &pending::root(), "tests/run", &options) {
         Ok(report) => report.finish("run"),
         Err(error) => {
