@@ -2,9 +2,10 @@
 //! that toolchains bundle (§14.14, §19.2) into `target/sysroot`, laid out as
 //! the toolchain's `lib/`, so development builds link as releases do.
 //!
-//! - `ld/bin/`: `lld` under its own name and as `ld.lld` and `lld-link`, with
-//!   the `libLLVM` it loads in `ld/lib/` (beside it in `ld/bin/` on Windows).
-//!   From llvm-mingw, built for the host.
+//! - `ld/bin/`: `lld` as `ld.lld` and `lld-link`, the names it reads to pick
+//!   its flavor, with the `libLLVM` it loads in `ld/lib/` (beside it in
+//!   `ld/bin/` on Windows). On Unix both are symlinks to the `lld` file. From
+//!   llvm-mingw, built for the host.
 //! - `sysroot/x86_64-windows/`, `sysroot/aarch64-windows/`: the MinGW-w64
 //!   start files and libraries and the compiler-rt builtins, from the same
 //!   llvm-mingw archive.

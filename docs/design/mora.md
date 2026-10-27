@@ -2027,7 +2027,7 @@ mora-<version>-<host>/
   lib/rt/<target>/libmora_rt.a  # hosted layer with mora-rt-core bundled; and libmora_rt_debug.a
   lib/rt/<target>/libmora_rt_core.a  # mora-rt-core alone, for bare-metal platform layers (post-MVP)
   lib/sysroot/<target>/         # musl or MinGW start files and libraries, e.g. x86_64-linux
-  lib/ld/bin/lld, ld.lld, lld-link   # one lld, named for each flavor
+  lib/ld/bin/ld.lld, lld-link   # one lld under each flavor's name
   lib/ld/lib/                   # the libLLVM it loads (in lib/ld/bin/ on Windows)
   LICENSES/                     # Mora, LLVM, musl, MinGW-w64, winpthreads
 ```
