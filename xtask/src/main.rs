@@ -4,6 +4,7 @@
 // Test and tooling code may unwrap (CONTRIBUTING.md, Code rules).
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+mod codegen;
 mod error_codes;
 mod layers;
 mod runtime;
@@ -17,7 +18,7 @@ use std::process::ExitCode;
 use cargo_metadata::MetadataCommand;
 use mora_diag::registry;
 
-const USAGE: &str = "usage: cargo xtask <layers | error-codes | spec-examples | runtime [--test] [target...] | sysroot>";
+const USAGE: &str = "usage: cargo xtask <layers | error-codes | spec-examples | codegen [--check] | runtime [--test] [target...] | sysroot>";
 
 /// `cargo metadata --no-deps` for the workspace that contains this crate.
 fn metadata_command() -> MetadataCommand {
@@ -197,12 +198,58 @@ fn run_sysroot() -> ExitCode {
     }
 }
 
+/// `path` relative to the repository root, for messages.
+fn relative(path: &Path) -> &Path {
+    path.strip_prefix(root()).unwrap_or(path)
+}
+
+/// Writes the generated syntax code, or with `check` reports what is stale.
+fn run_codegen(check: bool) -> ExitCode {
+    let outputs = match codegen::outputs(&root()) {
+        Ok(outputs) => outputs,
+        Err(err) => {
+            eprintln!("codegen: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let stale = codegen::stale(&outputs);
+    if check {
+        for path in &stale {
+            eprintln!(
+                "codegen: {} is stale; run `cargo xtask codegen`",
+                path.display()
+            );
+        }
+        return if stale.is_empty() {
+            println!("codegen: {} files, up to date", outputs.len());
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
+    }
+    for (path, text) in &outputs {
+        if stale.contains(path) {
+            let parent = path.parent().unwrap_or(path);
+            if let Err(err) =
+                std::fs::create_dir_all(parent).and_then(|()| std::fs::write(path, text))
+            {
+                eprintln!("codegen: {}: {err}", path.display());
+                return ExitCode::FAILURE;
+            }
+            println!("codegen: wrote {}", relative(path).display());
+        }
+    }
+    ExitCode::SUCCESS
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
         ["layers"] => run_layers(),
         ["error-codes"] => run_error_codes(),
         ["spec-examples"] => run_spec_examples(),
+        ["codegen"] => run_codegen(false),
+        ["codegen", "--check"] => run_codegen(true),
         ["runtime", ref rest @ ..] => run_runtime(rest),
         ["sysroot"] => run_sysroot(),
         _ => {

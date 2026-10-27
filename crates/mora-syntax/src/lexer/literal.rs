@@ -6,7 +6,7 @@
 
 use super::escape::escape;
 
-/// The value of a [`Char`](super::TokenKind::Char) token, such as `'a'` or `'\n'`.
+/// The value of a [`Char`](crate::SyntaxKind::Char) token, such as `'a'` or `'\n'`.
 pub fn char_value(text: &str) -> Option<char> {
     let inner = text.strip_prefix('\'')?.strip_suffix('\'')?;
     let mut chars = inner.chars();
@@ -20,9 +20,9 @@ pub fn char_value(text: &str) -> Option<char> {
     }
 }
 
-/// The value of a [`String`](super::TokenKind::String),
-/// [`VerbatimString`](super::TokenKind::VerbatimString) or
-/// [`RawString`](super::TokenKind::RawString) token, and whether it has the
+/// The value of a [`String`](crate::SyntaxKind::String),
+/// [`VerbatimString`](crate::SyntaxKind::VerbatimString) or
+/// [`RawString`](crate::SyntaxKind::RawString) token, and whether it has the
 /// `u8` suffix.
 pub fn string_value(text: &str) -> Option<(String, bool)> {
     let (text, utf8) = match text.strip_suffix("u8") {

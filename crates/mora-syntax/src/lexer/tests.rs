@@ -1,13 +1,13 @@
 use super::*;
 
 /// The kinds and texts of the tokens of `text`, without whitespace.
-fn tokens(text: &str) -> Vec<(TokenKind, &str)> {
+fn tokens(text: &str) -> Vec<(SyntaxKind, &str)> {
     let lexed = lex(text);
     assert_lossless(text, &lexed);
     lexed
         .tokens
         .iter()
-        .filter(|t| t.kind != TokenKind::Whitespace)
+        .filter(|t| t.kind != SyntaxKind::Whitespace)
         .map(|t| (t.kind, &text[t.range]))
         .collect()
 }
@@ -37,16 +37,16 @@ fn assert_lossless(text: &str, lexed: &Lexed) {
     assert_eq!(end, size(text.len()), "tokens stop early in {text:?}");
 }
 
-use TokenKind as K;
+use SyntaxKind as K;
 
 #[test]
 fn every_keyword_and_punctuation_lexes_as_itself() {
-    for &kind in TokenKind::KEYWORDS.iter().chain(TokenKind::PUNCTUATION) {
+    for &kind in SyntaxKind::KEYWORDS.iter().chain(SyntaxKind::PUNCTUATION) {
         let text = kind.text().unwrap();
         assert_eq!(tokens(text), [(kind, text)], "{text}");
         assert!(errors(text).is_empty(), "{text}");
     }
-    assert_eq!(TokenKind::KEYWORDS.len(), 93);
+    assert_eq!(SyntaxKind::KEYWORDS.len(), 93);
 }
 
 #[test]

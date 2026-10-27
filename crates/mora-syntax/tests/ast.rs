@@ -1,0 +1,234 @@
+// Test code may unwrap (CONTRIBUTING.md, Code rules).
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
+//! Typed views over hand-built trees (M1.2). The parser arrives in M1.3, so
+//! these trees are built token by token with `TreeBuilder`.
+
+use mora_syntax::ast::{self, AstNode};
+use mora_syntax::{SyntaxKind as K, SyntaxNode, TreeBuilder, lex};
+
+/// Builds a tree from nested `(kind, children)` and `(kind, text)` items.
+enum Tree {
+    Node(K, Vec<Tree>),
+    Token(K, &'static str),
+}
+
+use Tree::{Node, Token};
+
+fn build(tree: &Tree) -> SyntaxNode {
+    fn add(builder: &mut TreeBuilder, tree: &Tree) {
+        match tree {
+            Node(kind, children) => {
+                builder.start_node(*kind);
+                for child in children {
+                    add(builder, child);
+                }
+                builder.finish_node();
+            }
+            Token(kind, text) => builder.token(*kind, text),
+        }
+    }
+    let mut builder = TreeBuilder::new();
+    add(&mut builder, tree);
+    builder.finish().root()
+}
+
+fn name_ref(text: &'static str) -> Tree {
+    Node(
+        K::PathExpr,
+        vec![Node(
+            K::Path,
+            vec![Node(
+                K::PathSegment,
+                vec![Node(K::NameRef, vec![Token(K::Ident, text)])],
+            )],
+        )],
+    )
+}
+
+/// `struct Point { int X; }`
+fn point() -> Tree {
+    Node(
+        K::SourceFile,
+        vec![Node(
+            K::StructDecl,
+            vec![
+                Token(K::StructKw, "struct"),
+                Token(K::Whitespace, " "),
+                Node(K::Name, vec![Token(K::Ident, "Point")]),
+                Token(K::Whitespace, " "),
+                Node(
+                    K::MemberList,
+                    vec![
+                        Token(K::LBrace, "{"),
+                        Token(K::Whitespace, " "),
+                        Node(
+                            K::FieldDecl,
+                            vec![
+                                Node(K::PredefinedType, vec![Token(K::IntKw, "int")]),
+                                Token(K::Whitespace, " "),
+                                Node(
+                                    K::VariableDeclarator,
+                                    vec![Node(K::Name, vec![Token(K::Ident, "X")])],
+                                ),
+                                Token(K::Semicolon, ";"),
+                            ],
+                        ),
+                        Token(K::Whitespace, " "),
+                        Token(K::RBrace, "}"),
+                    ],
+                ),
+            ],
+        )],
+    )
+}
+
+#[test]
+fn a_struct_declaration_navigates() {
+    let root = build(&point());
+    assert_eq!(root.text(), "struct Point { int X; }");
+    let file = ast::SourceFile::cast(root).unwrap();
+    let items: Vec<_> = file.top_level_items().collect();
+    let [ast::TopLevelItem::Item(ast::Item::StructDecl(point))] = items.as_slice() else {
+        panic!("{items:?}");
+    };
+    assert_eq!(point.struct_token().unwrap().text(), "struct");
+    assert_eq!(point.name().unwrap().ident_token().unwrap().text(), "Point");
+    assert!(point.param_list().is_none());
+    let members: Vec<_> = point.member_list().unwrap().members().collect();
+    let [ast::Member::FieldDecl(field)] = members.as_slice() else {
+        panic!("{members:?}");
+    };
+    let Some(ast::Type::PredefinedType(int)) = field.ty() else {
+        panic!("{:?}", field.ty());
+    };
+    assert_eq!(int.kind().unwrap().kind(), K::IntKw);
+    let declarator = field.variable_declarator().unwrap();
+    assert_eq!(declarator.name().unwrap().syntax().text(), "X");
+    assert!(declarator.init().is_none());
+    assert_eq!(field.semicolon_token().unwrap().text(), ";");
+}
+
+#[test]
+fn the_debug_tree_shows_every_token() {
+    let root = build(&point());
+    let expected = r#"SourceFile@0..23
+  StructDecl@0..23
+    StructKw@0..6 "struct"
+    Whitespace@6..7 " "
+    Name@7..12
+      Ident@7..12 "Point"
+    Whitespace@12..13 " "
+    MemberList@13..23
+      LBrace@13..14 "{"
+      Whitespace@14..15 " "
+      FieldDecl@15..21
+        PredefinedType@15..18
+          IntKw@15..18 "int"
+        Whitespace@18..19 " "
+        VariableDeclarator@19..20
+          Name@19..20
+            Ident@19..20 "X"
+        Semicolon@20..21 ";"
+      Whitespace@21..22 " "
+      RBrace@22..23 "}"
+"#;
+    assert_eq!(root.debug_tree(), expected);
+}
+
+#[test]
+fn casting_checks_the_kind() {
+    let root = build(&point());
+    let struct_node = root.children().next().unwrap();
+    assert!(ast::SourceFile::cast(struct_node.clone()).is_none());
+    assert!(ast::StructDecl::cast(struct_node.clone()).is_some());
+    assert!(ast::Item::cast(struct_node.clone()).is_some());
+    assert!(ast::Member::cast(struct_node.clone()).is_some());
+    assert!(ast::Expr::cast(struct_node).is_none());
+}
+
+#[test]
+fn same_type_children_are_found_by_their_tokens() {
+    // `..y`: no start, so `y` is the end.
+    let range = build(&Node(
+        K::RangeExpr,
+        vec![Token(K::DotDot, ".."), name_ref("y")],
+    ));
+    let range = ast::RangeExpr::cast(range).unwrap();
+    assert!(range.start().is_none());
+    assert_eq!(range.end().unwrap().syntax().text(), "y");
+
+    // `c ? : e`, with the middle operand missing.
+    let conditional = build(&Node(
+        K::ConditionalExpr,
+        vec![
+            name_ref("c"),
+            Token(K::Question, "?"),
+            Token(K::Colon, ":"),
+            name_ref("e"),
+        ],
+    ));
+    let conditional = ast::ConditionalExpr::cast(conditional).unwrap();
+    assert_eq!(conditional.condition().unwrap().syntax().text(), "c");
+    assert!(conditional.then().is_none());
+    assert_eq!(conditional.r#else().unwrap().syntax().text(), "e");
+
+    // `a >> b`, with `>>` joined from two `>` by the parser.
+    let shift = build(&Node(
+        K::BinExpr,
+        vec![name_ref("a"), Token(K::Shr, ">>"), name_ref("b")],
+    ));
+    let shift = ast::BinExpr::cast(shift).unwrap();
+    assert_eq!(shift.op().unwrap().kind(), K::Shr);
+    assert_eq!(shift.lhs().unwrap().syntax().text(), "a");
+    assert_eq!(shift.rhs().unwrap().syntax().text(), "b");
+}
+
+#[test]
+fn tokens_walk_the_whole_text() {
+    let root = build(&point());
+    let text: String = root.tokens().map(|t| t.text().to_owned()).collect();
+    assert_eq!(text, root.text());
+    let x = root.tokens().find(|t| t.text() == "X").unwrap();
+    assert_eq!(x.parent().unwrap().kind(), K::Name);
+    assert_eq!(x.next_token().unwrap().kind(), K::Semicolon);
+    assert_eq!(x.prev_token().unwrap().kind(), K::Whitespace);
+    let ancestors: Vec<_> = x.parent().unwrap().ancestors().map(|n| n.kind()).collect();
+    assert_eq!(
+        ancestors,
+        [
+            K::Name,
+            K::VariableDeclarator,
+            K::FieldDecl,
+            K::MemberList,
+            K::StructDecl,
+            K::SourceFile
+        ]
+    );
+}
+
+#[test]
+fn syntax_kinds() {
+    for (i, &kind) in K::ALL.iter().enumerate() {
+        assert_eq!(K::from_raw(u16::try_from(i).unwrap()), Some(kind));
+    }
+    assert_eq!(K::from_raw(u16::try_from(K::ALL.len()).unwrap()), None);
+    assert_eq!(K::keyword("class"), Some(K::ClassKw));
+    assert_eq!(K::keyword("get"), None);
+    assert_eq!(K::contextual_keyword("get"), Some(K::GetKw));
+    assert_eq!(K::contextual_keyword("_"), Some(K::Underscore));
+    assert_eq!(K::Shr.text(), Some(">>"));
+    assert!(K::StructDecl.is_node() && K::Error.is_node());
+    assert!(!K::Ident.is_node() && !K::Underscore.is_node());
+    assert!(K::DocComment.is_trivia() && !K::Ident.is_trivia());
+}
+
+#[test]
+fn the_lexer_never_produces_joined_or_contextual_kinds() {
+    let text = "a >> b >= c ?[ get value _ x >>>= y";
+    for token in lex(text).tokens {
+        assert!(!K::JOINED.contains(&token.kind), "{token:?}");
+        assert!(!token.kind.is_contextual_keyword(), "{token:?}");
+        assert!(!token.kind.is_node(), "{token:?}");
+    }
+}
