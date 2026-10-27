@@ -150,13 +150,13 @@ pub fn check(metadata: &Metadata) -> Vec<Violation> {
                 violations.push(violation(Problem::OnXtask));
                 continue;
             }
+            if dep.kind == DependencyKind::Development && to == TESTKIT {
+                continue;
+            }
             if let Some(allowed) = runtime_deps {
                 if !allowed.contains(&to) {
                     violations.push(violation(Problem::RuntimeIsolation));
                 }
-                continue;
-            }
-            if dep.kind == DependencyKind::Development && to == TESTKIT {
                 continue;
             }
             // An unknown target crate is reported once, as its own violation.
@@ -308,6 +308,21 @@ mod tests {
         add_dep(&mut meta, "mora-span", TESTKIT, Some("dev"));
         add_dep(&mut meta, "mora-syntax", TESTKIT, Some("dev"));
         assert_eq!(run(meta), vec![]);
+    }
+
+    #[test]
+    fn dev_edge_to_testkit_passes_from_runtime_crates() {
+        let mut meta = workspace_json();
+        add_dep(&mut meta, "mora-rt-core", TESTKIT, Some("dev"));
+        add_dep(&mut meta, "mora-rt", TESTKIT, Some("dev"));
+        assert_eq!(run(meta), vec![]);
+    }
+
+    #[test]
+    fn normal_edge_from_runtime_to_testkit_fails() {
+        let mut meta = workspace_json();
+        add_dep(&mut meta, "mora-rt-core", TESTKIT, None);
+        assert_eq!(single(meta).problem, Problem::RuntimeIsolation);
     }
 
     #[test]
