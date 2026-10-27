@@ -54,11 +54,22 @@ const ITEM_RECOVERY: &[SyntaxKind] = &[
 /// meets one has lost its `}`.
 const ACCESS: &[SyntaxKind] = &[K::PublicKw, K::PrivateKw, K::InternalKw];
 
+/// How far into a file the parser is: imports, then usings, then the file
+/// namespace, then items and statements (§4.2).
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Phase {
+    Imports,
+    Usings,
+    Namespace,
+    Items,
+}
+
 pub(crate) fn source_file(p: &mut Parser<'_>) {
     let m = p.start();
+    let mut phase = Phase::Imports;
     while !p.at_end() {
         let before = p.pos();
-        top_level(p);
+        phase = top_level(p, phase);
         if p.pos() == before {
             // Nothing could use the token: take it, so the loop moves on.
             let e = p.start();
@@ -70,18 +81,43 @@ pub(crate) fn source_file(p: &mut Parser<'_>) {
     m.complete(p, K::SourceFile);
 }
 
-fn top_level(p: &mut Parser<'_>) {
-    match p.current() {
-        K::ImportKw => import_decl(p),
-        K::UsingKw => using_directive(p),
-        K::Ident if p.at_contextual("global") && p.nth(1) == K::UsingKw => using_directive(p),
-        K::NamespaceKw => file_namespace(p),
-        _ => {
-            if !declaration(p, Context::TopLevel) {
-                statement(p);
-            }
+/// Parses one top-level element and returns the phase after it. A header
+/// element out of order is still parsed, with an error.
+fn top_level(p: &mut Parser<'_>, phase: Phase) -> Phase {
+    let is_using = p.at(K::UsingKw) || (p.at_contextual("global") && p.nth(1) == K::UsingKw);
+    let (element, latest, message) = if p.at(K::ImportKw) {
+        (
+            Phase::Imports,
+            Phase::Imports,
+            "`import` declarations come first in a file",
+        )
+    } else if is_using {
+        (
+            Phase::Usings,
+            Phase::Usings,
+            "`using` directives come after the imports and before the namespace and the declarations",
+        )
+    } else if p.at(K::NamespaceKw) {
+        (
+            Phase::Namespace,
+            Phase::Usings,
+            "a file has one `namespace`, after its imports and usings and before its declarations",
+        )
+    } else {
+        if !declaration(p, Context::TopLevel) {
+            statement(p);
         }
+        return Phase::Items;
+    };
+    if phase > latest {
+        p.error(message);
     }
+    match element {
+        Phase::Imports => import_decl(p),
+        Phase::Usings => using_directive(p),
+        _ => file_namespace(p),
+    }
+    phase.max(element)
 }
 
 /// `import Core;`, `import Core from "../core";` (§4.4).

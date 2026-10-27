@@ -183,13 +183,17 @@ pub(crate) fn generic_args_follow(input: &Input<'_>, at: usize) -> bool {
     ) || end >= input.len()
 }
 
-/// The index after `<...>` at `at`, if it holds a list of types.
+/// The index after `<...>` at `at`, if it holds a list of types. Like
+/// `generic_arg_list`, it takes an empty list and a trailing comma.
 pub(crate) fn scan_generic_args(input: &Input<'_>, at: usize) -> Option<usize> {
     if input.kind(at) != K::Lt {
         return None;
     }
     let mut i = at + 1;
     loop {
+        if input.kind(i) == K::Gt {
+            return Some(i + 1);
+        }
         i = scan_type(input, i)?;
         match input.kind(i) {
             K::Comma => i += 1,

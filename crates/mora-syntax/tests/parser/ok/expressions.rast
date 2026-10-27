@@ -1,4 +1,4 @@
-SourceFile@0..495
+SourceFile@0..565
   LocalDeclStmt@0..21
     LocalDecl@0..20
       LetKw@0..3 "let"
@@ -588,3 +588,67 @@ SourceFile@0..495
           InterpEnd@492..493 "\""
     Semicolon@493..494 ";"
   Newline@494..495 "\n"
+  LocalDeclStmt@495..564
+    LocalDecl@495..563
+      LetKw@495..498 "let"
+      Whitespace@498..499 " "
+      VariableDeclarator@499..563
+        Name@499..500
+          Ident@499..500 "r"
+        Whitespace@500..501 " "
+        Eq@501..502 "="
+        Whitespace@502..503 " "
+        BinExpr@503..563
+          BinExpr@503..534
+            NameofExpr@503..523
+              NameofKw@503..509 "nameof"
+              LParen@509..510 "("
+              MemberExpr@510..522
+                PathExpr@510..517
+                  Path@510..517
+                    PathSegment@510..517
+                      NameRef@510..517
+                        Ident@510..517 "Counter"
+                Dot@517..518 "."
+                NameRef@518..522
+                  Ident@518..522 "Step"
+              RParen@522..523 ")"
+            Whitespace@523..524 " "
+            Plus@524..525 "+"
+            Whitespace@525..526 " "
+            CallExpr@526..534
+              PathExpr@526..532
+                Path@526..532
+                  PathSegment@526..532
+                    NameRef@526..530
+                      Ident@526..530 "Make"
+                    GenericArgList@530..532
+                      Lt@530..531 "<"
+                      Gt@531..532 ">"
+              ArgList@532..534
+                LParen@532..533 "("
+                RParen@533..534 ")"
+          Whitespace@534..535 " "
+          Plus@535..536 "+"
+          Whitespace@536..537 " "
+          MemberExpr@537..563
+            PathExpr@537..555
+              Path@537..555
+                PathSegment@537..555
+                  NameRef@537..541
+                    Ident@537..541 "Pair"
+                  GenericArgList@541..555
+                    Lt@541..542 "<"
+                    PredefinedType@542..545
+                      IntKw@542..545 "int"
+                    Comma@545..546 ","
+                    Whitespace@546..547 " "
+                    PredefinedType@547..553
+                      StringKw@547..553 "string"
+                    Comma@553..554 ","
+                    Gt@554..555 ">"
+            Dot@555..556 "."
+            NameRef@556..563
+              Ident@556..563 "Default"
+    Semicolon@563..564 ";"
+  Newline@564..565 "\n"

@@ -162,6 +162,13 @@ fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
                 m.abandon(p);
                 return Some(interp_string(p));
             }
+            K::Ident if p.at_contextual("nameof") && p.nth(1) == K::LParen => {
+                p.bump_remap(K::NameofKw);
+                p.bump(K::LParen);
+                expr(p);
+                p.expect(K::RParen);
+                m.complete(p, K::NameofExpr)
+            }
             K::Ident => {
                 types::path(p, false);
                 m.complete(p, K::PathExpr)
