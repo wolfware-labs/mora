@@ -1525,7 +1525,7 @@ flowchart LR
 | Crate | Responsibility | Main dependencies |
 |---|---|---|
 | `mora-span` | File ids, spans, line index, interning, the database trait | `salsa` |
-| `mora-diag` | One diagnostic type for every crate, the error code registry and its explanations (`docs/errors/MRnnnn.md`), terminal rendering | `ariadne` |
+| `mora-diag` | One diagnostic type for every crate, the error code registry and its explanations (`docs/errors/MRnnnn.md`), terminal and JSON rendering | `annotate-snippets`, `serde`, `serde_json` |
 | `mora-syntax` | Lexer, parser, lossless syntax tree, typed AST views | `logos`, `rowan` |
 | `mora-hir` | Item tree, name resolution, types, inference, HIR bodies; defines the macro-runner interface | `salsa`, `la-arena` |
 | `mora-macro` | Compiles macros with the JIT, runs them in the sandbox, builds the `Std.Meta` model, parses `code` output, caches expansions | `cranelift-jit` through `mora-codegen` |
@@ -1546,9 +1546,9 @@ flowchart LR
 
 `std/` holds the standard library's Mora source. The toolchain embeds it and compiles it with the program (§14.15). `xtask` holds repository tooling: the crate layering check (`cargo xtask layers`, as in the predecessor project), the spec-example extractor and the error-code registry check.
 
-**Layers.** A crate may depend only on crates in lower layers: (1) `mora-span`, `mora-diag`, `mora-target`; (2) `mora-syntax`; (3) `mora-hir`; (4) `mora-check`, `mora-mir`; (5) `mora-codegen`, `mora-fmt`; (6) `mora-macro`, `mora-link`, `mora-pkg`, `mora-driver`; (7) `mora-lsp`, `mora-repl`; (8) `mora-cli`, `mora-testkit`. The runtime crates sit below all of them: `mora-rt-core` depends on no other workspace crate, and `mora-rt` only on `mora-rt-core`. Any crate may take `mora-testkit` as a dev-dependency. `xtask` is outside the layers, and nothing may depend on it.
+**Layers.** A crate may depend only on crates in lower layers: (1) `mora-span`, `mora-target`; (2) `mora-diag`, since every diagnostic points at a span; (3) `mora-syntax`; (4) `mora-hir`; (5) `mora-check`, `mora-mir`; (6) `mora-codegen`, `mora-fmt`; (7) `mora-macro`, `mora-link`, `mora-pkg`, `mora-driver`; (8) `mora-lsp`, `mora-repl`; (9) `mora-cli`, `mora-testkit`. The runtime crates sit below all of them: `mora-rt-core` depends on no other workspace crate, and `mora-rt` only on `mora-rt-core`. Any crate may take `mora-testkit` as a dev-dependency. `xtask` is outside the layers, and nothing may depend on it.
 
-Crate versions are pinned in the workspace `Cargo.toml`. At the time of writing they are `salsa` 0.28, `rowan` 0.18 (an alpha release, so the parser keeps its use behind `mora-syntax`'s own API), `logos` 0.16, Cranelift 0.137, `lsp-server` 0.10, `mio` 1.2 and `ariadne` 0.6 [verify each API before use].
+Crate versions are pinned in the workspace `Cargo.toml`. At the time of writing they are `salsa` 0.28, `rowan` 0.18 (an alpha release, so the parser keeps its use behind `mora-syntax`'s own API), `logos` 0.16, Cranelift 0.137, `lsp-server` 0.10, `mio` 1.2 and `annotate-snippets` 0.12 [verify each API before use].
 
 ### 14.3 The analysis database
 
@@ -1901,7 +1901,7 @@ Rendering in the terminal:
 
 ```text
 error[MR0310]: cannot store `conn` because `Connection` is unique
-  --> src/Pool.mr:14:20
+  --> src/Pool.mr:14:19
    |
 12 |     public void Return(Connection conn)
    |                        --------------- `conn` is only borrowed for this call
@@ -1914,6 +1914,16 @@ help: take ownership of the parameter
 12 |     public void Return(move Connection conn)
    |                        ++++
 ```
+
+The severity is `error` or `warning`. Secondary labels in other files follow the primary file under a `:::` line, the note prints as `= note:`, and each fix prints as a `help:` section showing its edits. Line and column numbers start at 1, and columns count characters, not bytes. The renderer clamps a span that runs past the end of its file or splits a character, so a wrong span from a compiler pass still produces a readable report.
+
+With `--message-format json` each diagnostic is one JSON object on one line. For the example above, in a file whose first eleven lines are not shown:
+
+```json
+{"code":"MR0310","severity":"error","message":"cannot store `conn` because `Connection` is unique","primary":{"span":{"file":"src/Pool.mr","byte_start":215,"byte_end":219,"line_start":14,"column_start":19,"line_end":14,"column_end":23},"label":"storing it would leave the caller with a connection it no longer owns"},"secondary":[{"span":{"file":"src/Pool.mr","byte_start":174,"byte_end":189,"line_start":12,"column_start":24,"line_end":12,"column_end":39},"label":"`conn` is only borrowed for this call"}],"note":null,"fixes":[{"message":"take ownership of the parameter","edits":[{"span":{"file":"src/Pool.mr","byte_start":174,"byte_end":174,"line_start":12,"column_start":24,"line_end":12,"column_end":24},"replacement":"move "}]}]}
+```
+
+Every span carries byte offsets, for tools that edit text, and the same lines and columns the terminal shows. A label without text is `null`.
 
 ### 17.7 Formatter
 
