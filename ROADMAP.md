@@ -146,7 +146,7 @@ Done when:
 
 Spec: [§13.1](docs/design/mora.md#131-the-runtime-library), [§13.2](docs/design/mora.md#132-two-builds-of-the-runtime), [§19.1](docs/design/mora.md#191-targets), [§19.4](docs/design/mora.md#194-portability). Crates: `mora-rt-core`, `mora-rt`. Blocked by: M0.3.
 
-`mora-rt-core` as a `#![no_std]` crate that reaches the platform only through the `mora_pal_*` functions of §19.4, and `mora-rt` as the hosted layer implementing them with the Rust standard library. CI builds `mora-rt-core` for `thumbv7em-none-eabihf`. Both are built as static libraries in release and debug variants for `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-gnullvm` and `aarch64-pc-windows-gnullvm`. Exposes a stub entry point that calls an extern `__mora_main` and returns its exit code. CI builds every variant.
+`mora-rt-core` as a `#![no_std]` crate that reaches the platform only through the `mora_pal_*` functions of §19.4, and `mora-rt` as the hosted layer implementing them with the Rust standard library. CI builds `mora-rt-core` for `thumbv7em-none-eabihf`. `mora-rt` is built as a static library that bundles `mora-rt-core`, in release and debug variants, for `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-gnullvm` and `aarch64-pc-windows-gnullvm`. Exposes a stub entry point that calls an extern `__mora_main` and returns its exit code. CI builds every variant.
 
 Done when:
 

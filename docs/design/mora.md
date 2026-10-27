@@ -580,7 +580,10 @@ Checked conversions that can fail return options: `int.TryFrom(x)` gives `int?`.
 ```ebnf
 TypeDecl  = StructDecl | ClassDecl | RecordDecl | UnionDecl | EnumDecl | InterfaceDecl ;
 Modifier  = "public" | "internal" | "private" | "file" | "static" | "mut" | "readonly"
-          | "unique" | "shared" | "ref" | "required" | "async" | "lazy" | "const" | "indirect" ;
+          | "unique" | "shared" | "ref" | "required" | "async" | "lazy" | "const" | "indirect"
+          | "extern" ;
+FunctionDecl = Attribute* Modifier* Type Identifier TypeParams? "(" Params? ")" Constraints*
+               ( Block | "=>" Expr ";" | ";" ) ;   (* ";" only with "extern", §13.9 *)
 TypeParams = "<" TypeParam ( "," TypeParam )* ">" ;   (* §8 *)
 BaseList   = ":" Type ( "," Type )* ;                 (* interfaces only in the MVP *)
 ```
@@ -1393,7 +1396,7 @@ The MVP specifies the rules so that the language does not change when threads ar
 
 ### 13.1 The runtime library
 
-The runtime is two Rust crates, built as static libraries for every supported target and shipped inside the toolchain archive (§19.2). Every Mora executable links both (D-50):
+The runtime is two Rust crates (D-50). `mora-rt-core` is linked into every Mora executable; on Linux, macOS and Windows it arrives inside `libmora_rt.a`, the static library built from `mora-rt`, which bundles its dependencies as Rust static libraries do. A bare-metal target links `libmora_rt_core.a` and its own platform layer instead. Both libraries ship in the toolchain archive (§19.2):
 
 - **`mora-rt-core`** is `#![no_std]` and needs no operating system: reference counting and the release work list, weak references, panic formatting, number formatting and parsing, UTF-8, hashing and the executor's task queue. It reaches the platform only through the platform interface of §19.4.
 - **`mora-rt`** is the hosted platform layer for Linux, macOS and Windows. It implements the platform interface with the Rust standard library and adds the hosted services: process startup, files, sockets, the `mio` reactor, backtraces and HTTP parsing.
@@ -1472,7 +1475,7 @@ The runtime's entry point (`main`, called by the C runtime start files) installs
 extern int GetPid();
 ```
 
-In the MVP, an `extern` function's parameter and return types MUST be plain types, `nint`, or `ReadOnlySpan<byte>` / `Span<byte>` (passed as pointer plus `nint` length) (`MR0450`). The import is resolved at link time against the named library. Calling an imported function is the only way a Mora program can break the guarantees of §10.14, and post-MVP packages that use `[Import]` require the `ffi` capability (§18.6). `[Export]` makes a Mora function callable from C under a fixed name.
+An `extern` function has `;` instead of a body and MUST carry `[Import]` (`MR0451`). In the MVP, an `extern` function's parameter and return types MUST be plain types, `nint`, or `ReadOnlySpan<byte>` / `Span<byte>` (passed as pointer plus `nint` length) (`MR0450`). The import is resolved at link time against the named library. Calling an imported function is the only way a Mora program can break the guarantees of §10.14, and post-MVP packages that use `[Import]` require the `ffi` capability (§18.6). `[Export]` makes a Mora function callable from C under a fixed name.
 
 ### 13.10 Stacks
 
@@ -2006,7 +2009,8 @@ Tier 1 targets block a release when any CI job fails. Tier 2 targets ship but a 
 mora-<version>-<host>/
   bin/mora[.exe]
   lib/std/                      # standard library source
-  lib/rt/<target>/libmora_rt.a  # and libmora_rt_debug.a, per installed target
+  lib/rt/<target>/libmora_rt.a  # hosted layer with mora-rt-core bundled; and libmora_rt_debug.a
+  lib/rt/<target>/libmora_rt_core.a  # mora-rt-core alone, for bare-metal platform layers (post-MVP)
   lib/sysroot/<target>/         # musl or MinGW start files and libraries
   lib/ld/ld.lld, lld-link       # not on macOS hosts
   LICENSES/                     # Mora, LLVM (lld), musl, mingw-w64
