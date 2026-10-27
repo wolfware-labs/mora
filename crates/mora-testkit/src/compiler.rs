@@ -21,9 +21,11 @@ pub trait Compiler: Sync {
 /// The diagnostics of one compilation and the files they point into.
 #[derive(Debug)]
 pub struct Checked {
+    /// Every file the diagnostics point into.
     pub files: Files,
     /// The file compiled; its diagnostics are matched against annotations.
     pub file: FileId,
+    /// What the compiler reported, in the order it reported it.
     pub diagnostics: Vec<Diagnostic>,
 }
 

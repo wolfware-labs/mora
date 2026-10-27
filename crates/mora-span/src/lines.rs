@@ -41,6 +41,7 @@ pub struct LineIndex {
     line_starts: Vec<TextSize>,
     /// The multi-byte characters of each line, in order.
     wide_chars: Vec<Vec<WideChar>>,
+    /// Length of the text in bytes.
     len: TextSize,
 }
 

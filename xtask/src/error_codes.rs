@@ -23,6 +23,7 @@ pub const PAGES: &str = "docs/errors";
 /// A code at a place in the repository.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Use {
+    /// The code used.
     pub code: Code,
     /// `path:line`, relative to the repository root.
     pub at: String,
@@ -31,9 +32,11 @@ pub struct Use {
 /// The parts of the repository the check reads.
 #[derive(Debug, Default)]
 pub struct Repo {
+    /// The text of `docs/design/mora.md`.
     pub spec: String,
     /// File name and text of every file in `docs/errors/`.
     pub pages: Vec<(String, String)>,
+    /// Every code that crate sources, UI tests and executable examples use.
     pub uses: Vec<Use>,
     /// Lines in crate sources that name a code in a way the check cannot
     /// follow, with the reason.
@@ -66,39 +69,22 @@ pub enum Problem {
         spec: Vec<String>,
         registry: Vec<String>,
     },
-    Unsorted {
-        code: Code,
-    },
-    OutOfRange {
-        code: Code,
-        at: String,
-    },
+    /// A registered code that does not come after the one before it.
+    Unsorted { code: Code },
+    /// A registered code outside every range.
+    OutOfRange { code: Code, at: String },
     /// A code the spec or a use names, missing from the registry.
-    Unregistered {
-        code: Code,
-        at: String,
-    },
+    Unregistered { code: Code, at: String },
     /// A registered code the spec never mentions.
-    NotInSpec {
-        code: Code,
-    },
-    MissingPage {
-        code: Code,
-        at: String,
-    },
+    NotInSpec { code: Code },
+    /// A used code without a page in `docs/errors/`.
+    MissingPage { code: Code, at: String },
     /// A file in `docs/errors/` that is not a page for a registered code.
-    StrayPage {
-        file: String,
-    },
-    BadPage {
-        file: String,
-        reason: String,
-    },
+    StrayPage { file: String },
+    /// A page whose title, sections or examples do not follow the template.
+    BadPage { file: String, reason: String },
     /// A crate names a code in a way that hides the use.
-    Bypass {
-        at: String,
-        reason: &'static str,
-    },
+    Bypass { at: String, reason: &'static str },
 }
 
 impl fmt::Display for Problem {

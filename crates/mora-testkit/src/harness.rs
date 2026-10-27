@@ -62,6 +62,7 @@ const TAKES_VALUE: &[&str] = &[
 /// The outcome of a suite: how many cases passed and why the others failed.
 #[derive(Debug, Default)]
 pub struct Report {
+    /// How many cases passed.
     pub passed: usize,
     /// The path of each failed case and what went wrong, in path order.
     pub failures: Vec<(String, String)>,

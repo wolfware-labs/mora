@@ -10,9 +10,11 @@ use crate::diff::diff;
 /// A diagnostic a line expects.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Annotation {
-    /// One-based.
+    /// The line the annotation is on, one-based.
     pub line: usize,
+    /// `ERROR` or `WARNING`.
     pub severity: Severity,
+    /// The code the diagnostic must have.
     pub code: Code,
 }
 
