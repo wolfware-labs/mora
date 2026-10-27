@@ -3,8 +3,9 @@
 //! Only `mora-target`, `mora-link` and the backend may branch on a target.
 //! Elsewhere, a string literal that equals the name, triple, `os` or `arch`
 //! of a built-in target is a violation, unless the file is in [`ALLOW`].
-//! Comment lines and Rust `cfg` lines are skipped: those describe the host
-//! the code is built for, not a Mora target.
+//! Comment lines, block comments that start a line, and Rust `cfg`,
+//! `cfg!` and `cfg_attr` lines are skipped: comments are not code, and `cfg`
+//! describes the host the code is built for, not a Mora target.
 
 use std::fmt;
 use std::io;
@@ -56,8 +57,22 @@ pub fn words() -> Vec<String> {
 /// The 1-based line numbers and words of the target names quoted in `text`.
 pub fn scan(text: &str, words: &[String]) -> Vec<(usize, String)> {
     let mut hits = Vec::new();
+    let mut in_block_comment = false;
     for (i, line) in text.lines().enumerate() {
-        if line.trim_start().starts_with("//") || line.contains("cfg(") || line.contains("cfg!(") {
+        let trimmed = line.trim_start();
+        if in_block_comment {
+            in_block_comment = !line.contains("*/");
+            continue;
+        }
+        if trimmed.starts_with("/*") {
+            in_block_comment = !line.contains("*/");
+            continue;
+        }
+        if trimmed.starts_with("//")
+            || ["cfg(", "cfg!(", "cfg_attr("]
+                .iter()
+                .any(|cfg| line.contains(cfg))
+        {
             continue;
         }
         for word in words {
@@ -139,16 +154,22 @@ mod tests {
     }
 
     #[test]
-    fn comments_cfg_and_partial_words_are_not_hits() {
+    fn comments_cfg_and_partial_words_are_not_hits_but_later_lines_are() {
         let text = concat!(
             "// builds for \"x86_64-linux\"\n",
             "    /// on \"macos\"\n",
             "#[cfg(target_os = \"linux\")]\n",
             "if cfg!(target_os = \"windows\") {}\n",
+            "#[cfg_attr(target_os = \"linux\", allow(dead_code))]\n",
+            "/* one line \"linux\" */\n",
+            "/*\n",
+            " * on \"aarch64-macos\"\n",
+            " */\n",
             "let s = \"linux-ish\";\n",
             "let t = \"my-linux\";\n",
+            "let u = \"riscv64\";\n",
         );
-        assert_eq!(scan(text, &words()), []);
+        assert_eq!(scan(text, &words()), [(12, "riscv64".to_owned())]);
     }
 
     #[test]
