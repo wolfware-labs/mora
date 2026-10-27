@@ -89,9 +89,10 @@ pub extern "C" fn mora_pal_now() -> u64 {
     u64::try_from(elapsed.as_nanos()).unwrap_or(FOREVER - 1)
 }
 
-/// Sleeps until the timeout passes. The reactor that wakes it on I/O
-/// arrives with the executor (M6); until then there is nothing else to wait
-/// for.
+/// Sleeps until the timeout passes, or parks the thread when there is none;
+/// a park may end early, which the contract allows. The reactor that wakes
+/// it on I/O arrives with the executor (M6); until then there is nothing
+/// else to wait for.
 #[unsafe(no_mangle)]
 pub extern "C" fn mora_pal_wait(timeout_ns: u64) {
     if timeout_ns == FOREVER {

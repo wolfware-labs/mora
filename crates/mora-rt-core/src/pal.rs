@@ -98,7 +98,8 @@ pub fn now() -> Option<u64> {
 }
 
 /// The executor's idle hook: blocks until an event the platform watches
-/// arrives or `timeout_ns` passes, without a timeout when it is `None`.
+/// arrives or `timeout_ns` passes, without a timeout when it is `None`. It
+/// may return early, so the caller checks its queues again after each call.
 pub fn wait(timeout_ns: Option<u64>) {
     // SAFETY: the platform's wait has no preconditions.
     unsafe { mora_pal_wait(timeout_ns.unwrap_or(FOREVER)) }
