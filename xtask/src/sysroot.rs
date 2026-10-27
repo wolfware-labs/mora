@@ -664,6 +664,18 @@ mod tests {
     }
 
     #[test]
+    fn the_license_readme_lists_every_text() {
+        let licenses = Path::new(env!("CARGO_MANIFEST_DIR")).join("../LICENSES");
+        let readme = fs::read_to_string(licenses.join("README.md")).unwrap();
+        for entry in fs::read_dir(&licenses).unwrap() {
+            let name = entry.unwrap().file_name().into_string().unwrap();
+            if name.ends_with(".txt") {
+                assert!(readme.contains(&format!("| `{name}` |")), "{name}");
+            }
+        }
+    }
+
+    #[test]
     fn the_licenses_cover_every_component() {
         let licenses = Path::new(env!("CARGO_MANIFEST_DIR")).join("../LICENSES");
         for file in [
@@ -671,6 +683,7 @@ mod tests {
             "musl.txt",
             "mingw-w64-runtime.txt",
             "winpthreads.txt",
+            "winstorecompat.txt",
         ] {
             assert!(licenses.join(file).is_file(), "{file}");
         }
