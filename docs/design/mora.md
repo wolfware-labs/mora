@@ -1545,7 +1545,7 @@ flowchart LR
 
 `std/` holds the standard library's Mora source. The toolchain embeds it and compiles it with the program (§14.15). `xtask` holds repository tooling: the crate layering check (`cargo xtask layers`, as in the predecessor project), the spec-example extractor and the error-code registry check.
 
-**Layers.** A crate may depend only on crates in lower layers: (1) `mora-span`, `mora-diag`, `mora-target`; (2) `mora-syntax`; (3) `mora-hir`; (4) `mora-check`, `mora-mir`; (5) `mora-codegen`, `mora-fmt`; (6) `mora-macro`, `mora-link`, `mora-pkg`, `mora-driver`; (7) `mora-lsp`, `mora-repl`; (8) `mora-cli`. `mora-rt-core` depends on no other workspace crate, and `mora-rt` only on `mora-rt-core`.
+**Layers.** A crate may depend only on crates in lower layers: (1) `mora-span`, `mora-diag`, `mora-target`; (2) `mora-syntax`; (3) `mora-hir`; (4) `mora-check`, `mora-mir`; (5) `mora-codegen`, `mora-fmt`; (6) `mora-macro`, `mora-link`, `mora-pkg`, `mora-driver`; (7) `mora-lsp`, `mora-repl`; (8) `mora-cli`, `mora-testkit`. The runtime crates sit below all of them: `mora-rt-core` depends on no other workspace crate, and `mora-rt` only on `mora-rt-core`. Any crate may take `mora-testkit` as a dev-dependency. `xtask` is outside the layers, and nothing may depend on it.
 
 Crate versions are pinned in the workspace `Cargo.toml`. At the time of writing they are `salsa` 0.28, `rowan` 0.18 (an alpha release, so the parser keeps its use behind `mora-syntax`'s own API), `logos` 0.16, Cranelift 0.137, `lsp-server` 0.10, `mio` 1.2 and `ariadne` 0.6 [verify each API before use].
 
