@@ -74,7 +74,7 @@ Done when:
 
 - A pull request shows one required check per job and they pass.
 - A change to `README.md` alone completes without building; a change to `docs/design/mora.md` alone is not skipped.
-- The org `required checks` ruleset lists the new jobs.
+- A repository ruleset on `main` requires the `ci-ok` job, which passes only when every other job passed or was skipped by the change filter.
 
 ### M0.4 Crate layering check
 
@@ -119,6 +119,7 @@ Done when:
 
 - The check fails on a fixture with an unregistered code.
 - `docs/errors/README.md` explains how to add a code.
+- The `linux` job in `ci.yml` runs `cargo xtask error-codes`, so it also runs for changes to `docs/errors/` (§20.5).
 
 ### M0.8 UI and run test harnesses
 
@@ -140,7 +141,7 @@ Spec: [§1.6](docs/design/mora.md#16-how-to-read-this-document), [§20.4](docs/d
 Done when:
 
 - Every example in the spec is either run or listed as pending with a deliverable ID.
-- CI runs the check.
+- The `linux` job in `ci.yml` runs `cargo xtask spec-examples`, so it also runs for changes that touch only `docs/design/mora.md`, `docs/errors/` or `docs/guide/` (§20.5).
 
 ### M0.10 Runtime skeleton: portable core and hosted layer
 
