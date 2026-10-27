@@ -1823,10 +1823,10 @@ public union HttpError : IError
 | `mora explain MR0310` | Prints the long explanation of an error code, with examples of the error and its fix |
 | `mora lsp` | Runs the language server on stdin and stdout |
 | `mora demangle <symbol>` | Reverses §13.7 mangling |
-| `mora version` | Toolchain version, commit, runtime targets installed |
+| `mora version` | Toolchain version, commit, runtime targets installed: three lines (`mora 0.1.0`, `commit: <hash>`, `runtime targets: x86_64-linux, ...` or `none`), or with `--message-format json` one object with `version`, `commit` and `runtime_targets`. The targets are the directories of `lib/rt/` (§19.2) that hold `libmora_rt.a`. `mora --version` prints the first line only |
 | `mora fetch`, `mora publish`, `mora caps` | Post-MVP (§18) |
 
-Exit codes: 0 success, 1 build or test failure, 2 usage error, 101 internal compiler error. Every command takes `--color auto|always|never` and `--message-format human|json`; the JSON format emits one diagnostic object per line, with the fields of §17.6, for CI tools.
+Exit codes: 0 success, 1 build or test failure, 2 usage error, 101 internal compiler error. Every command takes `--color auto|always|never` and `--message-format human|json`; the JSON format emits one diagnostic object per line, with the fields of §17.6, for CI tools. `auto` colors when the output is a terminal and `NO_COLOR` is not set. The post-MVP commands are unknown commands until they land, so they exit with 2. While the toolchain is being built, a command that does not work yet prints ``error: `mora <command>` is not implemented yet`` and exits with 2.
 
 ### 17.2 Manifest
 
