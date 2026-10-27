@@ -1,0 +1,129 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main, "ci/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  RUSTDOCFLAGS: -D warnings
+
+jobs:
+  # Decides whether the change needs a build. A change that touches only
+  # Markdown skips it, except for the documents that hold executable
+  # examples (spec §20.5). Jobs skipped through `if:` report success.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: filter
+        shell: bash
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # No usable base (manual run, new branch): build.
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # A file, not a pipe: with pipefail, `grep -q` closing a pipe early
+          # would fail `git diff` and skip a real change.
+          git diff --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed-files"
+          executable_docs='^(docs/design/mora\.md|docs/errors/|docs/guide/)'
+          if grep -qvE '\.md$' "$RUNNER_TEMP/changed-files" \
+            || grep -qE "$executable_docs" "$RUNNER_TEMP/changed-files"; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Every check, on x86_64 Linux. Steps after the first run with
+  # `!cancelled()`, so one run reports every failing check.
+  linux:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        with:
+          tool: cargo-deny
+      - name: rustfmt
+        run: cargo fmt --all --check
+      - name: clippy
+        if: ${{ !cancelled() }}
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: test
+        if: ${{ !cancelled() }}
+        run: cargo test --workspace --locked
+      - name: doc
+        if: ${{ !cancelled() }}
+        run: cargo doc --workspace --no-deps --locked
+      - name: cargo deny
+        if: ${{ !cancelled() }}
+        run: cargo deny check
+
+  # Lints and tests on the other Tier 1 and Tier 2 hosts (spec §19.1).
+  platforms:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04-arm, macos-latest, windows-2025, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: test
+        if: ${{ !cancelled() }}
+        run: cargo test --workspace --locked
+
+  # One stable check name for rulesets: passes when every job above passed
+  # or was skipped by the change filter.
+  ci-ok:
+    needs: [changes, linux, platforms]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+          done

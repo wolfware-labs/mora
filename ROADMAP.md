@@ -74,7 +74,7 @@ Done when:
 
 - A pull request shows one required check per job and they pass.
 - A change to `README.md` alone completes without building; a change to `docs/design/mora.md` alone is not skipped.
-- The org `required checks` ruleset lists the new jobs.
+- A repository ruleset on `main` requires the `ci-ok` job, which passes only when every other job passed or was skipped by the change filter.
 
 ### M0.4 Crate layering check
 
