@@ -385,7 +385,7 @@ Done when:
 
 Spec: [§14.15](docs/design/mora.md#1415-standard-library-compilation), [§17.1](docs/design/mora.md#171-commands), [§17.2](docs/design/mora.md#172-manifest), [§17.3](docs/design/mora.md#173-project-layout), [§17.4](docs/design/mora.md#174-profiles). Crates: `mora-driver`, `mora-pkg`, `mora-cli`. Blocked by: M1.14, M1.15.
 
-Reading `mora.toml` (the `[project]` keys and profiles; unknown keys are `MR0500`), discovering `src/**/*.mr`, the dev and release profiles of §17.4, the `target/` layout, the on-disk cache of the standard library's checked MIR, and `mora build`, `mora run` and `mora check`.
+Reading `mora.toml` (the `[project]` keys and profiles; unknown keys are `MR0500`), discovering `src/**/*.mr` and rejecting files of 4 GiB or more with `MR0003` (§3.1), the dev and release profiles of §17.4, the `target/` layout, the on-disk cache of the standard library's checked MIR, and `mora build`, `mora run` and `mora check`.
 
 Done when:
 

@@ -1,6 +1,13 @@
+use std::sync::Arc;
+
 use rustc_hash::FxHashMap;
 
-/// An interned string: comparing two symbols compares their text.
+/// An interned string.
+///
+/// Two symbols from the same [`Interner`] are equal exactly when their text
+/// is equal. Ordering follows the order in which strings were first
+/// interned, not their text, and symbols from different interners must not
+/// be compared.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Symbol(u32);
 
@@ -10,8 +17,9 @@ pub struct Symbol(u32);
 /// interner per session.
 #[derive(Default, Debug)]
 pub struct Interner {
-    ids: FxHashMap<Box<str>, Symbol>,
-    strings: Vec<Box<str>>,
+    ids: FxHashMap<Arc<str>, Symbol>,
+    /// The same allocations as the map keys, indexed by symbol.
+    strings: Vec<Arc<str>>,
 }
 
 impl Interner {
@@ -32,8 +40,9 @@ impl Interner {
             panic!("interner is full: more than {} distinct strings", u32::MAX);
         };
         let symbol = Symbol(raw);
-        self.strings.push(text.into());
-        self.ids.insert(text.into(), symbol);
+        let text: Arc<str> = Arc::from(text);
+        self.strings.push(Arc::clone(&text));
+        self.ids.insert(text, symbol);
         symbol
     }
 
@@ -81,5 +90,13 @@ mod tests {
         assert_eq!(interner.resolve(s), "𝄞 clef");
         assert_eq!(interner.get("𝄞 clef"), Some(s));
         assert_eq!(interner.get("missing"), None);
+    }
+
+    #[test]
+    fn map_key_and_storage_share_one_allocation() {
+        let mut interner = Interner::new();
+        let s = interner.intern("shared");
+        let (key, _) = interner.ids.get_key_value("shared").unwrap();
+        assert!(Arc::ptr_eq(key, &interner.strings[s.0 as usize]));
     }
 }

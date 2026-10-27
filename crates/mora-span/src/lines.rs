@@ -45,7 +45,19 @@ pub struct LineIndex {
 }
 
 impl LineIndex {
+    /// Largest text a line index accepts: offsets are 32-bit (§3.1).
+    pub const MAX_LEN: usize = u32::MAX as usize;
+
+    /// # Panics
+    ///
+    /// Panics if `text` is longer than [`Self::MAX_LEN`] bytes. The driver
+    /// rejects such files with `MR0003` before indexing them.
     pub fn new(text: &str) -> Self {
+        assert!(
+            text.len() <= Self::MAX_LEN,
+            "source text of {} bytes exceeds the 4 GiB limit",
+            text.len()
+        );
         let mut line_starts = vec![TextSize::new(0)];
         let mut wide_chars = vec![Vec::new()];
         let mut line_start = 0usize;
@@ -178,8 +190,9 @@ impl LineIndex {
     }
 }
 
+/// Converts an offset or length within an indexed text. `LineIndex::new`
+/// has checked that the text fits in 32 bits, so this never saturates.
 fn to_u32(n: usize) -> u32 {
-    // Source files are limited to 4 GiB by the use of `u32` offsets (TextSize).
     u32::try_from(n).unwrap_or(u32::MAX)
 }
 
