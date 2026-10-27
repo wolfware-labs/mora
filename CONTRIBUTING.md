@@ -26,7 +26,7 @@ These are the checks CI runs on every pull request (§20.5 of the spec). They ar
 | Lints | `cargo clippy --workspace --all-targets --locked -- -D warnings` |
 | Tests | `cargo test --workspace --locked` |
 | Docs | `cargo doc --workspace --no-deps --locked` with `RUSTDOCFLAGS=-D warnings` |
-| Crate layers | `cargo xtask layers` |
+| Crate layers and target names (§14.2, §19.4) | `cargo xtask layers` |
 | Dependency policy | `cargo deny check` |
 | Spec and error-page examples | `cargo xtask spec-examples` |
 | Error-code registry | `cargo xtask error-codes` |

@@ -1,0 +1,25 @@
+# A 32-bit description for the layout tests of §19.4 rule 5, modeled on
+# thumbv7em. Cranelift cannot generate code for it; only layouts use it.
+name = "test32"
+triple = "thumbv7em-none-eabihf"
+os = "none"
+arch = "thumbv7em"
+pointer-width = 32
+endian = "little"
+object-format = "elf"
+call-conv = "aapcs"
+backend = "cranelift"
+runtime = "core"
+capabilities = ["heap"]
+
+[align]
+i16 = 2
+i32 = 4
+i64 = 8
+f32 = 4
+f64 = 8
+pointer = 4
+
+[linker]
+flavor = "ld.lld"
+args = []
