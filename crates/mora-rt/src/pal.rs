@@ -40,11 +40,16 @@ pub unsafe extern "C" fn mora_pal_realloc(
     align: usize,
     new_size: usize,
 ) -> *mut u8 {
-    match Layout::from_size_align(old_size, align) {
+    // `realloc` needs the new size to form a valid layout with the same
+    // alignment; a size too large for one is out of memory.
+    match (
+        Layout::from_size_align(old_size, align),
+        Layout::from_size_align(new_size, align),
+    ) {
         // SAFETY: the caller guarantees the allocation's layout and a
-        // non-zero new size; `realloc` checks the new size against `isize`.
-        Ok(layout) => unsafe { alloc::realloc(ptr, layout, new_size) },
-        Err(_) => ptr::null_mut(),
+        // non-zero new size, and the new layout is valid.
+        (Ok(layout), Ok(_)) => unsafe { alloc::realloc(ptr, layout, new_size) },
+        _ => ptr::null_mut(),
     }
 }
 
@@ -111,6 +116,17 @@ mod tests {
             let block = pal::realloc(block, 16, 8, 64).unwrap();
             assert_eq!(*block.as_ptr().add(15), 7);
             pal::free(block, 64, 8);
+        }
+    }
+
+    #[test]
+    fn an_oversized_realloc_fails_and_keeps_the_block() {
+        // SAFETY: the block is allocated, kept on failure and freed with the
+        // layout it was allocated with.
+        unsafe {
+            let block = pal::alloc(16, 8).unwrap();
+            assert!(pal::realloc(block, 16, 8, usize::MAX - 4).is_none());
+            pal::free(block, 16, 8);
         }
     }
 

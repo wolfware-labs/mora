@@ -1420,7 +1420,7 @@ The standard library is written in Mora (§15) and calls the runtime through `ex
 
 ### 13.2 Two builds of the runtime
 
-The toolchain ships `libmora_rt.a` (release) and `libmora_rt_debug.a` (debug: poisoning, leak tracking, refcount underflow traps, extra assertions) per target. Both are optimized builds; the debug runtime is the same crates with their `debug` feature on. `cargo xtask runtime [--test] [target...]` builds both into `target/runtime/<target>/`, and with `--test` links a C program against each and checks that the process exits with the code its `__mora_main` returns; CI runs it for every hosted target of §19.1. `mora build` links the debug runtime and `mora build --release` the release runtime, unless the profile overrides it (§17.2).
+The toolchain ships `libmora_rt.a` (release) and `libmora_rt_debug.a` (debug: poisoning, leak tracking, refcount underflow traps, extra assertions) per target. Both are optimized builds; the debug runtime is the same crates with their `debug` feature on. `cargo xtask runtime [--test] [target...]` builds both into `target/runtime/<target>/`, and with `--test` links a C program against each and checks that the process exits with the code its `__mora_main` returns. CI builds both for every hosted target of §19.1 and runs the test on each runner that can execute its target, which leaves `x86_64-macos` built but not run, since the macOS runner is arm64. `mora build` links the debug runtime and `mora build --release` the release runtime, unless the profile overrides it (§17.2).
 
 ### 13.3 Shared objects
 

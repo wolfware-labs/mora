@@ -73,15 +73,12 @@ fn rustc() -> OsString {
 pub fn build(root: &Path, target: &str, variant: Variant) -> Result<Built, String> {
     let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let mut command = Command::new(cargo);
-    command.current_dir(root).args([
-        "rustc",
-        "-p",
-        "mora-rt",
-        "--release",
-        "--locked",
-        "--target",
-        target,
-    ]);
+    // Without color: CI forces it on, and the escape codes would end up in
+    // the linker arguments read from rustc's note.
+    command
+        .current_dir(root)
+        .args(["rustc", "-p", "mora-rt", "--release", "--locked"])
+        .args(["--color", "never", "--target", target]);
     if !variant.features.is_empty() {
         command.args(["--features", variant.features]);
     }
@@ -102,8 +99,8 @@ pub fn build(root: &Path, target: &str, variant: Variant) -> Result<Built, Strin
             variant.file
         )
     })?;
-    let target_dir =
-        env::var_os("CARGO_TARGET_DIR").map_or_else(|| root.join("target"), PathBuf::from);
+    // Cargo resolves a relative target directory against `root`, where it runs.
+    let target_dir = root.join(env::var_os("CARGO_TARGET_DIR").unwrap_or_else(|| "target".into()));
     let built = target_dir.join(target).join("release/libmora_rt.a");
     let dir = target_dir.join("runtime").join(target);
     let lib = dir.join(variant.file);
