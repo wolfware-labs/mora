@@ -476,7 +476,8 @@ impl<'a> Lexer<'a> {
         }
         if !c.is_ascii() {
             let len = c.len_utf8();
-            if c == '\u{FEFF}' {
+            // A byte order mark is accepted only at the start of the file (§3.1).
+            if c == '\u{FEFF}' && self.pos == 0 {
                 self.push(TokenKind::Whitespace, len);
             } else {
                 self.error(

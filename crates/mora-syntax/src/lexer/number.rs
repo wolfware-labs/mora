@@ -30,7 +30,7 @@ pub enum RealSuffix {
     D,
 }
 
-/// The value of an integer literal that [`check`] accepted. The literal
+/// The value of an integer literal that the lexer accepted. The literal
 /// fits in a `ulong`; whether it fits its type is decided by the checker.
 pub fn int_value(text: &str) -> Option<(u64, IntSuffix)> {
     let parts = split(text)?;
@@ -49,7 +49,7 @@ pub fn int_value(text: &str) -> Option<(u64, IntSuffix)> {
     Some((value, suffix))
 }
 
-/// The value of a real literal that [`check`] accepted.
+/// The value of a real literal that the lexer accepted.
 pub fn real_value(text: &str) -> Option<(f64, RealSuffix)> {
     let parts = split(text)?;
     if !parts.real {

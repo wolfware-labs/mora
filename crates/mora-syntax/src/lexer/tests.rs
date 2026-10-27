@@ -158,6 +158,7 @@ fn comments_and_trivia() {
         ]
     );
     assert_eq!(lex("\u{feff}").tokens[0].kind, K::Whitespace);
+    assert_eq!(errors("a\u{feff}b"), [(codes::MR0017, "\u{feff}")]);
     assert_eq!(lex("\r").tokens[0].kind, K::Whitespace);
     // Block comments do not nest (§3.2).
     assert_eq!(
@@ -241,6 +242,20 @@ fn strings() {
         [(K::String, r#""a""#), (K::Ident, "u8x")]
     );
     assert_eq!(errors("\"open\nx"), [(codes::MR0012, "\"open")]);
+    // A backslash before the line break does not carry the string onto the next line.
+    assert_eq!(
+        tokens("\"a\\\nb\""),
+        [
+            (K::String, "\"a\\"),
+            (K::Newline, "\n"),
+            (K::Ident, "b"),
+            (K::String, "\""),
+        ]
+    );
+    assert_eq!(
+        errors("'\\\n"),
+        [(codes::MR0013, "\\"), (codes::MR0012, "'\\")]
+    );
     assert_eq!(
         errors(r#""\x41 \z""#),
         [(codes::MR0011, r"\x41"), (codes::MR0013, r"\z")]

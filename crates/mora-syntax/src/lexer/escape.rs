@@ -22,6 +22,14 @@ pub(crate) fn escape(text: &str) -> Result<(char, usize), EscapeError> {
             message: "a backslash at the end of the file".into(),
         });
     };
+    if c == '\n' || c == '\r' {
+        // The line break is not part of the escape: the literal ends here.
+        return Err(EscapeError {
+            code: codes::MR0013,
+            len: 1,
+            message: "a backslash at the end of a line".into(),
+        });
+    }
     let simple = match c {
         '\'' => Some('\''),
         '"' => Some('"'),
@@ -151,5 +159,7 @@ mod tests {
         assert_eq!(code(r"\u{}"), Err((codes::MR0013, 4)));
         assert_eq!(code(r"\u{12"), Err((codes::MR0013, 5)));
         assert_eq!(code("\\é"), Err((codes::MR0013, 3)));
+        assert_eq!(code("\\\n"), Err((codes::MR0013, 1)));
+        assert_eq!(code("\\\r\n"), Err((codes::MR0013, 1)));
     }
 }
