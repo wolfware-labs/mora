@@ -107,14 +107,20 @@ fn commands_not_built_yet_say_so_and_exit_2() {
         &["lsp"],
         &["demangle", "_M3Foo"],
     ];
-    for args in calls {
-        let output = mora(args);
-        assert_eq!(output.status.code(), Some(2), "{args:?}");
-        assert_eq!(
-            stderr(&output),
-            format!("error: `mora {}` is not implemented yet\n", args[0]),
-            "{args:?}"
-        );
+    // The line is plain text in either message format (§17.1). The option
+    // goes first, because everything after `run --` belongs to the program.
+    for format in ["human", "json"] {
+        for args in calls {
+            let mut full = vec!["--message-format", format];
+            full.extend_from_slice(args);
+            let output = mora(&full);
+            assert_eq!(output.status.code(), Some(2), "{full:?}");
+            assert_eq!(
+                stderr(&output),
+                format!("error: `mora {}` is not implemented yet\n", args[0]),
+                "{full:?}"
+            );
+        }
     }
 }
 
