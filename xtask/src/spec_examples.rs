@@ -48,16 +48,16 @@ pub enum Expects {
     Diagnostic(Severity, Code),
 }
 
-/// The examples of one Markdown file. `prefix` names the file's examples
-/// when they are not under a numbered heading: the page's code, or `0` for
-/// the spec's preamble.
-pub fn extract(path: &str, prefix: &str, text: &str) -> Vec<Example> {
+/// The examples of one Markdown file. An error page passes its code as
+/// `page`, which names all of its examples. Otherwise numbered headings name
+/// them, and `0` names those before the first one.
+pub fn extract(path: &str, page: Option<&str>, text: &str) -> Vec<Example> {
     let mut examples = Vec::new();
-    let mut section = prefix.to_owned();
+    let mut section = page.unwrap_or("0").to_owned();
     let mut counts: HashMap<String, usize> = HashMap::new();
     let mut lines = text.lines().enumerate();
     while let Some((_, line)) = lines.next() {
-        if let Some(number) = section_number(line) {
+        if let Some(number) = section_number(line).filter(|_| page.is_none()) {
             section = number.to_owned();
             continue;
         }
@@ -321,7 +321,7 @@ fn run_example(example: &Example, compiler: &dyn Compiler) -> Vec<String> {
 
 /// Reads the spec, the error pages, the pending list and the roadmap.
 pub fn load(root: &Path) -> io::Result<Repo> {
-    let mut examples = extract(SPEC, "0", &fs::read_to_string(root.join(SPEC))?);
+    let mut examples = extract(SPEC, None, &fs::read_to_string(root.join(SPEC))?);
     let mut pages: Vec<_> = fs::read_dir(root.join(PAGES))?
         .map(|entry| entry.map(|entry| entry.file_name().to_string_lossy().into_owned()))
         .collect::<io::Result<_>>()?;
@@ -332,7 +332,7 @@ pub fn load(root: &Path) -> io::Result<Repo> {
             continue;
         };
         let text = fs::read_to_string(root.join(PAGES).join(&page))?;
-        examples.extend(extract(&format!("{PAGES}/{page}"), code, &text));
+        examples.extend(extract(&format!("{PAGES}/{page}"), Some(code), &text));
     }
     let pending = Pending::parse(&fs::read_to_string(root.join(PENDING))?);
     let deliverables = fs::read_to_string(root.join(ROADMAP))?
@@ -399,7 +399,7 @@ F();
 
     #[test]
     fn examples_are_numbered_within_their_section() {
-        let examples = extract("doc.md", "0", DOC);
+        let examples = extract("doc.md", None, DOC);
         let ids: Vec<_> = examples
             .iter()
             .map(|e| (e.id.as_str(), e.at.as_str()))
@@ -430,9 +430,10 @@ F();
 
     #[test]
     fn pages_name_examples_after_their_code() {
-        let page = "# MR0300: x\n\n## Failing example\n\n```mora\n// error: MR0300\n```\n";
-        let examples = extract("docs/errors/MR0300.md", "MR0300", page);
-        assert_eq!(examples[0].id, "MR0300#1");
+        let page = "# MR0300: x\n\n## 1. Failing example\n\n```mora\n// error: MR0300\n```\n\n## 2. Fixed example\n\n```mora\n// expect: ok\n```\n";
+        let examples = extract("docs/errors/MR0300.md", Some("MR0300"), page);
+        let ids: Vec<_> = examples.iter().map(|e| e.id.as_str()).collect();
+        assert_eq!(ids, ["MR0300#1", "MR0300#2"]);
     }
 
     #[test]
@@ -485,7 +486,7 @@ F();
 
     fn repo(pending: &str) -> Repo {
         Repo {
-            examples: extract("doc.md", "0", DOC),
+            examples: extract("doc.md", None, DOC),
             pending: Pending::parse(pending),
             deliverables: vec!["M1.15".to_owned(), "M2.8".to_owned()],
         }

@@ -293,7 +293,7 @@ pub fn codes_in(line: &str) -> Vec<Code> {
 /// Codes expected by the executable examples of a Markdown file: `mora`
 /// blocks whose first line is `// error: MRnnnn` or `// warning: MRnnnn`.
 fn examples(path: &str, text: &str) -> Vec<Use> {
-    spec_examples::extract(path, "", text)
+    spec_examples::extract(path, None, text)
         .into_iter()
         .filter_map(|example| match example.expects {
             Expects::Diagnostic(_, code) => Some(Use {
