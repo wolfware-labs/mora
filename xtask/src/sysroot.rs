@@ -12,7 +12,8 @@
 //! - `sysroot/x86_64-linux/`, `sysroot/aarch64-linux/`: the musl start files,
 //!   `libc.a` and `libunwind.a` that Rust's `rust-std` ships for the musl
 //!   targets, from the toolchain pinned in `rust-toolchain.toml`.
-//! - `LICENSES/`: the repository's `LICENSES/`, which covers every piece.
+//! - `LICENSES/`: the repository's `LICENSES/`, which covers every piece,
+//!   and Mora's own `LICENSE-MIT` and `LICENSE-APACHE`.
 //!
 //! Every archive is checked against its SHA-256 before anything is unpacked.
 
@@ -345,7 +346,17 @@ fn complete(out: &Path) -> bool {
         );
     let has_files =
         |dir: PathBuf| fs::read_dir(dir).is_ok_and(|mut entries| entries.next().is_some());
-    dirs.into_iter().all(has_files) && lld_version(out).is_ok()
+    let exe = std::env::consts::EXE_SUFFIX;
+    let files = [
+        format!("ld/bin/ld.lld{exe}"),
+        format!("ld/bin/lld-link{exe}"),
+        "LICENSES/LICENSE-MIT".to_owned(),
+        "LICENSES/LICENSE-APACHE".to_owned(),
+    ];
+    // `exists` follows the Unix symlinks to `lld`, so a dangling one fails.
+    dirs.into_iter().all(has_files)
+        && files.iter().all(|file| out.join(file).exists())
+        && lld_version(out).is_ok()
 }
 
 /// Deletes downloads that no pinned archive names any more, such as the
@@ -377,7 +388,9 @@ pub enum Installed {
 
 /// Installs every archive into `out` (normally `target/sysroot`), keeping
 /// downloads in `out/downloads`. `licenses` is the repository's
-/// `LICENSES/`. Does nothing when the stamp names the same archives.
+/// `LICENSES/`; Mora's `LICENSE-*` files beside it are copied too. Does
+/// nothing when the stamp names the same archives and the install is
+/// complete.
 pub fn install(archives: &[Archive], licenses: &Path, out: &Path) -> Result<Installed, String> {
     let stamp_file = out.join("stamp");
     let stamp: String = std::iter::once(format!("layout {LAYOUT}\n"))
@@ -418,6 +431,12 @@ pub fn install(archives: &[Archive], licenses: &Path, out: &Path) -> Result<Inst
     }
     let _ = fs::remove_dir_all(&work);
     copy_files(licenses, &out.join("LICENSES"), |_| true)?;
+    // Mora's own license, which the toolchain's `LICENSES/` also holds.
+    if let Some(repo) = licenses.parent() {
+        copy_files(repo, &out.join("LICENSES"), |name| {
+            name.starts_with("LICENSE-")
+        })?;
+    }
     let version = lld_version(out)?;
     fs::write(&stamp_file, stamp)
         .map_err(|err| format!("cannot write {}: {err}", stamp_file.display()))?;
