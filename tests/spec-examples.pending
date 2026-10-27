@@ -1,0 +1,9 @@
+# Executable examples (spec §20.4) that cannot pass yet, one per line: the
+# example's id and the roadmap deliverable that makes it pass. An id is the
+# section number, or the code of an error page, and the example's position
+# there. `cargo xtask spec-examples` fails when a listed example passes, so
+# remove its line in the pull request that makes it pass.
+
+2.1#1 M1.15
+9.1#1 M4.9
+10.4#1 M2.8

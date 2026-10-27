@@ -172,12 +172,7 @@ fn suite(
                             break;
                         };
                         let problems = match fs::read_to_string(file) {
-                            Ok(text) => {
-                                panic::catch_unwind(AssertUnwindSafe(|| case(path, file, &text)))
-                                    .unwrap_or_else(|payload| {
-                                        vec![format!("panicked: {}", message(&*payload))]
-                                    })
-                            }
+                            Ok(text) => guarded(|| case(path, file, &text)),
                             Err(error) => vec![format!("cannot read the case: {error}")],
                         };
                         done.push((index, problems));
@@ -203,6 +198,12 @@ fn suite(
         }
     }
     Ok(report)
+}
+
+/// The problems `case` returns, or the message of its panic as the only one.
+pub fn guarded(case: impl FnOnce() -> Vec<String>) -> Vec<String> {
+    panic::catch_unwind(AssertUnwindSafe(case))
+        .unwrap_or_else(|payload| vec![format!("panicked: {}", message(&*payload))])
 }
 
 /// Every `.mr` file below `dir`. A missing directory is an error, so a
