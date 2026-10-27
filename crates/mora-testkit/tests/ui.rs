@@ -1,14 +1,15 @@
 //! The `tests/ui` suite: `cargo test -p mora-testkit --test ui -- [--bless] [filter...]`.
 
+use std::path::Path;
 use std::process::ExitCode;
 
+use mora_testkit::compiler;
 use mora_testkit::harness::{Options, ui_suite};
-
-mod pending;
 
 fn main() -> ExitCode {
     let options = Options::parse(std::env::args().skip(1));
-    match ui_suite(&pending::Pending, &pending::root(), "tests/ui", &options) {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    match ui_suite(compiler(), &root, "tests/ui", &options) {
         Ok(report) => report.finish("ui"),
         Err(error) => {
             eprintln!("cannot read tests/ui: {error}");

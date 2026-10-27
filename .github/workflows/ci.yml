@@ -90,6 +90,9 @@ jobs:
       - name: xtask error-codes
         if: ${{ !cancelled() }}
         run: cargo xtask error-codes
+      - name: xtask spec-examples
+        if: ${{ !cancelled() }}
+        run: cargo xtask spec-examples
 
   # Lints and tests on the other Tier 1 and Tier 2 hosts (spec §19.1).
   platforms:

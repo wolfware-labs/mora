@@ -15,6 +15,8 @@ use mora_diag::Code;
 use mora_diag::registry::{CodeRange, Entry};
 use mora_testkit::ui;
 
+use crate::spec_examples::{self, Expects};
+
 /// Where the spec lives, relative to the repository root.
 pub const SPEC: &str = "docs/design/mora.md";
 /// Where the pages live, relative to the repository root.
@@ -288,37 +290,19 @@ pub fn codes_in(line: &str) -> Vec<Code> {
     codes
 }
 
-/// The code a line marks as expected, after one of `markers`.
-fn marked_code(line: &str, markers: &[&str]) -> Option<Code> {
-    let line = line.trim();
-    markers.iter().find_map(|marker| {
-        line.strip_prefix(marker)
-            .and_then(|rest| rest.split_whitespace().next())
-            .and_then(|code| code.parse().ok())
-    })
-}
-
-const EXAMPLE_MARKERS: &[&str] = &["// error:", "// warning:"];
-
 /// Codes expected by the executable examples of a Markdown file: `mora`
 /// blocks whose first line is `// error: MRnnnn` or `// warning: MRnnnn`.
 fn examples(path: &str, text: &str) -> Vec<Use> {
-    let mut uses = Vec::new();
-    let mut lines = text.lines().enumerate();
-    while let Some((_, line)) = lines.next() {
-        if line.trim() != "```mora" {
-            continue;
-        }
-        if let Some((index, first)) = lines.next()
-            && let Some(code) = marked_code(first, EXAMPLE_MARKERS)
-        {
-            uses.push(Use {
+    spec_examples::extract(path, "", text)
+        .into_iter()
+        .filter_map(|example| match example.expects {
+            Expects::Diagnostic(_, code) => Some(Use {
                 code,
-                at: format!("{path}:{}", index + 1),
-            });
-        }
-    }
-    uses
+                at: example.at,
+            }),
+            Expects::Output => None,
+        })
+        .collect()
 }
 
 /// The template sections of `docs/errors/README.md`, in order.
@@ -348,11 +332,10 @@ fn check_page(code: Code, text: &str) -> Result<(), String> {
         block.lines().next().map(str::to_owned)
     };
     let failing = first_line(&sections[1].1);
-    if failing
-        .as_deref()
-        .and_then(|line| marked_code(line, EXAMPLE_MARKERS))
-        != Some(code)
-    {
+    if !matches!(
+        failing.as_deref().and_then(spec_examples::expects),
+        Some(Expects::Diagnostic(_, found)) if found == code
+    ) {
         return Err(format!(
             "the failing example must be a `mora` block whose first line is `// error: {code}` or `// warning: {code}`"
         ));

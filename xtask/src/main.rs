@@ -6,6 +6,7 @@
 
 mod error_codes;
 mod layers;
+mod spec_examples;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -13,7 +14,7 @@ use std::process::ExitCode;
 use cargo_metadata::MetadataCommand;
 use mora_diag::registry;
 
-const USAGE: &str = "usage: cargo xtask <layers | error-codes>";
+const USAGE: &str = "usage: cargo xtask <layers | error-codes | spec-examples>";
 
 /// `cargo metadata --no-deps` for the workspace that contains this crate.
 fn metadata_command() -> MetadataCommand {
@@ -78,11 +79,38 @@ fn run_error_codes() -> ExitCode {
     }
 }
 
+fn run_spec_examples() -> ExitCode {
+    let repo = match spec_examples::load(&root()) {
+        Ok(repo) => repo,
+        Err(err) => {
+            eprintln!("spec-examples: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let outcome = spec_examples::check(&repo, mora_testkit::compiler());
+    for problem in &outcome.problems {
+        eprintln!("{problem}");
+    }
+    if outcome.problems.is_empty() {
+        println!(
+            "spec-examples: {} examples, {} passed, {} pending, ok",
+            repo.examples.len(),
+            outcome.passed,
+            outcome.pending
+        );
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("spec-examples: {} problem(s)", outcome.problems.len());
+        ExitCode::FAILURE
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
         ["layers"] => run_layers(),
         ["error-codes"] => run_error_codes(),
+        ["spec-examples"] => run_spec_examples(),
         _ => {
             eprintln!("{USAGE}");
             ExitCode::from(2)

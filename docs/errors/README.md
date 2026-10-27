@@ -15,7 +15,7 @@ The check fails when a used code has no page, a page has no registered code, a c
 
 ## Page template
 
-The page has a title, a short explanation, and three sections in this order. The failing example's first line names the code it must report (`// error:` for errors, `// warning:` for warnings and lints). The fixed example's first line gives the output it must print. `cargo xtask error-codes` checks these first lines and the layout; `cargo xtask spec-examples` (from M0.9) compiles and runs both examples (§20.4).
+The page has a title, a short explanation, and three sections in this order. The failing example's first line names the code it must report (`// error:` for errors, `// warning:` for warnings and lints). The fixed example's first line gives the output it must print. `cargo xtask error-codes` checks these first lines and the layout; `cargo xtask spec-examples` compiles and runs both examples (§20.4); while the compiler cannot build them yet, list their ids (`MRnnnn#1`, `MRnnnn#2`) in `tests/spec-examples.pending`.
 
 ````markdown
 # MRnnnn: one-line summary, as in the registry

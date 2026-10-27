@@ -18,6 +18,31 @@ pub trait Compiler: Sync {
     fn run(&self, path: &str, text: &str, backend: Backend) -> Result<Output, Checked>;
 }
 
+/// The compiler the suites and `cargo xtask spec-examples` use. It is
+/// [`Unbuilt`] until the driver can compile a file (M1).
+pub fn compiler() -> &'static dyn Compiler {
+    &Unbuilt
+}
+
+/// Stands in for the driver until it can compile. It has no backend, so run
+/// cases fail without calling it, and checking a file panics, which fails
+/// only that case.
+pub struct Unbuilt;
+
+impl Compiler for Unbuilt {
+    fn check(&self, _: &str, _: &str) -> Checked {
+        unimplemented!("the driver cannot compile yet");
+    }
+
+    fn backends(&self) -> &[Backend] {
+        &[]
+    }
+
+    fn run(&self, _: &str, _: &str, _: Backend) -> Result<Output, Checked> {
+        unimplemented!("the driver cannot run programs yet");
+    }
+}
+
 /// The diagnostics of one compilation and the files they point into.
 #[derive(Debug)]
 pub struct Checked {

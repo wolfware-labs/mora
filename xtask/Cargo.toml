@@ -15,4 +15,5 @@ mora-diag.workspace = true
 mora-testkit.workspace = true
 
 [dev-dependencies]
+mora-span.workspace = true
 serde_json.workspace = true
