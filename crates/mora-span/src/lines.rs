@@ -95,8 +95,11 @@ impl LineIndex {
     }
 
     /// Number of lines. A text that ends with `\n` has an empty last line.
-    pub fn line_count(&self) -> u32 {
-        to_u32(self.line_starts.len())
+    ///
+    /// This is a `usize` because a text of [`Self::MAX_LEN`] newlines has one
+    /// line more than `u32` can count; every line number still fits in `u32`.
+    pub fn line_count(&self) -> usize {
+        self.line_starts.len()
     }
 
     /// The byte range of a line, without its terminating `\n`.
