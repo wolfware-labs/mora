@@ -358,6 +358,8 @@ Keywords from C# with no meaning in Mora are reserved so that C# habits produce 
 
 String literals have type `string` and are stored as immortal static objects (§13.4); using one never allocates.
 
+As in C#, a `:` at the top level of a hole starts its format, so a conditional expression in a hole goes in parentheses: `$"{(ok ? 1 : 2)}"`.
+
 A string, character literal or interpolated string that is not closed is error `MR0012`; a regular string ends at the end of its line. Error `MR0016` covers the rules of the other forms: a lone `}` in the text of an interpolated string (write `}}`), more than one `$` before a string that is not raw, a run of braces in a raw interpolated string that is as long as two hole delimiters, a raw string closed with more quotes than it opened with, and a multi-line raw string whose opening line holds content, whose closing quotes do not stand on their own line, or whose content lines do not start with the closing quotes' indentation.
 
 **Other literals.** `true`, `false`, `null` (the empty value of any `T?`, §5.6), `default` (§7.13).

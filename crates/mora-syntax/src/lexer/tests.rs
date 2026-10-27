@@ -344,6 +344,13 @@ fn interpolated_strings() {
         ]
     );
     assert_eq!(tokens(r#"@$"a""#)[0], (K::InterpStart, "@$\""));
+    // As in C#, a top-level `:` in a hole starts the format; a conditional
+    // goes in parentheses.
+    assert_eq!(
+        tokens(r#"$"{x ? 1 : 2}""#)[4..6],
+        [(K::IntNumber, "1"), (K::HoleFormat, ": 2")]
+    );
+    assert!(tokens(r#"$"{(x ? 1 : 2)}""#).contains(&(K::Colon, ":")));
 }
 
 #[test]
