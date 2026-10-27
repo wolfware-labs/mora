@@ -9,6 +9,7 @@ mod layers;
 mod runtime;
 mod spec_examples;
 mod sysroot;
+mod target_names;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -37,11 +38,25 @@ fn run_layers() -> ExitCode {
     for violation in &violations {
         eprintln!("{violation}");
     }
-    if violations.is_empty() {
-        println!("layers: {} crates, ok", metadata.workspace_packages().len());
+    let hits = match target_names::check(&root()) {
+        Ok(hits) => hits,
+        Err(err) => {
+            eprintln!("layers: cannot scan crates/: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    for hit in &hits {
+        eprintln!("{hit}");
+    }
+    let count = violations.len() + hits.len();
+    if count == 0 {
+        println!(
+            "layers: {} crates, no target names outside mora-target, mora-link and mora-codegen, ok",
+            metadata.workspace_packages().len()
+        );
         ExitCode::SUCCESS
     } else {
-        eprintln!("layers: {} violation(s)", violations.len());
+        eprintln!("layers: {count} violation(s)");
         ExitCode::FAILURE
     }
 }

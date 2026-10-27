@@ -1,0 +1,24 @@
+# aarch64 Windows with the MinGW-w64 runtime (§19.1).
+name = "aarch64-windows"
+triple = "aarch64-pc-windows-gnullvm"
+os = "windows"
+arch = "aarch64"
+pointer-width = 64
+endian = "little"
+object-format = "coff"
+call-conv = "win-arm64"
+backend = "cranelift"
+runtime = "hosted"
+capabilities = ["heap", "threads", "fs", "net", "stdio", "clock", "random", "process", "env"]
+
+[align]
+i16 = 2
+i32 = 4
+i64 = 8
+f32 = 4
+f64 = 8
+pointer = 8
+
+[linker]
+flavor = "lld-link"
+args = ["-subsystem:console", "-stack:8388608"]

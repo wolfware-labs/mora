@@ -1,0 +1,24 @@
+# x86_64 macOS, linked by the system linker (§19.1).
+name = "x86_64-macos"
+triple = "x86_64-apple-darwin"
+os = "macos"
+arch = "x86_64"
+pointer-width = 64
+endian = "little"
+object-format = "macho"
+call-conv = "sysv64"
+backend = "cranelift"
+runtime = "hosted"
+capabilities = ["heap", "threads", "fs", "net", "stdio", "clock", "random", "process", "env"]
+
+[align]
+i16 = 2
+i32 = 4
+i64 = 8
+f32 = 4
+f64 = 8
+pointer = 8
+
+[linker]
+flavor = "ld64"
+args = []
