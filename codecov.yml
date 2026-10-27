@@ -20,6 +20,11 @@ coverage:
 # tested through the grammar, not one by one.
 ignore:
   - "crates/mora-syntax/src/generated/**"
+  # Command-line dispatch and the driver that runs cargo and C compilers for
+  # each target: glue around other programs, exercised end to end by the CI
+  # jobs that run `cargo xtask` rather than by unit tests.
+  - "xtask/src/main.rs"
+  - "xtask/src/runtime.rs"
 
 comment:
   layout: "condensed_header, diff, flags, files"
