@@ -31,7 +31,7 @@ struct Cli {
 
 #[derive(Clone, Copy, ValueEnum)]
 enum Color {
-    /// Color when the output is a terminal and NO_COLOR is not set.
+    /// Color when the output is a terminal and NO_COLOR is unset or empty.
     Auto,
     /// Always color.
     Always,
@@ -158,7 +158,11 @@ fn colored(color: Color) -> bool {
     match color {
         Color::Always => true,
         Color::Never => false,
-        Color::Auto => std::env::var_os("NO_COLOR").is_none() && std::io::stderr().is_terminal(),
+        // no-color.org: only a non-empty NO_COLOR turns color off.
+        Color::Auto => {
+            std::env::var_os("NO_COLOR").is_none_or(|value| value.is_empty())
+                && std::io::stderr().is_terminal()
+        }
     }
 }
 
