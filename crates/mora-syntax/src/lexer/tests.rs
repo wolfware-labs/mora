@@ -398,6 +398,9 @@ fn raw_interpolated_strings() {
     assert!(errors(text).is_empty());
     // A hole may span lines without breaking the indentation rule.
     assert!(errors("$\"\"\"\n  a{\nf(x)\n}\n  \"\"\"").is_empty());
+    assert!(errors("$\"\"\"\n{x\n}\n\"\"\"").is_empty());
+    // A line that starts with a hole still needs the indentation, as in C#.
+    assert_eq!(errors("$\"\"\"\n{x}\n  \"\"\""), [(codes::MR0016, "{")]);
     assert_eq!(errors("$\"\"\"\n  a\n b\n  \"\"\""), [(codes::MR0016, " ")]);
 }
 
