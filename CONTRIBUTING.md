@@ -31,6 +31,7 @@ These are the checks CI runs on every pull request (§20.5 of the spec). They ar
 | Spec and error-page examples | `cargo xtask spec-examples` |
 | Error-code registry | `cargo xtask error-codes` |
 | Runtime libraries (§13.2) | `cargo xtask runtime --test` for the host; CI builds and tests every hosted target. Set `CC` to a C compiler for the target, such as `musl-gcc` for `x86_64-unknown-linux-musl`, and `CFLAGS` to any flags it needs, such as `-arch x86_64` for `x86_64-apple-darwin` on an arm64 Mac |
+| Linker and sysroots (§14.14) | `cargo xtask sysroot` installs the pinned `lld`, musl and MinGW-w64 pieces into `target/sysroot`; CI installs them on every host |
 | Portability guards (§19.4) | `rustup target add thumbv7em-none-eabihf`, then `cargo build -p mora-rt-core --target thumbv7em-none-eabihf`. The run tests on `riscv64gc-linux` under QEMU join with M1.18 |
 
 CI sets `RUSTFLAGS=-D warnings`, so a warning fails the build. Set the same flags locally: `export RUSTFLAGS="-D warnings" RUSTDOCFLAGS="-D warnings"` in a Unix shell, or `$env:RUSTFLAGS="-D warnings"` and `$env:RUSTDOCFLAGS="-D warnings"` in PowerShell.

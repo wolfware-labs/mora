@@ -2026,12 +2026,13 @@ mora-<version>-<host>/
   lib/std/                      # standard library source
   lib/rt/<target>/libmora_rt.a  # hosted layer with mora-rt-core bundled; and libmora_rt_debug.a
   lib/rt/<target>/libmora_rt_core.a  # mora-rt-core alone, for bare-metal platform layers (post-MVP)
-  lib/sysroot/<target>/         # musl or MinGW start files and libraries
-  lib/ld/ld.lld, lld-link       # not on macOS hosts
-  LICENSES/                     # Mora, LLVM (lld), musl, mingw-w64
+  lib/sysroot/<target>/         # musl or MinGW start files and libraries, e.g. x86_64-linux
+  lib/ld/bin/lld, ld.lld, lld-link   # one lld, named for each flavor
+  lib/ld/lib/                   # the libLLVM it loads (in lib/ld/bin/ on Windows)
+  LICENSES/                     # Mora, LLVM, musl, MinGW-w64, winpthreads
 ```
 
-An archive contains every Tier 1 and Tier 2 target that its host can build for. Licenses of bundled third-party components are checked before the first release [verify].
+An archive contains every Tier 1 and Tier 2 target that its host can build for. Every host, macOS included, ships `lld` and the Linux and Windows sysroots, so that it can cross-compile to those targets (§19.1); a macOS target links with the system `ld` (§14.14). `lld` and the MinGW-w64 pieces come from a pinned llvm-mingw release, and the musl pieces from the `rust-std` component of the pinned Rust toolchain. MinGW-w64's profiling code is under the GPL and is not shipped. `LICENSES/README.md` in the repository records which license covers which file. `cargo xtask sysroot` installs the same pieces into `target/sysroot`, laid out as `lib/`, after checking each download against its pinned SHA-256.
 
 ### 19.4 Portability
 
