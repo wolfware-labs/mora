@@ -1,0 +1,18 @@
+[package]
+name = "mora-rt"
+description = "The hosted runtime layer for Linux, macOS and Windows: process startup, I/O, the reactor and backtraces"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+mora-rt-core.workspace = true

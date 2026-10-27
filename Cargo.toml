@@ -1,0 +1,86 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/mora-span",
+    "crates/mora-diag",
+    "crates/mora-target",
+    "crates/mora-syntax",
+    "crates/mora-hir",
+    "crates/mora-check",
+    "crates/mora-mir",
+    "crates/mora-codegen",
+    "crates/mora-fmt",
+    "crates/mora-macro",
+    "crates/mora-link",
+    "crates/mora-pkg",
+    "crates/mora-driver",
+    "crates/mora-lsp",
+    "crates/mora-repl",
+    "crates/mora-cli",
+    "crates/mora-testkit",
+    "crates/mora-rt-core",
+    "crates/mora-rt",
+    "xtask",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/wolfware-labs/mora"
+homepage = "https://github.com/wolfware-labs/mora"
+
+[workspace.lints.rust]
+# `deny`, not `forbid`, so that the crates CONTRIBUTING.md names can allow it.
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+undocumented_unsafe_blocks = "deny"
+
+[workspace.dependencies]
+mora-span = { path = "crates/mora-span", version = "0.0.0" }
+mora-diag = { path = "crates/mora-diag", version = "0.0.0" }
+mora-target = { path = "crates/mora-target", version = "0.0.0" }
+mora-syntax = { path = "crates/mora-syntax", version = "0.0.0" }
+mora-hir = { path = "crates/mora-hir", version = "0.0.0" }
+mora-check = { path = "crates/mora-check", version = "0.0.0" }
+mora-mir = { path = "crates/mora-mir", version = "0.0.0" }
+mora-codegen = { path = "crates/mora-codegen", version = "0.0.0" }
+mora-fmt = { path = "crates/mora-fmt", version = "0.0.0" }
+mora-macro = { path = "crates/mora-macro", version = "0.0.0" }
+mora-link = { path = "crates/mora-link", version = "0.0.0" }
+mora-pkg = { path = "crates/mora-pkg", version = "0.0.0" }
+mora-driver = { path = "crates/mora-driver", version = "0.0.0" }
+mora-lsp = { path = "crates/mora-lsp", version = "0.0.0" }
+mora-repl = { path = "crates/mora-repl", version = "0.0.0" }
+mora-testkit = { path = "crates/mora-testkit", version = "0.0.0" }
+mora-rt-core = { path = "crates/mora-rt-core", version = "0.0.0" }
+mora-rt = { path = "crates/mora-rt", version = "0.0.0" }
+# Third-party versions from §14.2 of the spec. Crates add them as they need them.
+ariadne = "0.6.0"
+backtrace = "0.3.76"
+blake3 = "1.8.7"
+cargo_metadata = "0.23.1"
+clap = { version = "4.6.7", features = ["derive"] }
+cranelift-codegen = "0.137.0"
+cranelift-frontend = "0.137.0"
+cranelift-jit = "0.137.0"
+cranelift-module = "0.137.0"
+cranelift-object = "0.137.0"
+gimli = "0.34.0"
+httparse = "1.10.1"
+la-arena = "0.3.1"
+logos = "0.16.1"
+lsp-server = "0.10.0"
+lsp-types = "0.97.0"
+mio = "1.2.4"
+object = "0.40.0"
+reedline = "0.52.1"
+rowan = "=0.18.0-alpha.2"
+salsa = "0.28.5"
+serde = { version = "1.0.229", features = ["derive"] }
+sha2 = "0.11.1"
+toml = "1.1.8"

@@ -1,0 +1,12 @@
+[package]
+name = "mora-fmt"
+description = "The mora fmt formatter, working on the lossless syntax tree"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

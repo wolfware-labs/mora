@@ -1,0 +1,16 @@
+[package]
+name = "mora-cli"
+description = "The mora executable"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "mora"
+path = "src/main.rs"
+
+[lints]
+workspace = true

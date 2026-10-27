@@ -57,7 +57,7 @@ Done when:
 
 Spec: [§14.2](docs/design/mora.md#142-crates), [§21](docs/design/mora.md#21-project-conventions). Crates: `all`. Blocked by: M0.1.
 
-Workspace `Cargo.toml` with every crate of §14.2 as an empty library (`mora-cli` as a binary, `mora-rt` as `staticlib` plus `rlib`), workspace dependency versions pinned as §14.2 lists them, `rust-toolchain.toml` at 1.99.0, `clippy.toml`, `rustfmt.toml`, `deny.toml` (licenses, sources, advisories) and `.cargo/config.toml` with the `xtask` alias.
+Workspace `Cargo.toml` with every crate of §14.2 as an empty library (`mora-cli` as a binary, `mora-rt` as `staticlib` plus `rlib`), workspace dependency versions pinned as §14.2 lists them, `rust-toolchain.toml` at 1.99.1, `clippy.toml`, `rustfmt.toml`, `deny.toml` (licenses, sources, advisories) and `.cargo/config.toml` with the `xtask` alias.
 
 Done when:
 
