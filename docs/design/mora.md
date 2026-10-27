@@ -2011,7 +2011,7 @@ A registry in the style of crates.io, optional: `mora publish` uploads the `.was
 | `aarch64-macos` | 1 | build, test, acceptance |
 | `x86_64-macos` | 2 | build, test |
 | `x86_64-windows` (gnullvm) | 1 | build, test, acceptance |
-| `aarch64-windows` (gnullvm) | 2 | build |
+| `aarch64-windows` (gnullvm) | 2 | build, test |
 | `riscv64gc-linux` (static, musl) | 3: run tests under QEMU in CI, no release | build, run tests (§19.4 rule 5) |
 | `wasm32-wasi`, `wasm32-unknown` | post-MVP | |
 | `thumbv7em`, `riscv32` | post-MVP: needs the LLVM backend (M13); `mora-rt-core` already builds for `thumbv7em` in CI | |
