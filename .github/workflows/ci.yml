@@ -87,6 +87,9 @@ jobs:
       - name: xtask layers
         if: ${{ !cancelled() }}
         run: cargo xtask layers
+      - name: xtask error-codes
+        if: ${{ !cancelled() }}
+        run: cargo xtask error-codes
 
   # Lints and tests on the other Tier 1 and Tier 2 hosts (spec §19.1).
   platforms:

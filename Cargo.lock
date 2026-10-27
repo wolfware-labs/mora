@@ -589,6 +589,7 @@ name = "xtask"
 version = "0.0.0"
 dependencies = [
  "cargo_metadata",
+ "mora-diag",
  "serde_json",
 ]
 

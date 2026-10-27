@@ -82,7 +82,7 @@ Two release lines follow from that:
 - Section references look like §10.4. Decisions look like D-12 and are listed in §23. Open questions look like OQ-3 and are listed in §24.
 - **[MVP]** and **[post-MVP]** mark which release line a feature belongs to when a section mixes both. Unmarked text in §§3 to 17 is MVP.
 - **[verify]** marks a claim about third-party behaviour (an OS, a linker, a crate) that a test or manual check must confirm before code relies on it.
-- Code blocks tagged `mora` are Mora source. Blocks whose first line is `// expect:` or `// error:` are executable examples that the test suite extracts and runs (§20.4).
+- Code blocks tagged `mora` are Mora source. Blocks whose first line is `// expect:`, `// error:` or `// warning:` are executable examples that the test suite extracts and runs (§20.4).
 - Grammar uses EBNF: `?` optional, `*` zero or more, `+` one or more, `|` alternatives, quoted strings are tokens.
 
 ### 1.7 Terms
@@ -1892,10 +1892,11 @@ Every diagnostic has a code (`MR` plus four digits), a severity, a primary span,
 | `MR0300`-`MR0399` | Memory model: moves, borrows, views, escapes, closures |
 | `MR0400`-`MR0499` | Async, threads, FFI, constant evaluation |
 | `MR0500`-`MR0599` | Manifest and build |
+| `MR0600`-`MR0699` | Macros |
 | `MR2000`-`MR2999` | Warnings and lints |
 | `MR9000`-`MR9999` | Internal compiler errors |
 
-Each code has a page in `docs/errors/` explaining it in C# terms, with a failing example and a fixed one. The repository's test suite compiles both examples of every page (§20.4), so explanations cannot go stale. Diagnostics never use the words "lifetime" or "borrow checker"; they say what would go wrong ("`span` would point at memory that `buffer` no longer owns").
+Every code is listed once, with its summary, in the registry in `mora-diag`, and the compiler refers to codes only through it, writing each one out as `codes::MR0310`. The spec assigns codes, so a code is registered when the spec first names it. Once a code is used (a crate reports it, a UI test expects it, or an example names it in its first line) it needs a page in `docs/errors/` explaining it in C# terms, with a failing example and a fixed one; `docs/errors/README.md` holds the template. The repository's test suite compiles both examples of every page (§20.4), so explanations cannot go stale. `cargo xtask error-codes` checks that the registry matches the range table above and the codes this document names, that every code is in its range, that every used code has a page, that every page belongs to a registered code, and that no crate outside `mora-diag` names a code in a way the check cannot follow (`Code::new`, or a braced or glob import of `codes`). Diagnostics never use the words "lifetime" or "borrow checker"; they say what would go wrong ("`span` would point at memory that `buffer` no longer owns").
 
 Rendering in the terminal:
 
@@ -2099,11 +2100,11 @@ A Rust test in `mora-testkit` builds `examples/users-api` with `mora build --rel
 
 ### 20.4 Executable examples
 
-`cargo xtask spec-examples` extracts every `mora` code block in this document and in `docs/errors/*.md` whose first line is `// expect: <stdout>` or `// error: MRnnnn`, compiles it, and checks the output or the reported error. CI runs it on every change, so a spec change that breaks an example fails, and an example cannot drift away from the implementation.
+`cargo xtask spec-examples` extracts every `mora` code block in this document and in the pages of `docs/errors/` (not the template in its README) whose first line is `// expect: <stdout>`, `// error: MRnnnn` or `// warning: MRnnnn`, compiles it, and checks the output or the reported diagnostic. CI runs it on every change, so a spec change that breaks an example fails, and an example cannot drift away from the implementation.
 
 ### 20.5 Continuous integration
 
-Required checks on every pull request: the portability guards of §19.4 rule 5, `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` on Linux, macOS and Windows, `cargo doc --workspace --no-deps` with `RUSTDOCFLAGS=-D warnings`, `cargo deny check`, `cargo xtask layers`, `cargo xtask spec-examples`, `cargo xtask error-codes` (every code used has a page and every page's examples compile), and the acceptance test on Tier 1 targets once milestone M6 delivers it. Third-party GitHub Actions are pinned by commit SHA. A change that touches only Markdown may skip the Rust build jobs, except changes to `docs/design/mora.md`, `docs/errors/` and `docs/guide/`, which contain executable examples and always run `spec-examples` and `error-codes`.
+Required checks on every pull request: the portability guards of §19.4 rule 5, `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` on Linux, macOS and Windows, `cargo doc --workspace --no-deps` with `RUSTDOCFLAGS=-D warnings`, `cargo deny check`, `cargo xtask layers`, `cargo xtask spec-examples`, `cargo xtask error-codes` (every code used has a page; `spec-examples` compiles the pages' examples), and the acceptance test on Tier 1 targets once milestone M6 delivers it. Third-party GitHub Actions are pinned by commit SHA. A change that touches only Markdown may skip the Rust build jobs, except changes to `docs/design/mora.md`, `docs/errors/` and `docs/guide/`, which contain executable examples and always run `spec-examples` and `error-codes`.
 
 ### 20.6 Budgets
 
