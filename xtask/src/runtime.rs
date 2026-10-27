@@ -110,8 +110,9 @@ pub fn build(root: &Path, target: &str, variant: Variant) -> Result<Built, Strin
     Ok(Built { lib, native_libs })
 }
 
-/// Links [`TEST_PROGRAM`] against `built` with `$CC` (`cc` by default), runs
-/// it and checks that it exits with [`EXIT_CODE`]. Runs only on the host.
+/// Links [`TEST_PROGRAM`] against `built` with `$CC` (`cc` by default) and
+/// the flags in `$CFLAGS`, runs it and checks that it exits with
+/// [`EXIT_CODE`]. The host must be able to run programs for `target`.
 pub fn test(root: &Path, target: &str, built: &Built) -> Result<(), String> {
     let cc = env::var_os("CC").unwrap_or_else(|| "cc".into());
     let stem = built
@@ -122,8 +123,10 @@ pub fn test(root: &Path, target: &str, built: &Built) -> Result<(), String> {
         .lib
         .with_file_name(format!("{stem}_test{}", env::consts::EXE_SUFFIX));
     let mut command = Command::new(&cc);
+    let cflags = env::var("CFLAGS").unwrap_or_default();
     command
         .current_dir(root)
+        .args(cflags.split_whitespace())
         .arg(TEST_PROGRAM)
         .arg(&built.lib)
         .arg("-o")

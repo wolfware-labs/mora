@@ -152,7 +152,8 @@ jobs:
           - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, test: "--test", cc: musl-gcc }
           - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, test: "--test", cc: musl-gcc }
           - { os: macos-latest, target: aarch64-apple-darwin, test: "--test", cc: cc }
-          - { os: macos-latest, target: x86_64-apple-darwin, test: "", cc: cc }
+          # The runner is arm64; the program runs under Rosetta 2.
+          - { os: macos-latest, target: x86_64-apple-darwin, test: "--test", cc: cc, cflags: "-arch x86_64", rosetta: true }
           - { os: windows-2025, target: x86_64-pc-windows-gnullvm, test: "--test", cc: x86_64-w64-mingw32-clang, mingw: x86_64 }
           - { os: windows-11-arm, target: aarch64-pc-windows-gnullvm, test: "--test", cc: aarch64-w64-mingw32-clang, mingw: aarch64 }
     runs-on: ${{ matrix.os }}
@@ -174,6 +175,9 @@ jobs:
       - name: Install musl-gcc
         if: ${{ matrix.cc == 'musl-gcc' }}
         run: sudo apt-get install -y --no-install-recommends musl-tools
+      - name: Install Rosetta 2
+        if: ${{ matrix.rosetta }}
+        run: sudo softwareupdate --install-rosetta --agree-to-license
       # The C compiler for the test program. `cargo xtask sysroot` (M0.11)
       # will fetch the same toolchain for development builds.
       - name: Install llvm-mingw
@@ -198,6 +202,7 @@ jobs:
         shell: bash
         env:
           CC: ${{ matrix.cc }}
+          CFLAGS: ${{ matrix.cflags }}
           TARGET: ${{ matrix.target }}
           TEST: ${{ matrix.test }}
         run: cargo xtask runtime $TEST "$TARGET"
