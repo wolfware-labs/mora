@@ -8,3 +8,9 @@ publish = false
 
 [lints]
 workspace = true
+
+[dependencies]
+cargo_metadata.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
