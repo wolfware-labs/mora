@@ -1407,7 +1407,7 @@ Together they provide:
 
 | Area | Contents |
 |---|---|
-| Startup | The process entry symbol: sets up the panic and stack-overflow handlers, collects arguments and environment, calls the program's `Main`, maps the result to an exit code (§4.6), flushes stdout |
+| Startup | The process entry symbol, `main`, called by the platform's C runtime: sets up the panic and stack-overflow handlers, collects arguments and environment, calls `int32_t __mora_main(void)`, which the compiler emits to run the program's `Main` and map its result to an exit code (§4.6), flushes stdout and returns that code |
 | Memory | Allocation through the platform allocator, the release slow path (destructor call, field drops, the iterative release work list), weak reference bookkeeping, debug-mode poisoning and leak tracking (§10.11) |
 | Panics | Message formatting, backtraces through the `backtrace` crate, abort |
 | Executor | Task queue, wakers, timers, `Task.*` primitives |
@@ -1420,7 +1420,7 @@ The standard library is written in Mora (§15) and calls the runtime through `ex
 
 ### 13.2 Two builds of the runtime
 
-The toolchain ships `libmora_rt.a` (release) and `libmora_rt_debug.a` (debug: poisoning, leak tracking, refcount underflow traps, extra assertions) per target. `mora build` links the debug runtime and `mora build --release` the release runtime, unless the profile overrides it (§17.2).
+The toolchain ships `libmora_rt.a` (release) and `libmora_rt_debug.a` (debug: poisoning, leak tracking, refcount underflow traps, extra assertions) per target. Both are optimized builds; the debug runtime is the same crates with their `debug` feature on. `cargo xtask runtime [--test] [target...]` builds both into `target/runtime/<target>/`, and with `--test` links a C program against each and checks that the process exits with the code its `__mora_main` returns. CI builds and tests both for every hosted target of §19.1, each on a runner of its own architecture except `x86_64-macos`, which runs under Rosetta 2 on the arm64 macOS runner. `mora build` links the debug runtime and `mora build --release` the release runtime, unless the profile overrides it (§17.2).
 
 ### 13.3 Shared objects
 
@@ -2011,7 +2011,7 @@ A registry in the style of crates.io, optional: `mora publish` uploads the `.was
 | `aarch64-macos` | 1 | build, test, acceptance |
 | `x86_64-macos` | 2 | build, test |
 | `x86_64-windows` (gnullvm) | 1 | build, test, acceptance |
-| `aarch64-windows` (gnullvm) | 2 | build |
+| `aarch64-windows` (gnullvm) | 2 | build, test |
 | `riscv64gc-linux` (static, musl) | 3: run tests under QEMU in CI, no release | build, run tests (§19.4 rule 5) |
 | `wasm32-wasi`, `wasm32-unknown` | post-MVP | |
 | `thumbv7em`, `riscv32` | post-MVP: needs the LLVM backend (M13); `mora-rt-core` already builds for `thumbv7em` in CI | |
@@ -2040,6 +2040,16 @@ Linux, macOS and Windows are the MVP's targets, and the design keeps every other
 1. **Targets are data.** Each target is a TOML description in `targets/` (for example `targets/x86_64-linux.toml`), read by `mora-target`: triple, pointer width, endianness, integer and float alignments, object format (ELF, Mach-O, COFF, wasm), linker flavor and arguments, the runtime platform layer to link, the backend, and the platform capabilities it offers (`heap`, `threads`, `fs`, `net`, `stdio`, `clock`, `random`, `process`, `env`). `mora build --target path/to/custom.toml` accepts a description that is not built in. No code outside `mora-target`, `mora-link` and the backends may branch on a target name.
 2. **Layouts are computed, never assumed.** Every size, alignment and offset (§13.3 to §13.6) comes from the target description. The shared-object header is 16 bytes with 64-bit pointers and 12 bytes with 32-bit pointers. Reference counts stay `u32` on every target. Code that hard-codes a size or a byte order outside `mora-target` is a review blocker.
 3. **One platform interface.** `mora-rt-core` calls the platform only through a small set of functions that each platform layer provides: `mora_pal_alloc`, `mora_pal_realloc`, `mora_pal_free`, `mora_pal_abort`, `mora_pal_write_diagnostic` (where panics go), `mora_pal_now` (optional) and `mora_pal_wait` (the executor's idle hook: the `mio` reactor on hosted targets, a wait-for-interrupt loop on bare metal). A new platform implements these, plus whichever hosted services its capabilities declare.
+
+   | Function (C ABI) | Contract |
+   |---|---|
+   | `u8* mora_pal_alloc(usize size, usize align)` | `size` is not zero and `align` is a power of two; null when out of memory |
+   | `u8* mora_pal_realloc(u8* ptr, usize old_size, usize align, usize new_size)` | Keeps the contents up to the smaller size; null, with the block untouched, when out of memory |
+   | `void mora_pal_free(u8* ptr, usize size, usize align)` | Takes the size and alignment the block was allocated with |
+   | `noreturn void mora_pal_abort(void)` | Ends the process at once, without destructors or flushing |
+   | `void mora_pal_write_diagnostic(const u8* ptr, usize len)` | Writes UTF-8 text where panics go: stderr on hosted platforms |
+   | `u64 mora_pal_now(void)` | Monotonic nanoseconds from an arbitrary start; `u64::MAX` on a platform without the `clock` capability, which is what "optional" means |
+   | `void mora_pal_wait(u64 timeout_ns)` | Blocks until an event the platform watches or the timeout; `u64::MAX` waits without a timeout. It may return early, so the executor checks its queues again after every call |
 4. **The standard library is layered.** `Std.Core` needs nothing from the platform (primitives, `Option`, `Result`, spans, text formatting into caller buffers, interfaces, `Std.Meta`). `Std.Alloc` needs the `heap` capability (strings, arrays, collections, LINQ, JSON, futures and the executor). The rest of `Std` needs the hosted capabilities it is tagged with (`Console` needs `stdio`, `File` needs `fs`, `TcpListener` needs `net`). Using an API whose capability the target lacks is error `MR0510`, naming the API, the capability and the target, at compile time instead of link time.
 5. **CI guards it from M0.** Before any embedded target ships, CI builds `mora-rt-core` for `thumbv7em-none-eabihf` (`no_std`, 32-bit), runs the layout unit tests against a 32-bit target description, and runs the run-test suite on `riscv64gc-linux` under QEMU, a third instruction set that Cranelift supports. A change that breaks one of these fails CI like any other check.
 

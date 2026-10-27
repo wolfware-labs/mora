@@ -10,3 +10,7 @@ publish = false
 
 [lints]
 workspace = true
+
+[features]
+# The debug runtime (§13.2).
+debug = []

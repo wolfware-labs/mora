@@ -6,6 +6,7 @@
 
 mod error_codes;
 mod layers;
+mod runtime;
 mod spec_examples;
 
 use std::path::{Path, PathBuf};
@@ -14,7 +15,8 @@ use std::process::ExitCode;
 use cargo_metadata::MetadataCommand;
 use mora_diag::registry;
 
-const USAGE: &str = "usage: cargo xtask <layers | error-codes | spec-examples>";
+const USAGE: &str =
+    "usage: cargo xtask <layers | error-codes | spec-examples | runtime [--test] [target...]>";
 
 /// `cargo metadata --no-deps` for the workspace that contains this crate.
 fn metadata_command() -> MetadataCommand {
@@ -105,12 +107,57 @@ fn run_spec_examples() -> ExitCode {
     }
 }
 
+/// Builds both runtime variants for each target, the host when none is
+/// given, and with `--test` checks each with the C test program.
+fn run_runtime(args: &[&str]) -> ExitCode {
+    let test = args.contains(&"--test");
+    let mut targets: Vec<String> = args
+        .iter()
+        .filter(|arg| **arg != "--test")
+        .map(|arg| (*arg).to_owned())
+        .collect();
+    if targets.is_empty() {
+        match runtime::host() {
+            Ok(host) => targets.push(host),
+            Err(err) => {
+                eprintln!("runtime: {err}");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    let root = root();
+    for target in &targets {
+        for variant in runtime::VARIANTS {
+            let result = runtime::build(&root, target, variant).and_then(|built| {
+                if test {
+                    runtime::test(&root, target, &built)?;
+                }
+                Ok(built)
+            });
+            match result {
+                Ok(built) => println!(
+                    "runtime: {target} {}{} (links {})",
+                    variant.file,
+                    if test { ", test passed" } else { "" },
+                    built.native_libs.join(" ")
+                ),
+                Err(err) => {
+                    eprintln!("runtime: {err}");
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+    }
+    ExitCode::SUCCESS
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
         ["layers"] => run_layers(),
         ["error-codes"] => run_error_codes(),
         ["spec-examples"] => run_spec_examples(),
+        ["runtime", ref rest @ ..] => run_runtime(rest),
         _ => {
             eprintln!("{USAGE}");
             ExitCode::from(2)
