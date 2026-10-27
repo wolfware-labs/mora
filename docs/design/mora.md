@@ -709,6 +709,18 @@ public interface IShape
 
 - Interfaces declare methods, properties, indexers, operators and static abstract members, with or without default implementations. An interface may extend other interfaces.
 - A struct, class, record or union implements an interface by listing it in its base list and providing every member that has no default. Implementation is by name and signature, as in C#; explicit implementation (`float IShape.Area() => ...`) is allowed and makes the member callable only through the interface.
+- When a type inherits defaults for the same member from two interfaces and neither interface extends the other, the type MUST implement that member itself (`MR0235`); the error names both defaults. An interface may replace a default of an interface it extends, and the more derived default wins, as in C#. Inside a default, `this` is the implementing type: generic code calls the default without dispatch, and a dynamic interface value calls it through the vtable (§13.6).
+
+  ```mora
+  public interface IReader { string Describe() => "reader"; }
+  public interface IWriter { string Describe() => "writer"; }
+
+  public class Pipe : IReader, IWriter
+  {
+      public string Describe() => "pipe";   // required: both interfaces give a default
+  }
+  ```
+
 - Implementing an interface for a type declared elsewhere (a retroactive implementation) is post-MVP (OQ-5).
 - How interfaces are dispatched is in §8.3 and §8.4.
 
@@ -2237,6 +2249,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-49 | Ownership, move, borrow, view and escape violations are compile errors that cannot be silenced; the remaining run-time checks panic or abort | user, author | 10 |
 | D-50 | Targets are data; layouts are computed from the target; the runtime splits into a `no_std` core and platform layers behind one platform interface; the standard library is layered by capability; CI guards portability from M0 | user, author | 19.4 |
 | D-47 | Unique objects follow struct mutation rules: `mut` methods take `ref this`, and `in` borrows are read-only | author | 6.4, 10.4 |
+| D-52 | Interfaces keep default implementations; when two unrelated interfaces give defaults for one member, the implementing type must write its own | user | 6.8 |
 
 ## 24. Open questions
 
