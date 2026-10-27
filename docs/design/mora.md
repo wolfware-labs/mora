@@ -709,7 +709,7 @@ public interface IShape
 
 - Interfaces declare methods, properties, indexers, operators and static abstract members, with or without default implementations. An interface may extend other interfaces.
 - A struct, class, record or union implements an interface by listing it in its base list and providing every member that has no default. Implementation is by name and signature, as in C#; explicit implementation (`float IShape.Area() => ...`) is allowed and makes the member callable only through the interface.
-- When a type inherits defaults for the same member from two interfaces and neither interface extends the other, the type MUST implement that member itself (`MR0235`); the error names both defaults. An interface may replace a default of an interface it extends, and the more derived default wins, as in C#. Inside a default, `this` is the implementing type: generic code calls the default without dispatch, and a dynamic interface value calls it through the vtable (§13.6).
+- When a type inherits defaults for the same member from two interfaces and neither interface extends the other, the type MUST implement that member itself (`MR0235`); the error names both defaults. An interface may replace a default of an interface it extends, and the more derived default wins, as in C#. A type's own implementation always replaces a default, whether the member is called on the type, through a generic parameter or through a dynamic interface value. Inside a default, `this` is the implementing type: generic code calls the default directly, specialized for that type, and a dynamic interface value calls it through the vtable (§13.6).
 
   ```mora
   public interface IReader { string Describe() => "reader"; }
