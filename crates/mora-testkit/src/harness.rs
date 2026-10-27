@@ -24,12 +24,17 @@ pub struct Options {
 impl Options {
     /// Reads `--bless` and filters. Other flags are ignored, because
     /// `cargo test` passes the flags of the standard harness, such as
-    /// `--nocapture`, to every test binary.
+    /// `--nocapture`, to every test binary. The value after one of those
+    /// flags that takes a value, as in `--test-threads 4`, is skipped too, so
+    /// it does not become a filter.
     pub fn parse(args: impl IntoIterator<Item = String>) -> Self {
         let mut options = Self::default();
-        for arg in args {
+        let mut args = args.into_iter();
+        while let Some(arg) = args.next() {
             if arg == "--bless" {
                 options.bless = true;
+            } else if TAKES_VALUE.contains(&arg.as_str()) {
+                args.next();
             } else if !arg.starts_with('-') {
                 options.filters.push(arg);
             }
@@ -41,6 +46,18 @@ impl Options {
         self.filters.is_empty() || self.filters.iter().any(|f| path.contains(f.as_str()))
     }
 }
+
+/// The flags of the standard test harness that take their value as the next
+/// argument.
+const TAKES_VALUE: &[&str] = &[
+    "--color",
+    "--format",
+    "--logfile",
+    "--shuffle-seed",
+    "--skip",
+    "--test-threads",
+    "-Z",
+];
 
 /// The outcome of a suite: how many cases passed and why the others failed.
 #[derive(Debug, Default)]
@@ -223,7 +240,19 @@ mod tests {
 
     #[test]
     fn options_keep_bless_and_filters_and_skip_other_flags() {
-        let args = ["--nocapture", "moves", "--bless", "-q", "views"].map(String::from);
+        let args = [
+            "--nocapture",
+            "moves",
+            "--test-threads",
+            "4",
+            "--bless",
+            "--skip",
+            "slow",
+            "-q",
+            "--format=terse",
+            "views",
+        ]
+        .map(String::from);
         assert_eq!(
             Options::parse(args),
             Options {
