@@ -61,19 +61,19 @@ Workspace `Cargo.toml` with every crate of §14.2 as an empty library (`mora-cli
 
 Done when:
 
-- `cargo build --workspace`, `cargo clippy --workspace --all-targets -D warnings` and `cargo deny check` pass.
+- `cargo build --workspace`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo deny check` pass.
 - Each crate's `lib.rs` has a crate doc comment stating its responsibility from §14.2.
 
 ### M0.3 CI workflow on Linux, macOS and Windows
 
 Spec: [§20.5](docs/design/mora.md#205-continuous-integration), [§19.1](docs/design/mora.md#191-targets). Crates: repository. Blocked by: M0.2.
 
-`ci.yml` running fmt, clippy, tests, docs and `cargo deny` on `ubuntu-latest`, `ubuntu-24.04-arm`, `macos-latest`, `windows-2025` and `windows-11-arm`, with a change filter that skips builds for Markdown-only changes, `!cancelled()` so one run reports every failing check, `RUSTFLAGS=-D warnings`, and every third-party action pinned by commit SHA.
+`ci.yml` running fmt, clippy, tests, docs and `cargo deny` on `ubuntu-latest`, `ubuntu-24.04-arm`, `macos-latest`, `windows-2025` and `windows-11-arm`, with a change filter that skips the Rust build for Markdown-only changes but never for `docs/design/mora.md`, `docs/errors/` or `docs/guide/`, whose executable examples must run, `!cancelled()` so one run reports every failing check, `RUSTFLAGS=-D warnings`, and every third-party action pinned by commit SHA.
 
 Done when:
 
 - A pull request shows one required check per job and they pass.
-- A Markdown-only change completes without building.
+- A change to `README.md` alone completes without building; a change to `docs/design/mora.md` alone is not skipped.
 - The org `required checks` ruleset lists the new jobs.
 
 ### M0.4 Crate layering check
