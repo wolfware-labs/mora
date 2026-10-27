@@ -327,6 +327,44 @@ fn install_rust_std(root: &Path, target: &str, dir: &str, out: &Path) -> Result<
     Ok(())
 }
 
+/// Changes whenever the installed layout does, so that the stamp of an
+/// older layout is not trusted.
+const LAYOUT: u32 = 1;
+
+/// Whether everything an install produces is still there and `lld` runs.
+fn complete(out: &Path) -> bool {
+    let dirs = ["ld/bin", "LICENSES"]
+        .into_iter()
+        .map(|dir| out.join(dir))
+        .chain(
+            MINGW_TARGETS
+                .iter()
+                .map(|(_, dir)| *dir)
+                .chain(RUST_STD_MUSL.iter().map(|(_, dir, _)| *dir))
+                .map(|dir| out.join("sysroot").join(dir)),
+        );
+    let has_files =
+        |dir: PathBuf| fs::read_dir(dir).is_ok_and(|mut entries| entries.next().is_some());
+    dirs.into_iter().all(has_files) && lld_version(out).is_ok()
+}
+
+/// Deletes downloads that no pinned archive names any more, such as the
+/// archives of an older pin or an interrupted download.
+fn prune(downloads: &Path, archives: &[Archive]) {
+    let Ok(entries) = fs::read_dir(downloads) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        if !archives
+            .iter()
+            .any(|archive| name.to_string_lossy() == archive.file)
+        {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
+}
+
 /// What `install` did.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Installed {
@@ -342,14 +380,18 @@ pub enum Installed {
 /// `LICENSES/`. Does nothing when the stamp names the same archives.
 pub fn install(archives: &[Archive], licenses: &Path, out: &Path) -> Result<Installed, String> {
     let stamp_file = out.join("stamp");
-    let stamp: String = archives
-        .iter()
-        .map(|archive| format!("{} {}\n", archive.sha256, archive.file))
+    let stamp: String = std::iter::once(format!("layout {LAYOUT}\n"))
+        .chain(
+            archives
+                .iter()
+                .map(|archive| format!("{} {}\n", archive.sha256, archive.file)),
+        )
         .collect();
-    if fs::read_to_string(&stamp_file).is_ok_and(|old| old == stamp) {
+    if fs::read_to_string(&stamp_file).is_ok_and(|old| old == stamp) && complete(out) {
         return Ok(Installed::UpToDate);
     }
     let downloads = out.join("downloads");
+    prune(&downloads, archives);
     let paths = archives
         .iter()
         .map(|archive| fetch(archive, &downloads))
@@ -516,6 +558,37 @@ mod tests {
             "crt1"
         );
         assert!(out.join("sysroot/x86_64-linux/libc.a").is_file());
+    }
+
+    #[test]
+    fn an_incomplete_install_is_not_up_to_date() {
+        let out = scratch("incomplete");
+        assert!(!complete(&out));
+        for dir in ["ld/bin", "LICENSES", "sysroot/x86_64-linux"] {
+            fs::create_dir_all(out.join(dir)).unwrap();
+            fs::write(out.join(dir).join("f"), "").unwrap();
+        }
+        // The other sysroots and a working lld are still missing.
+        assert!(!complete(&out));
+    }
+
+    #[test]
+    fn old_downloads_are_pruned() {
+        let dir = scratch("prune");
+        for file in ["keep.tar.gz", "old.tar.gz", "keep.tar.gz.part"] {
+            fs::write(dir.join(file), "").unwrap();
+        }
+        let keep = Archive {
+            file: "keep.tar.gz".to_owned(),
+            url: String::new(),
+            sha256: String::new(),
+        };
+        prune(&dir, &[keep]);
+        let left: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        assert_eq!(left, ["keep.tar.gz"]);
     }
 
     #[test]
