@@ -1,0 +1,115 @@
+//! Run tests: a `.mr` program with `// expect:` lines giving its standard
+//! output, one line each, and an optional `// exit:` line giving its exit
+//! code (0 by default).
+
+use crate::compiler::Compiler;
+use crate::diff::diff;
+use crate::ui::rendered;
+
+const EXPECT: &str = "// expect:";
+const EXIT: &str = "// exit:";
+
+/// What a run test expects.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Expected {
+    pub stdout: String,
+    pub exit: i32,
+}
+
+/// Reads the `// expect:` and `// exit:` lines. The text after the marker,
+/// less one space, is a line of output.
+pub fn expected(text: &str) -> Result<Expected, String> {
+    let mut stdout = String::new();
+    let mut exit = None;
+    for (index, line) in text.lines().enumerate() {
+        let line = line.trim_start();
+        if let Some(rest) = line.strip_prefix(EXPECT) {
+            stdout.push_str(rest.strip_prefix(' ').unwrap_or(rest));
+            stdout.push('\n');
+        } else if let Some(rest) = line.strip_prefix(EXIT) {
+            let line = index + 1;
+            if exit.is_some() {
+                return Err(format!("line {line}: a second `{EXIT}` line"));
+            }
+            let code = rest.trim();
+            exit = Some(
+                code.parse()
+                    .map_err(|_| format!("line {line}: `{code}` is not an exit code"))?,
+            );
+        }
+    }
+    Ok(Expected {
+        stdout,
+        exit: exit.unwrap_or(0),
+    })
+}
+
+/// Checks one case: builds and runs `text` as `path` with every backend the
+/// compiler has, and compares each run's output and exit code with the
+/// expected ones. Returns the problems, empty when the case passes.
+pub fn check(compiler: &dyn Compiler, path: &str, text: &str) -> Vec<String> {
+    let expected = match expected(text) {
+        Ok(expected) => expected,
+        Err(problem) => return vec![problem],
+    };
+    let backends = compiler.backends();
+    if backends.is_empty() {
+        return vec!["the compiler has no backend to run programs with".to_owned()];
+    }
+    let mut problems = Vec::new();
+    for &backend in backends {
+        let name = backend.name();
+        let output = match compiler.run(path, text, backend) {
+            Ok(output) => output,
+            Err(checked) => {
+                problems.push(format!("{name}: the build failed:\n{}", rendered(&checked)));
+                continue;
+            }
+        };
+        // A program that prints with `\r\n` on Windows passes the same test.
+        let stdout = output.stdout.replace("\r\n", "\n");
+        if stdout != expected.stdout {
+            problems.push(format!(
+                "{name}: stdout differs (- expected, + actual):\n{}",
+                diff(&expected.stdout, &stdout)
+            ));
+        }
+        if output.exit != expected.exit {
+            problems.push(format!(
+                "{name}: exit code {}, expected {}",
+                output.exit, expected.exit
+            ));
+        }
+    }
+    problems
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expect_lines_build_stdout_in_order() {
+        let text = "// expect: Hello\n// expect:\n//expect: not a marker\nf(); // exit: is not first\n    // expect:  two spaces\n// exit: 3\n";
+        assert_eq!(
+            expected(text),
+            Ok(Expected {
+                stdout: "Hello\n\n two spaces\n".to_owned(),
+                exit: 3,
+            })
+        );
+    }
+
+    #[test]
+    fn exit_defaults_to_zero_and_must_be_a_number() {
+        assert_eq!(expected("f();").map(|e| e.exit), Ok(0));
+        assert_eq!(
+            expected("// exit: one"),
+            Err("line 1: `one` is not an exit code".to_owned())
+        );
+        assert_eq!(
+            expected("// exit: 1\n// exit: 2"),
+            Err("line 2: a second `// exit:` line".to_owned())
+        );
+    }
+}

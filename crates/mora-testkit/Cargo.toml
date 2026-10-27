@@ -10,3 +10,17 @@ publish = false
 
 [lints]
 workspace = true
+
+[dependencies]
+mora-diag.workspace = true
+mora-span.workspace = true
+
+# Both read the `tests/ui` and `tests/run` suites at the repository root, with
+# their own reports instead of the standard harness's.
+[[test]]
+name = "ui"
+harness = false
+
+[[test]]
+name = "run"
+harness = false

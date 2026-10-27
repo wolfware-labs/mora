@@ -289,6 +289,10 @@ version = "0.0.0"
 [[package]]
 name = "mora-testkit"
 version = "0.0.0"
+dependencies = [
+ "mora-diag",
+ "mora-span",
+]
 
 [[package]]
 name = "once_cell"
@@ -590,6 +594,7 @@ version = "0.0.0"
 dependencies = [
  "cargo_metadata",
  "mora-diag",
+ "mora-testkit",
  "serde_json",
 ]
 
