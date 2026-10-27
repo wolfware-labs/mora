@@ -89,27 +89,9 @@ fn literals(text: &str) -> Vec<Literal> {
         if c == '\n' {
             line += 1;
             i += 1;
-        } else if c == '/' && at(i + 1) == '/' {
-            while i < chars.len() && chars[i] != '\n' {
-                i += 1;
-            }
-        } else if c == '/' && at(i + 1) == '*' {
-            let mut depth = 0;
-            while i < chars.len() {
-                if chars[i] == '/' && at(i + 1) == '*' {
-                    depth += 1;
-                    i += 2;
-                } else if chars[i] == '*' && at(i + 1) == '/' {
-                    depth -= 1;
-                    i += 2;
-                    if depth == 0 {
-                        break;
-                    }
-                } else {
-                    line += usize::from(chars[i] == '\n');
-                    i += 1;
-                }
-            }
+        } else if let Some(end) = comment_end(&chars, i) {
+            line += chars[i..end].iter().filter(|&&c| c == '\n').count();
+            i = end;
         } else if (c.is_alphabetic() || c == '_') && !(i > 0 && is_ident(chars[i - 1])) {
             let mut j = i;
             while j < chars.len() && is_ident(chars[j]) {
@@ -143,8 +125,14 @@ fn literals(text: &str) -> Vec<Literal> {
             i = j;
             if cfg_depth == 0 && matches!(word.as_str(), "cfg" | "cfg_attr") {
                 let mut k = j;
-                while at(k).is_whitespace() || at(k) == '!' {
-                    k += 1;
+                loop {
+                    if at(k).is_whitespace() || at(k) == '!' {
+                        k += 1;
+                    } else if let Some(end) = comment_end(&chars, k) {
+                        k = end;
+                    } else {
+                        break;
+                    }
                 }
                 if at(k) == '(' {
                     line += chars[j..k].iter().filter(|&&c| c == '\n').count();
@@ -193,6 +181,42 @@ fn literals(text: &str) -> Vec<Literal> {
         }
     }
     found
+}
+
+/// The index just past the comment that starts at `i`, if one does. Block
+/// comments nest, as in Rust.
+fn comment_end(chars: &[char], i: usize) -> Option<usize> {
+    let at = |i: usize| chars.get(i).copied().unwrap_or_default();
+    if at(i) != '/' {
+        return None;
+    }
+    let mut j = i;
+    match at(i + 1) {
+        '/' => {
+            while j < chars.len() && chars[j] != '\n' {
+                j += 1;
+            }
+        }
+        '*' => {
+            let mut depth = 0;
+            while j < chars.len() {
+                if chars[j] == '/' && at(j + 1) == '*' {
+                    depth += 1;
+                    j += 2;
+                } else if chars[j] == '*' && at(j + 1) == '/' {
+                    depth -= 1;
+                    j += 2;
+                    if depth == 0 {
+                        break;
+                    }
+                } else {
+                    j += 1;
+                }
+            }
+        }
+        _ => return None,
+    }
+    Some(j.min(chars.len()))
 }
 
 /// Scans every `.rs` file under `crates/` outside [`OWNERS`] and [`ALLOW`].
@@ -316,6 +340,10 @@ mod tests {
             "#[cfg_attr(all(target_os = \"macos\", unix), allow(dead_code))] fn g() -> &'static str { \"macos\" }\n",
             "if cfg!\n(target_arch = \"x86_64\") { f(\"aarch64\") }\n",
             "let config = \"riscv64\";\n",
+            "#[cfg /* host */ (unix)] #[cfg_attr(\n",
+            "    // why\n",
+            "    target_os = \"linux\", inline)] fn h() {}\n",
+            "if cfg! /* a\n b */ (target_os = \"windows\") { f(\"x86_64\") }\n",
         );
         assert_eq!(
             scan(text, &words()),
@@ -325,6 +353,7 @@ mod tests {
                 (5, "macos".to_owned()),
                 (7, "aarch64".to_owned()),
                 (8, "riscv64".to_owned()),
+                (13, "x86_64".to_owned()),
             ]
         );
     }
