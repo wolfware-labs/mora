@@ -298,9 +298,9 @@ public static Result<int, ParseError> Total(string csv)
 
 ### 3.2 Comments and doc comments
 
-- `//` to end of line, and `/* ... */` (not nesting, as in C#).
+- `//` to end of line, and `/* ... */` (not nesting, as in C#). A block comment that is not closed is error `MR0012`.
 - `///` starts a doc comment. Doc comments are **Markdown**, not the XML of C# doc comments (D-21). A doc comment attaches to the next declaration. Inline code in backticks that names a symbol, for example `` `List<T>.Add` ``, becomes a link in the LSP hover and in generated docs.
-- `#Name(...)` inside an expression calls an expression macro (§9). A `#` that starts a line is a directive:
+- `#Name(...)` inside an expression calls an expression macro (§9). A `#` that starts a line, followed by one of C#'s directive names (`if`, `elif`, `else`, `endif`, `define`, `undef`, `warning`, `error`, `line`, `region`, `endregion`, `pragma`, `nullable`), is a directive that runs to the end of the line; any other `#`, such as a macro call that starts a statement, is not:
 - `#region` and `#endregion` lines are accepted and ignored, so code pasted from C# keeps its structure. Every other `#` directive (`#if`, `#define`, `#pragma`, `#nullable`) is error `MR0002` with a hint: conditional compilation uses the `[Cfg]` attribute (§6.11), and warnings are silenced with `[Allow]`.
 
 ### 3.3 Identifiers
@@ -340,11 +340,11 @@ Keywords from C# with no meaning in Mora are reserved so that C# habits produce 
 
 ### 3.5 Literals
 
-**Integer literals.** Decimal `1234`, hexadecimal `0x4D2`, binary `0b1001`, with `_` separators allowed between digits. Suffixes `u`, `l`, `ul` (any case) pick `uint`, `long`, `ulong` as in C#. An unsuffixed literal takes the expected type when there is one and the value fits; otherwise it is `int`, then `long`, then `ulong`, as in C#. A literal that does not fit its type is error `MR0010`.
+**Integer literals.** Decimal `1234`, hexadecimal `0x4D2`, binary `0b1001`, with `_` separators allowed between digits. Suffixes `u`, `l`, `ul` (any case) pick `uint`, `long`, `ulong` as in C#. An unsuffixed literal takes the expected type when there is one and the value fits; otherwise it is `int`, then `long`, then `ulong`, as in C#. A literal that does not fit its type is error `MR0010`. A malformed literal (no digits after `0x` or `0b`, a `_` that is not between two digits, an unknown suffix) is error `MR0014`.
 
-**Real literals.** `1.5`, `1e9`, `1.5e-3`, with suffixes `f` (`float`), `d` (`double`). An unsuffixed real takes the expected type when it is `float` or `double`; otherwise `double`. Unlike C#, `float x = 1.5;` compiles. The suffix `m` (`decimal`) is reserved (OQ-12).
+**Real literals.** `1.5`, `1e9`, `1.5e-3`, with suffixes `f` (`float`), `d` (`double`). An unsuffixed real takes the expected type when it is `float` or `double`; otherwise `double`. Unlike C#, `float x = 1.5;` compiles. The suffix `m` (`decimal`) is reserved (OQ-12) and is error `MR0014`. A real literal too large for its type is error `MR0010`.
 
-**Character literals.** `'a'`. A `char` is a Unicode scalar value (§5.2), so `'𝄞'` (U+1D11E, outside the BMP) is one `char`. Escapes: `\'`, `\"`, `\\`, `\0`, `\a`, `\b`, `\f`, `\n`, `\r`, `\t`, `\v`, `\uXXXX` (four hex digits, not a surrogate), `\u{X...}` (one to six hex digits). The C# `\x` escape is error `MR0011` with a hint to use `\u{...}`.
+**Character literals.** `'a'`. A `char` is a Unicode scalar value (§5.2), so `'𝄞'` (U+1D11E, outside the BMP) is one `char`. Escapes: `\'`, `\"`, `\\`, `\0`, `\a`, `\b`, `\f`, `\n`, `\r`, `\t`, `\v`, `\uXXXX` (four hex digits, not a surrogate), `\u{X...}` (one to six hex digits). The C# `\x` escape is error `MR0011` with a hint to use `\u{...}`. Any other unknown escape, `\u` with the wrong number of digits, or a code point that is not a scalar value is error `MR0013`. A character literal holds exactly one character: `''` and `'ab'` are error `MR0015`.
 
 **String literals.**
 
@@ -358,6 +358,10 @@ Keywords from C# with no meaning in Mora are reserved so that C# habits produce 
 
 String literals have type `string` and are stored as immortal static objects (§13.4); using one never allocates.
 
+As in C#, a `:` at the top level of a hole starts its format, so a conditional expression in a hole goes in parentheses: `$"{(ok ? 1 : 2)}"`.
+
+A string, character literal or interpolated string that is not closed is error `MR0012`; a regular string ends at the end of its line. Error `MR0016` covers the rules of the other forms: a lone `}` in the text of an interpolated string (write `}}`), more than one `$` before a string that is not raw, a run of braces in a raw interpolated string that is as long as two hole delimiters, a raw string closed with more quotes than it opened with, and a multi-line raw string whose opening line holds content, whose closing quotes do not stand on their own line, or whose content lines do not start with the closing quotes' indentation.
+
 **Other literals.** `true`, `false`, `null` (the empty value of any `T?`, §5.6), `default` (§7.13).
 
 ### 3.6 Operators and punctuation
@@ -369,7 +373,7 @@ String literals have type `string` and are stored as immortal static objects (§
 +% -% *% +%= -%= *%=
 ```
 
-`#` before an identifier calls an expression macro (§9). `+%`, `-%` and `*%` are wrapping arithmetic (§7.12). `->` is reserved. `::` qualifies a library alias (§4.4).
+`#` before an identifier calls an expression macro (§9). `+%`, `-%` and `*%` are wrapping arithmetic (§7.12). `->` is reserved. `::` qualifies a library alias (§4.4). A character that cannot start any token, such as `` ` `` or a non-breaking space, is error `MR0017`.
 
 ## 4. Program structure
 
@@ -1526,7 +1530,7 @@ flowchart LR
 |---|---|---|
 | `mora-span` | File ids, spans, line index, interning, the database trait | `salsa` |
 | `mora-diag` | One diagnostic type for every crate, the error code registry and its explanations (`docs/errors/MRnnnn.md`), terminal and JSON rendering | `annotate-snippets`, `serde`, `serde_json` |
-| `mora-syntax` | Lexer, parser, lossless syntax tree, typed AST views | `logos`, `rowan` |
+| `mora-syntax` | Lexer, parser, lossless syntax tree, typed AST views | `logos`, `rowan`, `unicode-ident`, `unicode-normalization` |
 | `mora-hir` | Item tree, name resolution, types, inference, HIR bodies; defines the macro-runner interface | `salsa`, `la-arena` |
 | `mora-macro` | Compiles macros with the JIT, runs them in the sandbox, builds the `Std.Meta` model, parses `code` output, caches expansions | `cranelift-jit` through `mora-codegen` |
 | `mora-check` | HIR checks and lints: definite assignment, exhaustiveness, mutability, naming, `strong-cycle` | `salsa` |
@@ -1556,7 +1560,8 @@ Inputs are file contents, the project graph and the target configuration. Every 
 
 ### 14.4 Lexer and parser
 
-- The lexer is generated by `logos` for ordinary tokens and switches to a hand-written sub-lexer inside string literals, because interpolated and raw strings need a mode stack (holes can contain strings that contain holes).
+- The lexer is generated by `logos` for ordinary tokens and switches to a hand-written sub-lexer inside string literals, because interpolated and raw strings need a mode stack (holes can contain strings that contain holes). An interpolated string is a sequence of tokens: its start, pieces of text, holes, and its end. A hole is its opening braces, the ordinary tokens of its expression and alignment, an optional format, and its closing braces, so the parser and the LSP see the code in a hole as code.
+- `>` is always its own token. The parser joins adjacent `>` tokens into `>>`, `>>>`, `>=`, `>>=` and `>>>=` in expressions, so `List<List<int>>` closes two type argument lists without splitting a token.
 - The parser is hand-written recursive descent with Pratt parsing for expressions. It produces a `rowan` green tree that keeps every token and every piece of trivia, so the formatter and the LSP work on the same tree and `print(parse(text)) == text` for every input, valid or not.
 - The parser never stops at the first error. It recovers at statement and member boundaries and marks missing nodes, so the LSP can analyze code that is being typed.
 - Ambiguities inherited from C# are resolved by C#'s rules: a generic argument list `<...>` is chosen when the token after the closing `>` is one of `( ) ] } : ; , . ? == != | ^ && || & [`; casts `(T)x` by the C# cast-expression rules; and the postfix `?` by §7.4.

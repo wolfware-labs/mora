@@ -1,0 +1,964 @@
+//! The lexer (§3, §14.4).
+//!
+//! [`lex`] turns source text into tokens that cover every byte, trivia
+//! included, so the parser can build a lossless tree. Ordinary tokens come
+//! from a `logos` automaton. Identifiers, comments, directives, character
+//! literals and every string form are lexed by hand, because interpolated
+//! strings need a mode stack: a hole holds code, and that code can hold
+//! another interpolated string.
+//!
+//! An interpolated string becomes several tokens: [`TokenKind::InterpStart`],
+//! then [`TokenKind::InterpText`] pieces and holes, then
+//! [`TokenKind::InterpEnd`]. A hole is [`TokenKind::HoleOpen`], the ordinary
+//! tokens of its expression (and of an alignment after a comma), an optional
+//! [`TokenKind::HoleFormat`], and [`TokenKind::HoleClose`].
+//!
+//! `>` is always its own token, so `List<List<int>>` closes two type
+//! argument lists; the parser joins adjacent `>`, `>=` and `>>` pieces in
+//! expressions with [`Lexed::is_joined`].
+
+mod escape;
+mod kind;
+pub mod literal;
+pub mod number;
+
+use std::borrow::Cow;
+
+use logos::Logos;
+use mora_diag::Code;
+use mora_diag::codes;
+use mora_span::{TextRange, TextSize};
+use unicode_normalization::{UnicodeNormalization, is_nfc};
+
+pub use kind::TokenKind;
+
+/// One token: its kind and where it is in the text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub range: TextRange,
+}
+
+/// A lexical error.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LexError {
+    pub code: Code,
+    pub range: TextRange,
+    pub message: String,
+}
+
+/// The tokens of a text and the errors found while lexing it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Lexed {
+    pub tokens: Vec<Token>,
+    pub errors: Vec<LexError>,
+}
+
+impl Lexed {
+    /// Whether token `i` is directly followed by a token that is not trivia,
+    /// so that the parser may join them, as in `>>` or `?[`.
+    pub fn is_joined(&self, i: usize) -> bool {
+        self.tokens
+            .get(i + 1)
+            .is_some_and(|next| !next.kind.is_trivia())
+    }
+}
+
+/// The name an identifier token declares or refers to: without its `@`
+/// prefix and in Unicode normalization form C, so that two spellings that
+/// differ only in normalization name the same thing (§3.1, §3.3).
+pub fn ident_name(text: &str) -> Cow<'_, str> {
+    let name = text.strip_prefix('@').unwrap_or(text);
+    if is_nfc(name) {
+        Cow::Borrowed(name)
+    } else {
+        Cow::Owned(name.nfc().collect())
+    }
+}
+
+/// Lexes `text`. Every byte belongs to exactly one token, in order. The
+/// text must be smaller than 4 GiB; the driver rejects larger files
+/// (`MR0003`, §3.1).
+pub fn lex(text: &str) -> Lexed {
+    let mut lexer = Lexer {
+        text,
+        pos: 0,
+        line_start: true,
+        stack: Vec::new(),
+        holes: Vec::new(),
+        out: Lexed::default(),
+    };
+    while lexer.pos < text.len() {
+        match lexer.stack.last().copied() {
+            Some(Frame::Text(s)) => lexer.interp_text(s),
+            Some(Frame::Hole(s, depth, hole)) => lexer.hole_token(s, depth, hole),
+            None => lexer.code_token(),
+        }
+    }
+    if let Some(Frame::Text(s) | Frame::Hole(s, _, _)) = lexer.stack.first().copied() {
+        lexer.error(
+            codes::MR0012,
+            s.start..s.start + s.prefix,
+            "this interpolated string is not closed",
+        );
+    }
+    lexer.out
+}
+
+/// The directive names that make a `#` at the start of a line a directive
+/// (§3.2). They are C#'s; only `#region` and `#endregion` are accepted.
+const DIRECTIVES: &[&str] = &[
+    "if",
+    "elif",
+    "else",
+    "endif",
+    "define",
+    "undef",
+    "warning",
+    "error",
+    "line",
+    "region",
+    "endregion",
+    "pragma",
+    "nullable",
+];
+
+/// An interpolated string being lexed.
+#[derive(Debug, Clone, Copy)]
+struct Interp {
+    /// Where its prefix starts.
+    start: usize,
+    /// The length of `$"`, `$@"`, `$$"""` and so on.
+    prefix: usize,
+    /// Whether it is `$@"..."`, where `""` is a quote and there are no escapes.
+    verbatim: bool,
+    /// The number of quotes around a raw string, zero otherwise.
+    quotes: usize,
+    /// How many braces open or close a hole: the number of `$` of a raw
+    /// string, one otherwise.
+    dollars: usize,
+    /// The index in `Lexer::holes` of its first hole.
+    first_hole: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Frame {
+    /// Inside the text of an interpolated string.
+    Text(Interp),
+    /// Inside a hole: the depth of open brackets in it and its index in
+    /// `Lexer::holes`.
+    Hole(Interp, u32, usize),
+}
+
+struct Lexer<'a> {
+    /// The whole text.
+    text: &'a str,
+    /// Where the next token starts.
+    pos: usize,
+    /// Whether only whitespace precedes `pos` on its line.
+    line_start: bool,
+    /// The interpolated strings and holes `pos` is inside, innermost last.
+    stack: Vec<Frame>,
+    /// The byte ranges of holes, for the indentation rules of raw strings.
+    holes: Vec<(usize, usize)>,
+    /// The tokens and errors so far.
+    out: Lexed,
+}
+
+/// Ordinary tokens. Everything that needs more than a regular expression,
+/// or that starts with a non-ASCII character, is lexed by hand.
+#[derive(Logos, Debug, Clone, Copy, PartialEq, Eq)]
+enum Raw {
+    #[regex(r"[ \t\x0C]+")]
+    #[token("\r")]
+    Whitespace,
+    #[token("\n")]
+    #[token("\r\n")]
+    Newline,
+    #[regex(r"//[^\n\r]*", allow_greedy = true)]
+    LineComment,
+    #[regex(r"///([^/\n\r][^\n\r]*)?", priority = 10, allow_greedy = true)]
+    DocComment,
+    #[regex(r"[0-9][0-9A-Za-z_]*")]
+    #[regex(r"[0-9][0-9_]*\.[0-9][0-9A-Za-z_]*")]
+    #[regex(r"[0-9][0-9_]*(\.[0-9][0-9_]*)?[eE][+-][0-9A-Za-z_]*")]
+    Number,
+    #[token("{")]
+    LBrace,
+    #[token("}")]
+    RBrace,
+    #[token("[")]
+    LBracket,
+    #[token("]")]
+    RBracket,
+    #[token("(")]
+    LParen,
+    #[token(")")]
+    RParen,
+    #[token(".")]
+    Dot,
+    #[token("..")]
+    DotDot,
+    #[token(",")]
+    Comma,
+    #[token(":")]
+    Colon,
+    #[token("::")]
+    ColonColon,
+    #[token(";")]
+    Semicolon,
+    #[token("?")]
+    Question,
+    #[token("??")]
+    QuestionQuestion,
+    #[token("??=")]
+    QuestionQuestionEq,
+    #[token("?.")]
+    QuestionDot,
+    #[token("=>")]
+    FatArrow,
+    #[token("->")]
+    ThinArrow,
+    #[token("@")]
+    At,
+    #[token("$")]
+    Dollar,
+    #[token("#")]
+    Hash,
+    #[token("+")]
+    Plus,
+    #[token("-")]
+    Minus,
+    #[token("*")]
+    Star,
+    #[token("/")]
+    Slash,
+    #[token("%")]
+    Percent,
+    #[token("&")]
+    Amp,
+    #[token("|")]
+    Pipe,
+    #[token("^")]
+    Caret,
+    #[token("!")]
+    Bang,
+    #[token("~")]
+    Tilde,
+    #[token("<<")]
+    Shl,
+    #[token("==")]
+    EqEq,
+    #[token("!=")]
+    BangEq,
+    #[token("<")]
+    Lt,
+    #[token(">")]
+    Gt,
+    #[token("<=")]
+    LtEq,
+    #[token("&&")]
+    AmpAmp,
+    #[token("||")]
+    PipePipe,
+    #[token("=")]
+    Eq,
+    #[token("+=")]
+    PlusEq,
+    #[token("-=")]
+    MinusEq,
+    #[token("*=")]
+    StarEq,
+    #[token("/=")]
+    SlashEq,
+    #[token("%=")]
+    PercentEq,
+    #[token("&=")]
+    AmpEq,
+    #[token("|=")]
+    PipeEq,
+    #[token("^=")]
+    CaretEq,
+    #[token("<<=")]
+    ShlEq,
+    #[token("++")]
+    PlusPlus,
+    #[token("--")]
+    MinusMinus,
+    #[token("+%")]
+    PlusPercent,
+    #[token("-%")]
+    MinusPercent,
+    #[token("*%")]
+    StarPercent,
+    #[token("+%=")]
+    PlusPercentEq,
+    #[token("-%=")]
+    MinusPercentEq,
+    #[token("*%=")]
+    StarPercentEq,
+}
+
+impl Raw {
+    fn kind(self) -> TokenKind {
+        match self {
+            Raw::Whitespace => TokenKind::Whitespace,
+            Raw::Newline => TokenKind::Newline,
+            Raw::LineComment => TokenKind::LineComment,
+            Raw::DocComment => TokenKind::DocComment,
+            // Classified by `number::check`.
+            Raw::Number => TokenKind::IntNumber,
+            Raw::LBrace => TokenKind::LBrace,
+            Raw::RBrace => TokenKind::RBrace,
+            Raw::LBracket => TokenKind::LBracket,
+            Raw::RBracket => TokenKind::RBracket,
+            Raw::LParen => TokenKind::LParen,
+            Raw::RParen => TokenKind::RParen,
+            Raw::Dot => TokenKind::Dot,
+            Raw::DotDot => TokenKind::DotDot,
+            Raw::Comma => TokenKind::Comma,
+            Raw::Colon => TokenKind::Colon,
+            Raw::ColonColon => TokenKind::ColonColon,
+            Raw::Semicolon => TokenKind::Semicolon,
+            Raw::Question => TokenKind::Question,
+            Raw::QuestionQuestion => TokenKind::QuestionQuestion,
+            Raw::QuestionQuestionEq => TokenKind::QuestionQuestionEq,
+            Raw::QuestionDot => TokenKind::QuestionDot,
+            Raw::FatArrow => TokenKind::FatArrow,
+            Raw::ThinArrow => TokenKind::ThinArrow,
+            Raw::At => TokenKind::At,
+            Raw::Dollar => TokenKind::Dollar,
+            Raw::Hash => TokenKind::Hash,
+            Raw::Plus => TokenKind::Plus,
+            Raw::Minus => TokenKind::Minus,
+            Raw::Star => TokenKind::Star,
+            Raw::Slash => TokenKind::Slash,
+            Raw::Percent => TokenKind::Percent,
+            Raw::Amp => TokenKind::Amp,
+            Raw::Pipe => TokenKind::Pipe,
+            Raw::Caret => TokenKind::Caret,
+            Raw::Bang => TokenKind::Bang,
+            Raw::Tilde => TokenKind::Tilde,
+            Raw::Shl => TokenKind::Shl,
+            Raw::EqEq => TokenKind::EqEq,
+            Raw::BangEq => TokenKind::BangEq,
+            Raw::Lt => TokenKind::Lt,
+            Raw::Gt => TokenKind::Gt,
+            Raw::LtEq => TokenKind::LtEq,
+            Raw::AmpAmp => TokenKind::AmpAmp,
+            Raw::PipePipe => TokenKind::PipePipe,
+            Raw::Eq => TokenKind::Eq,
+            Raw::PlusEq => TokenKind::PlusEq,
+            Raw::MinusEq => TokenKind::MinusEq,
+            Raw::StarEq => TokenKind::StarEq,
+            Raw::SlashEq => TokenKind::SlashEq,
+            Raw::PercentEq => TokenKind::PercentEq,
+            Raw::AmpEq => TokenKind::AmpEq,
+            Raw::PipeEq => TokenKind::PipeEq,
+            Raw::CaretEq => TokenKind::CaretEq,
+            Raw::ShlEq => TokenKind::ShlEq,
+            Raw::PlusPlus => TokenKind::PlusPlus,
+            Raw::MinusMinus => TokenKind::MinusMinus,
+            Raw::PlusPercent => TokenKind::PlusPercent,
+            Raw::MinusPercent => TokenKind::MinusPercent,
+            Raw::StarPercent => TokenKind::StarPercent,
+            Raw::PlusPercentEq => TokenKind::PlusPercentEq,
+            Raw::MinusPercentEq => TokenKind::MinusPercentEq,
+            Raw::StarPercentEq => TokenKind::StarPercentEq,
+        }
+    }
+}
+
+/// A text offset. Texts are smaller than 4 GiB (see [`lex`]).
+fn size(offset: usize) -> TextSize {
+    TextSize::new(u32::try_from(offset).unwrap_or(u32::MAX))
+}
+
+fn is_ident_start(c: char) -> bool {
+    c == '_' || unicode_ident::is_xid_start(c)
+}
+
+fn is_ident_continue(c: char) -> bool {
+    unicode_ident::is_xid_continue(c)
+}
+
+/// The length of the newline at the start of `text`, if one is there.
+fn newline_len(text: &str) -> Option<usize> {
+    if text.starts_with('\n') {
+        Some(1)
+    } else if text.starts_with("\r\n") {
+        Some(2)
+    } else {
+        None
+    }
+}
+
+/// The length of the line at the start of `text`, without its newline. A
+/// lone carriage return does not end a line (§3.1).
+fn line_len(text: &str) -> usize {
+    match text.find('\n') {
+        Some(end) if text[..end].ends_with('\r') => end - 1,
+        Some(end) => end,
+        None => text.len(),
+    }
+}
+
+/// The number of times `c` repeats at the start of `text`.
+fn run(text: &str, c: u8) -> usize {
+    text.bytes().take_while(|&b| b == c).count()
+}
+
+impl<'a> Lexer<'a> {
+    fn rest(&self) -> &'a str {
+        &self.text[self.pos..]
+    }
+
+    fn push(&mut self, kind: TokenKind, len: usize) {
+        debug_assert!(len > 0, "empty {kind:?} token");
+        let end = self.pos + len;
+        self.out.tokens.push(Token {
+            kind,
+            range: TextRange::new(size(self.pos), size(end)),
+        });
+        self.pos = end;
+        self.line_start = match kind {
+            TokenKind::Newline => true,
+            TokenKind::Whitespace => self.line_start,
+            _ => false,
+        };
+    }
+
+    fn error(&mut self, code: Code, range: std::ops::Range<usize>, message: impl Into<String>) {
+        self.out.errors.push(LexError {
+            code,
+            range: TextRange::new(size(range.start), size(range.end)),
+            message: message.into(),
+        });
+    }
+
+    /// Lexes one token of code.
+    fn code_token(&mut self) {
+        let rest = self.rest();
+        let Some(c) = rest.chars().next() else {
+            return;
+        };
+        if c == '#' && self.line_start {
+            // The whole word after `#`, so `#if1` and `#region_x` are not directives.
+            let name_len = rest[1..]
+                .find(|c: char| !is_ident_continue(c))
+                .unwrap_or(rest.len() - 1);
+            if DIRECTIVES.contains(&&rest[1..1 + name_len]) {
+                self.push(TokenKind::Directive, line_len(rest));
+                return;
+            }
+        }
+        if self.string_or_char() {
+            return;
+        }
+        if rest.starts_with("/*") {
+            self.block_comment();
+            return;
+        }
+        let ident_at = usize::from(c == '@');
+        if rest[ident_at..].chars().next().is_some_and(is_ident_start) {
+            let start = ident_at;
+            let len = start
+                + rest[start..]
+                    .char_indices()
+                    .find(|&(i, c)| i > 0 && !is_ident_continue(c))
+                    .map_or(rest.len() - start, |(i, _)| i);
+            let kind = if ident_at == 0 {
+                TokenKind::keyword(&rest[..len]).unwrap_or(TokenKind::Ident)
+            } else {
+                TokenKind::Ident
+            };
+            self.push(kind, len);
+            return;
+        }
+        if !c.is_ascii() {
+            let len = c.len_utf8();
+            // A byte order mark is accepted only at the start of the file (§3.1).
+            if c == '\u{FEFF}' && self.pos == 0 {
+                self.push(TokenKind::Whitespace, len);
+            } else {
+                self.error(
+                    codes::MR0017,
+                    self.pos..self.pos + len,
+                    format!("`{c}` (U+{:04X}) cannot start a token", u32::from(c)),
+                );
+                self.push(TokenKind::Unknown, len);
+            }
+            return;
+        }
+        let mut raw = Raw::lexer(rest);
+        match raw.next() {
+            Some(Ok(token)) => {
+                let len = raw.span().len();
+                let kind = if token == Raw::Number {
+                    let (kind, errors) = number::check(&rest[..len]);
+                    for (code, range, message) in errors {
+                        self.error(code, self.pos + range.start..self.pos + range.end, message);
+                    }
+                    kind
+                } else {
+                    token.kind()
+                };
+                self.push(kind, len);
+            }
+            _ => {
+                self.error(
+                    codes::MR0017,
+                    self.pos..self.pos + c.len_utf8(),
+                    format!("`{}` cannot start a token", c.escape_default()),
+                );
+                self.push(TokenKind::Unknown, c.len_utf8());
+            }
+        }
+    }
+
+    /// Lexes one token inside a hole: the closing braces, a format, or code.
+    fn hole_token(&mut self, s: Interp, depth: u32, hole: usize) {
+        let rest = self.rest();
+        if depth == 0 {
+            if run(rest, b'}') >= s.dollars {
+                self.push(TokenKind::HoleClose, s.dollars);
+                if let Some(range) = self.holes.get_mut(hole) {
+                    range.1 = self.pos;
+                }
+                self.replace_top(Frame::Text(s));
+                return;
+            }
+            if rest.starts_with(':') && !rest.starts_with("::") {
+                let plain = !s.verbatim && s.quotes == 0;
+                let stop =
+                    |c: char| c == '}' || (c == '"' && s.quotes == 0) || (c == '\n' && plain);
+                let len = rest.find(stop).unwrap_or(rest.len());
+                self.push(TokenKind::HoleFormat, len);
+                return;
+            }
+        }
+        let frames = self.stack.len();
+        let before = self.out.tokens.len();
+        self.code_token();
+        if self.stack.len() != frames || self.out.tokens.len() == before {
+            return;
+        }
+        let depth = match self.out.tokens[before].kind {
+            TokenKind::LBrace | TokenKind::LParen | TokenKind::LBracket => depth + 1,
+            TokenKind::RBrace | TokenKind::RParen | TokenKind::RBracket => depth.saturating_sub(1),
+            _ => depth,
+        };
+        self.replace_top(Frame::Hole(s, depth, hole));
+    }
+
+    fn replace_top(&mut self, frame: Frame) {
+        if let Some(top) = self.stack.last_mut() {
+            *top = frame;
+        }
+    }
+
+    /// Lexes a character literal or any string form starting at `pos`, if
+    /// one starts there.
+    fn string_or_char(&mut self) -> bool {
+        let rest = self.rest();
+        // `$"`, `$@"`, `@$"`, `$"""`, `$$"""` and so on.
+        let (dollars, verbatim, quotes_at) = if let Some(after_at) = rest.strip_prefix('@') {
+            let dollars = run(after_at, b'$');
+            (dollars, true, 1 + dollars)
+        } else {
+            let dollars = run(rest, b'$');
+            let verbatim = rest[dollars..].starts_with('@');
+            (dollars, verbatim, dollars + usize::from(verbatim))
+        };
+        let quotes = run(&rest[quotes_at..], b'"');
+        if dollars > 0 && quotes > 0 {
+            let raw = quotes >= 3 && !verbatim;
+            let prefix = quotes_at + if raw { quotes } else { 1 };
+            if dollars > 1 && !raw {
+                self.error(
+                    codes::MR0016,
+                    self.pos..self.pos + prefix,
+                    "more than one `$` needs a raw string: `$$\"\"\"...\"\"\"`",
+                );
+            }
+            let s = Interp {
+                start: self.pos,
+                prefix,
+                verbatim,
+                quotes: if raw { quotes } else { 0 },
+                dollars: if raw { dollars } else { 1 },
+                first_hole: self.holes.len(),
+            };
+            self.push(TokenKind::InterpStart, prefix);
+            self.stack.push(Frame::Text(s));
+            return true;
+        }
+        if rest.starts_with("@\"") {
+            self.verbatim_string();
+            return true;
+        }
+        if rest.starts_with('"') {
+            if run(rest, b'"') >= 3 {
+                self.raw_string();
+            } else {
+                self.regular_string();
+            }
+            return true;
+        }
+        if rest.starts_with('\'') {
+            self.char_literal();
+            return true;
+        }
+        false
+    }
+
+    /// The length of a `u8` suffix at `pos + len`, if there is one.
+    fn u8_suffix(&self, len: usize) -> usize {
+        let after = &self.rest()[len..];
+        match after.strip_prefix("u8") {
+            Some(next) if !next.chars().next().is_some_and(is_ident_continue) => 2,
+            _ => 0,
+        }
+    }
+
+    /// Checks the escape at `pos + at` and returns its length.
+    fn check_escape(&mut self, at: usize) -> usize {
+        let start = self.pos + at;
+        match escape::escape(&self.text[start..]) {
+            Ok((_, len)) => len,
+            Err(err) => {
+                let len = err.len;
+                self.error(err.code, start..start + len, err.message);
+                len
+            }
+        }
+    }
+
+    fn regular_string(&mut self) {
+        let mut i = 1;
+        loop {
+            let rest = &self.text[self.pos + i..];
+            match rest.bytes().next() {
+                Some(b'"') => {
+                    i += 1;
+                    break;
+                }
+                Some(b'\\') => i += self.check_escape(i),
+                Some(b'\n') | None => {
+                    self.unterminated(i, "this string is not closed before the end of the line");
+                    break;
+                }
+                Some(b'\r') if rest.starts_with("\r\n") => {
+                    self.unterminated(i, "this string is not closed before the end of the line");
+                    break;
+                }
+                Some(_) => i += rest.chars().next().map_or(1, char::len_utf8),
+            }
+        }
+        let len = i + self.u8_suffix(i);
+        self.push(TokenKind::String, len);
+    }
+
+    fn verbatim_string(&mut self) {
+        let mut i = 2;
+        loop {
+            let rest = &self.text[self.pos + i..];
+            if rest.starts_with("\"\"") {
+                i += 2;
+            } else if rest.starts_with('"') {
+                i += 1;
+                break;
+            } else if let Some(c) = rest.chars().next() {
+                i += c.len_utf8();
+            } else {
+                self.unterminated(i, "this verbatim string is not closed");
+                break;
+            }
+        }
+        let len = i + self.u8_suffix(i);
+        self.push(TokenKind::VerbatimString, len);
+    }
+
+    fn raw_string(&mut self) {
+        let quotes = run(self.rest(), b'"');
+        let mut i = quotes;
+        loop {
+            let rest = &self.text[self.pos + i..];
+            let n = run(rest, b'"');
+            if n >= quotes {
+                if n > quotes {
+                    self.error(
+                        codes::MR0016,
+                        self.pos + i..self.pos + i + n,
+                        format!("this raw string opened with {quotes} quotes but closes with {n}"),
+                    );
+                }
+                self.check_raw(self.pos, quotes, self.pos + i, &[]);
+                i += n;
+                break;
+            } else if n > 0 {
+                i += n;
+            } else if let Some(c) = rest.chars().next() {
+                i += c.len_utf8();
+            } else {
+                self.unterminated(i, "this raw string is not closed");
+                break;
+            }
+        }
+        let len = i + self.u8_suffix(i);
+        self.push(TokenKind::RawString, len);
+    }
+
+    fn char_literal(&mut self) {
+        let rest = self.rest();
+        let ends_line = |t: &str| t.is_empty() || newline_len(t).is_some();
+        let mut i = 1;
+        match rest[1..].chars().next() {
+            Some('\\') => i += self.check_escape(1),
+            Some('\'') => {
+                self.error(
+                    codes::MR0015,
+                    self.pos..self.pos + 2,
+                    "a character literal holds one character; `''` is empty",
+                );
+                self.push(TokenKind::Char, 2);
+                return;
+            }
+            Some(c) if !ends_line(&rest[1..]) => i += c.len_utf8(),
+            _ => {
+                self.unterminated(1, "this character literal is not closed");
+                self.push(TokenKind::Char, 1);
+                return;
+            }
+        }
+        let rest = self.rest();
+        if rest[i..].starts_with('\'') {
+            self.push(TokenKind::Char, i + 1);
+            return;
+        }
+        // More than one character: take the rest up to a quote on this line.
+        let line_end = i + line_len(&rest[i..]);
+        match rest[i..line_end].find('\'') {
+            Some(close) => {
+                let len = i + close + 1;
+                self.error(
+                    codes::MR0015,
+                    self.pos..self.pos + len,
+                    "a character literal holds one character; use a string for more",
+                );
+                self.push(TokenKind::Char, len);
+            }
+            None => {
+                self.unterminated(i, "this character literal is not closed");
+                self.push(TokenKind::Char, i);
+            }
+        }
+    }
+
+    fn block_comment(&mut self) {
+        let rest = self.rest();
+        let len = match rest[2..].find("*/") {
+            Some(end) => end + 4,
+            None => {
+                self.error(
+                    codes::MR0012,
+                    self.pos..self.pos + 2,
+                    "this block comment is not closed",
+                );
+                rest.len()
+            }
+        };
+        self.push(TokenKind::BlockComment, len);
+    }
+
+    /// Reports a literal that starts at `pos` and is not closed by `pos + len`.
+    fn unterminated(&mut self, len: usize, message: &str) {
+        let start = self.pos;
+        self.error(codes::MR0012, start..start + len, message);
+    }
+
+    /// Lexes text inside an interpolated string up to a hole or the end.
+    fn interp_text(&mut self, s: Interp) {
+        let start = self.pos;
+        let mut i = 0;
+        let raw = s.quotes > 0;
+        // What ends the text: a hole, the closing quotes, or a problem.
+        enum Stop {
+            Hole(usize),
+            End(usize),
+            Unterminated,
+        }
+        let stop = loop {
+            let rest = &self.text[start + i..];
+            let Some(c) = rest.chars().next() else {
+                break Stop::Unterminated;
+            };
+            match c {
+                '"' if raw => {
+                    let n = run(rest, b'"');
+                    if n >= s.quotes {
+                        if n > s.quotes {
+                            self.error(
+                                codes::MR0016,
+                                start + i..start + i + n,
+                                format!(
+                                    "this raw string opened with {} quotes but closes with {n}",
+                                    s.quotes
+                                ),
+                            );
+                        }
+                        break Stop::End(n);
+                    }
+                    i += n;
+                }
+                '"' if s.verbatim && rest.starts_with("\"\"") => i += 2,
+                '"' => break Stop::End(1),
+                '\\' if !s.verbatim && !raw => {
+                    let at = start + i;
+                    match escape::escape(&self.text[at..]) {
+                        Ok((_, len)) => i += len,
+                        Err(err) => {
+                            self.error(err.code, at..at + err.len, err.message);
+                            i += err.len;
+                        }
+                    }
+                }
+                '\n' | '\r' if !s.verbatim && !raw && newline_len(rest).is_some() => {
+                    break Stop::Unterminated;
+                }
+                '{' => {
+                    let n = run(rest, b'{');
+                    if raw {
+                        if n < s.dollars {
+                            i += n;
+                        } else {
+                            if n - s.dollars >= s.dollars {
+                                self.error(
+                                    codes::MR0016,
+                                    start + i..start + i + n,
+                                    format!(
+                                        "with {} `$`, a run of {n} `{{` is ambiguous; use more `$`",
+                                        s.dollars
+                                    ),
+                                );
+                            }
+                            i += n - s.dollars;
+                            break Stop::Hole(s.dollars);
+                        }
+                    } else if n >= 2 {
+                        i += 2;
+                    } else {
+                        break Stop::Hole(1);
+                    }
+                }
+                '}' => {
+                    let n = run(rest, b'}');
+                    if raw {
+                        if n >= s.dollars {
+                            self.error(
+                                codes::MR0016,
+                                start + i..start + i + n,
+                                "a `}` that closes no hole; use more `$` to make it text",
+                            );
+                        }
+                        i += n;
+                    } else if n >= 2 {
+                        i += 2;
+                    } else {
+                        self.error(
+                            codes::MR0016,
+                            start + i..start + i + 1,
+                            "a `}` in an interpolated string is written `}}`",
+                        );
+                        i += 1;
+                    }
+                }
+                c => i += c.len_utf8(),
+            }
+        };
+        if i > 0 {
+            self.push(TokenKind::InterpText, i);
+        }
+        match stop {
+            Stop::Hole(n) => {
+                self.holes.push((self.pos, usize::MAX));
+                self.push(TokenKind::HoleOpen, n);
+                self.replace_top(Frame::Hole(s, 0, self.holes.len() - 1));
+            }
+            Stop::End(n) => {
+                if raw {
+                    let holes = self.holes[s.first_hole..].to_vec();
+                    self.check_raw(s.start + s.prefix - s.quotes, s.quotes, self.pos, &holes);
+                }
+                self.push(TokenKind::InterpEnd, n);
+                self.stack.pop();
+                if self.stack.is_empty() {
+                    self.holes.clear();
+                }
+            }
+            Stop::Unterminated => {
+                self.error(
+                    codes::MR0012,
+                    s.start..s.start + s.prefix,
+                    "this interpolated string is not closed",
+                );
+                self.stack.pop();
+                if self.stack.is_empty() {
+                    self.holes.clear();
+                }
+            }
+        }
+    }
+
+    /// Checks the line rules of a raw string (§3.5, C# 11): `open` is where
+    /// its opening quotes start and `close` where its closing quotes start.
+    /// Lines that start inside a hole are not checked.
+    fn check_raw(&mut self, open: usize, quotes: usize, close: usize, holes: &[(usize, usize)]) {
+        let content_start = open + quotes;
+        let content = &self.text[content_start..close];
+        let Some(first_newline) = content.find('\n') else {
+            return;
+        };
+        // Multi-line: the opening line holds nothing but whitespace.
+        let first_line = content[..first_newline].trim_end_matches('\r');
+        if !first_line.chars().all(char::is_whitespace) {
+            self.error(
+                codes::MR0016,
+                open..content_start,
+                "a multi-line raw string starts its content on the line after the opening quotes",
+            );
+            return;
+        }
+        let last_newline = content.rfind('\n').unwrap_or(first_newline);
+        let indent = &content[last_newline + 1..];
+        if !indent.chars().all(char::is_whitespace) {
+            self.error(
+                codes::MR0016,
+                close..close + quotes,
+                "the closing quotes of a multi-line raw string go on their own line",
+            );
+            return;
+        }
+        let mut line_start = content_start + first_newline + 1;
+        while line_start < content_start + last_newline + 1 {
+            let line_end = self.text[line_start..]
+                .find('\n')
+                .map_or(close, |end| line_start + end);
+            let line = self.text[line_start..line_end].trim_end_matches('\r');
+            let in_hole = holes
+                .iter()
+                .any(|&(a, b)| a < line_start && line_start <= b);
+            if !in_hole && !line.chars().all(char::is_whitespace) && !line.starts_with(indent) {
+                self.error(
+                    codes::MR0016,
+                    line_start..line_start + (line.len() - line.trim_start().len()).max(1),
+                    "this line does not start with the indentation of the closing quotes",
+                );
+            }
+            line_start = line_end + 1;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;
