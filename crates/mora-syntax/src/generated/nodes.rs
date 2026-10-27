@@ -672,7 +672,7 @@ impl AstNode for UsingAlias {
 }
 
 /// ```text
-/// StructDecl = Attribute* Modifier* 'struct' Name TypeParamList? ParamList? BaseList? WhereClause* (MemberList | ';')
+/// StructDecl = Attribute* Modifier* 'struct' Name TypeParamList? BaseList? WhereClause* (MemberList | ';')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StructDecl {
@@ -693,9 +693,6 @@ impl StructDecl {
         support::child(&self.syntax)
     }
     pub fn type_param_list(&self) -> Option<TypeParamList> {
-        support::child(&self.syntax)
-    }
-    pub fn param_list(&self) -> Option<ParamList> {
         support::child(&self.syntax)
     }
     pub fn base_list(&self) -> Option<BaseList> {
@@ -727,7 +724,7 @@ impl AstNode for StructDecl {
 }
 
 /// ```text
-/// ClassDecl = Attribute* Modifier* 'class' Name TypeParamList? ParamList? BaseList? WhereClause* (MemberList | ';')
+/// ClassDecl = Attribute* Modifier* 'class' Name TypeParamList? BaseList? WhereClause* (MemberList | ';')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ClassDecl {
@@ -748,9 +745,6 @@ impl ClassDecl {
         support::child(&self.syntax)
     }
     pub fn type_param_list(&self) -> Option<TypeParamList> {
-        support::child(&self.syntax)
-    }
-    pub fn param_list(&self) -> Option<ParamList> {
         support::child(&self.syntax)
     }
     pub fn base_list(&self) -> Option<BaseList> {
@@ -1688,46 +1682,6 @@ impl AstNode for TypeParamList {
 }
 
 /// ```text
-/// ParamList = '(' (Param (',' Param)* ','?)? ')'
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ParamList {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl ParamList {
-    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::LParen])
-    }
-    pub fn param(&self) -> Option<Param> {
-        support::child(&self.syntax)
-    }
-    pub fn params(&self) -> AstChildren<Param> {
-        support::children(&self.syntax)
-    }
-    pub fn comma_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Comma])
-    }
-    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::RParen])
-    }
-}
-
-impl AstNode for ParamList {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::ParamList
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
 /// WhereClause = 'where' NameRef ':' Constraint (',' Constraint)*
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -1790,6 +1744,46 @@ impl MemberList {
 impl AstNode for MemberList {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::MemberList
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
+/// ParamList = '(' (Param (',' Param)* ','?)? ')'
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ParamList {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl ParamList {
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::LParen])
+    }
+    pub fn param(&self) -> Option<Param> {
+        support::child(&self.syntax)
+    }
+    pub fn params(&self) -> AstChildren<Param> {
+        support::children(&self.syntax)
+    }
+    pub fn comma_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Comma])
+    }
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::RParen])
+    }
+}
+
+impl AstNode for ParamList {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ParamList
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {

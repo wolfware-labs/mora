@@ -718,7 +718,7 @@ public interface IShape
 
 **Properties and indexers** use C# accessor syntax: `get`, `set`, `init`, expression-bodied getters and `this[...]` indexers. A setter on a struct is a `mut` member.
 
-**Constructors.** `public T(...) { ... }`, with C# 12 primary constructors (`class Point(int x, int y) { ... }`) whose parameters are in scope in field initializers and members. Every field without an initializer MUST be assigned on every path before the constructor returns, and `this` MUST NOT be used except to assign fields until then (`MR0140`). Object initializers (`new Options { Port = 8080 }`) assign `set` and `init` members after the constructor runs. `required` members must be set by every object initializer (`MR0144`). Constructors cannot fail; use a static factory that returns `Result<T, E>` when construction can fail.
+**Constructors.** `public T(...) { ... }`, as in C#. A constructor may first run another constructor of the same type with `: this(...)`, as in `public Counter(string name) : this(name, 1) { }`; the fields that constructor assigns count as assigned. C# 12 primary constructors on classes and structs (`class Point(int x, int y) { ... }`) are error `MR0128`, with a fix that turns the parameters into fields and a constructor: their parameters would be fields that no declaration shows, and every field's mutability and ownership must be written down (D-51). Records keep their positional parameters (§6.5), which declare properties. Every field without an initializer MUST be assigned on every path before the constructor returns, and `this` MUST NOT be used except to assign fields until then (`MR0140`). Object initializers (`new Options { Port = 8080 }`) assign `set` and `init` members after the constructor runs. `required` members must be set by every object initializer (`MR0144`). Constructors cannot fail; use a static factory that returns `Result<T, E>` when construction can fail.
 
 **Destructors.** `~T() { ... }` declares the destructor (D-17). A class, unique class or struct may have one. It takes no parameters and no modifiers. It runs exactly once, when the value dies (§10.8). Inside it, `this` is a borrow that MUST NOT escape (`MR0142`). A method called from the destructor could still store `this`; the runtime checks after every class destructor that the strong count is still zero, and aborts with `object of type T was resurrected by its destructor` otherwise (D-46). A struct with a destructor is move-only.
 
@@ -969,7 +969,12 @@ public macro Equatable(Type t) adds IEquatable<$t>
 ```mora
 // expect: True
 [Equatable]
-public class Point(int x, int y) { public int X = x; public int Y = y; }
+public class Point
+{
+    public int X;
+    public int Y;
+    public Point(int x, int y) { X = x; Y = y; }
+}
 
 Console.WriteLine(new Point(1, 2) == new Point(1, 2));
 ```
@@ -2238,6 +2243,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-49 | Ownership, move, borrow, view and escape violations are compile errors that cannot be silenced; the remaining run-time checks panic or abort | user, author | 10 |
 | D-50 | Targets are data; layouts are computed from the target; the runtime splits into a `no_std` core and platform layers behind one platform interface; the standard library is layered by capability; CI guards portability from M0 | user, author | 19.4 |
 | D-47 | Unique objects follow struct mutation rules: `mut` methods take `ref this`, and `in` borrows are read-only | author | 6.4, 10.4 |
+| D-51 | No primary constructors on classes and structs: constructors are written out, and `: this(...)` chains them; records keep positional parameters | user | 6.9 |
 
 ## 24. Open questions
 
@@ -2268,7 +2274,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 - Lobster: the compile-time reference counting design in its memory management documentation.
 - Alex Reinking, Ningning Xie, Leonardo de Moura, Daan Leijen. *Perceus: Garbage Free Reference Counting with Reuse*. PLDI 2021.
 - Joe Duffy. The Midori blog series, on M#, a C# variant with ownership and no collector, used to write an operating system at Microsoft.
-- C# language specification: "Low level struct improvements" (ref safety rules, `scoped`, `ref struct`), file-scoped namespaces, records, primary constructors, collection expressions, raw string literals.
+- C# language specification: "Low level struct improvements" (ref safety rules, `scoped`, `ref struct`), file-scoped namespaces, records, collection expressions, raw string literals.
 - Luc Maranget. *Warnings for pattern matching*. Journal of Functional Programming, 2007.
 - David F. Bacon, V. T. Rajan. *Concurrent Cycle Collection in Reference Counted Systems*. ECOOP 2001.
 - Rust: MIR, the non-lexical lifetimes RFC (2094) and drop elaboration, which §14.7 and §14.8 follow in structure.

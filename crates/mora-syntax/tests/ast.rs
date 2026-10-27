@@ -94,7 +94,6 @@ fn a_struct_declaration_navigates() {
     };
     assert_eq!(point.struct_token().unwrap().text(), "struct");
     assert_eq!(point.name().unwrap().ident_token().unwrap().text(), "Point");
-    assert!(point.param_list().is_none());
     let members: Vec<_> = point.member_list().unwrap().members().collect();
     let [ast::Member::FieldDecl(field)] = members.as_slice() else {
         panic!("{members:?}");

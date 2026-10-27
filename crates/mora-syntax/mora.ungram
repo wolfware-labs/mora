@@ -127,13 +127,13 @@ BaseList =
 // §6.2. A `ref struct` carries the `ref` modifier.
 StructDecl =
   Attribute* Modifier*
-  'struct' Name TypeParamList? ParamList? BaseList? WhereClause*
+  'struct' Name TypeParamList? BaseList? WhereClause*
   (MemberList | ';')
 
-// §6.3, §6.4. Primary constructor parameters in ParamList (§6.9).
+// §6.3, §6.4. No primary constructors (§6.9): the parser reports one with MR0128.
 ClassDecl =
   Attribute* Modifier*
-  'class' Name TypeParamList? ParamList? BaseList? WhereClause*
+  'class' Name TypeParamList? BaseList? WhereClause*
   (MemberList | ';')
 
 // §6.5. `record`, `record class` (same as `record`) and `record struct`.

@@ -456,12 +456,12 @@ pub enum SyntaxKind {
     BaseList,
     /// A `TypeParamList` node.
     TypeParamList,
-    /// A `ParamList` node.
-    ParamList,
     /// A `WhereClause` node.
     WhereClause,
     /// A `MemberList` node.
     MemberList,
+    /// A `ParamList` node.
+    ParamList,
     /// A `UnionBody` node.
     UnionBody,
     /// A `UnionCase` node.
@@ -947,9 +947,9 @@ impl SyntaxKind {
         AttributeArg,
         BaseList,
         TypeParamList,
-        ParamList,
         WhereClause,
         MemberList,
+        ParamList,
         UnionBody,
         UnionCase,
         EnumBase,
