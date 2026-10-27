@@ -1,5 +1,7 @@
 # Mora
 
+[![Coverage](https://img.shields.io/codecov/c/github/wolfware-labs/mora?logo=codecov&label=coverage)](https://codecov.io/gh/wolfware-labs/mora)
+
 Mora is a programming language that reads and writes like modern C#, manages memory with reference counting and single ownership instead of a garbage collector, and compiles to one native executable. The compiler, runtime, language server and package tool are written in Rust.
 
 ```mora
