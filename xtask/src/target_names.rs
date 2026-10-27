@@ -83,6 +83,8 @@ fn literals(text: &str) -> Vec<Literal> {
     let mut line = 1;
     // The parenthesis depth inside a `cfg`, zero outside one.
     let mut cfg_depth = 0usize;
+    // The last character of code before `i`, outside comments and whitespace.
+    let mut prev = ' ';
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
@@ -98,6 +100,8 @@ fn literals(text: &str) -> Vec<Literal> {
                 j += 1;
             }
             let word: String = chars[i..j].iter().collect();
+            let in_attribute = prev == '[';
+            prev = 'a';
             let mut k = j;
             while at(k) == '#' {
                 k += 1;
@@ -123,10 +127,16 @@ fn literals(text: &str) -> Vec<Literal> {
                 continue;
             }
             i = j;
+            // `cfg!(...)` anywhere, `cfg(...)` and `cfg_attr(...)` only right
+            // after the `[` of an attribute: elsewhere they are calls.
             if cfg_depth == 0 && matches!(word.as_str(), "cfg" | "cfg_attr") {
                 let mut k = j;
+                let mut bang = false;
                 loop {
-                    if at(k).is_whitespace() || at(k) == '!' {
+                    if at(k) == '!' && !bang {
+                        bang = true;
+                        k += 1;
+                    } else if at(k).is_whitespace() {
                         k += 1;
                     } else if let Some(end) = comment_end(&chars, k) {
                         k = end;
@@ -134,7 +144,8 @@ fn literals(text: &str) -> Vec<Literal> {
                         break;
                     }
                 }
-                if at(k) == '(' {
+                let is_cfg = if bang { word == "cfg" } else { in_attribute };
+                if at(k) == '(' && is_cfg {
                     line += chars[j..k].iter().filter(|&&c| c == '\n').count();
                     cfg_depth = 1;
                     i = k + 1;
@@ -155,9 +166,11 @@ fn literals(text: &str) -> Vec<Literal> {
                 text: chars[start.1..j.min(chars.len())].iter().collect(),
                 in_cfg: cfg_depth > 0,
             });
+            prev = '"';
             i = j + 1;
         } else if c == '\'' {
             // A character literal, or a lifetime, which has no closing quote.
+            prev = '\'';
             if at(i + 1) == '\\' {
                 let mut j = i + 2;
                 while j < chars.len() && chars[j] != '\'' {
@@ -170,6 +183,9 @@ fn literals(text: &str) -> Vec<Literal> {
                 i += 1;
             }
         } else {
+            if !c.is_whitespace() {
+                prev = c;
+            }
             if cfg_depth > 0 {
                 match c {
                     '(' => cfg_depth += 1,
@@ -344,6 +360,8 @@ mod tests {
             "    // why\n",
             "    target_os = \"linux\", inline)] fn h() {}\n",
             "if cfg! /* a\n b */ (target_os = \"windows\") { f(\"x86_64\") }\n",
+            "fn cfg(s: &str) {} cfg(\"linux\"); x.cfg_attr(\"macos\");\n",
+            "#![cfg(unix)] #[ /* c */ cfg_attr(target_os = \"linux\", inline)] fn k() {}\n",
         );
         assert_eq!(
             scan(text, &words()),
@@ -354,6 +372,8 @@ mod tests {
                 (7, "aarch64".to_owned()),
                 (8, "riscv64".to_owned()),
                 (13, "x86_64".to_owned()),
+                (14, "linux".to_owned()),
+                (14, "macos".to_owned()),
             ]
         );
     }
