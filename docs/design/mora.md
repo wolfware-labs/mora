@@ -709,6 +709,21 @@ public interface IShape
 
 - Interfaces declare methods, properties, indexers, operators and static abstract members, with or without default implementations. An interface may extend other interfaces.
 - A struct, class, record or union implements an interface by listing it in its base list and providing every member that has no default. Implementation is by name and signature, as in C#; explicit implementation (`float IShape.Area() => ...`) is allowed and makes the member callable only through the interface.
+- Members of different interfaces are different members, even when they have the same name and signature. A type that implements `IReader` and `IWriter`, each with a default `Describe()`, uses `IReader`'s default through `IReader` and `IWriter`'s through `IWriter`. A default is not a member of the implementing type: `pipe.Describe()` compiles only if the type declares `Describe()`, and a public member the type declares implements every interface member it matches, as in C#.
+- A type's own implementation always replaces a default, whether the member is called through a generic parameter or through a dynamic interface value. Inside a default, `this` is the implementing type: generic code calls the default directly, specialized for that type, and a dynamic interface value calls it through the vtable (§13.6).
+- An interface may replace a default of an interface it extends (`string IShape.Name => "round";`), and the more derived default wins. When one member gets different defaults from two interfaces and neither of them extends the other, the implementing type MUST implement the member itself (`MR0235`); the error names both defaults. One default reached through two paths is not a conflict.
+
+  ```mora
+  public interface IShape { string Name => "shape"; }
+  public interface IRound : IShape { string IShape.Name => "round"; }
+  public interface IPointy : IShape { string IShape.Name => "pointy"; }
+
+  public class Badge : IRound, IPointy
+  {
+      public string Name => "badge";   // required: IRound and IPointy disagree about IShape.Name
+  }
+  ```
+
 - Implementing an interface for a type declared elsewhere (a retroactive implementation) is post-MVP (OQ-5).
 - How interfaces are dispatched is in §8.3 and §8.4.
 
@@ -2244,6 +2259,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-50 | Targets are data; layouts are computed from the target; the runtime splits into a `no_std` core and platform layers behind one platform interface; the standard library is layered by capability; CI guards portability from M0 | user, author | 19.4 |
 | D-47 | Unique objects follow struct mutation rules: `mut` methods take `ref this`, and `in` borrows are read-only | author | 6.4, 10.4 |
 | D-51 | No primary constructors on classes and structs: constructors are written out, and `: this(...)` chains them; records keep positional parameters | user | 6.9 |
+| D-52 | Interfaces keep default implementations, as in C#: members of different interfaces stay separate, and when two interfaces give different defaults for one inherited member, the implementing type must write its own | user | 6.8 |
 
 ## 24. Open questions
 

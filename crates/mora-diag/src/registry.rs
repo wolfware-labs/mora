@@ -142,6 +142,7 @@ registry! {
     MR0232 = 232: "an `IDisplay` type overrides neither `Format` nor `ToString`",
     MR0233 = 233: "`==` on a type without `IEquatable<T>`",
     MR0234 = 234: "variance annotation on a type parameter",
+    MR0235 = 235: "two interfaces give different defaults for one inherited member and the type does not implement it",
     MR0300 = 300: "a moved-from variable is used",
     MR0301 = 301: "one field moved out of a local",
     MR0302 = 302: "a value moved out of an aliased place",
