@@ -16,38 +16,42 @@ pub struct CodeRange {
 }
 
 impl CodeRange {
+    /// # Panics
+    ///
+    /// Panics if `first` is greater than `last` or either has more than four digits.
+    pub const fn new(first: u16, last: u16, kind: &'static str) -> Self {
+        assert!(first <= last, "a code range must not be empty");
+        Self {
+            first: Code::new(first),
+            last: Code::new(last),
+            kind,
+        }
+    }
+
     pub fn contains(&self, code: Code) -> bool {
         self.first <= code && code <= self.last
     }
 }
 
-const fn range(first: u16, last: u16, kind: &'static str) -> CodeRange {
-    CodeRange {
-        first: Code::new(first),
-        last: Code::new(last),
-        kind,
-    }
-}
-
 /// The ranges of §17.6, in order.
 pub const RANGES: &[CodeRange] = &[
-    range(1, 99, "Lexical"),
-    range(
+    CodeRange::new(1, 99, "Lexical"),
+    CodeRange::new(
         100,
         199,
         "Syntax, declarations, C# constructs that Mora replaces",
     ),
-    range(200, 299, "Types, generics, interfaces, propagation"),
-    range(
+    CodeRange::new(200, 299, "Types, generics, interfaces, propagation"),
+    CodeRange::new(
         300,
         399,
         "Memory model: moves, borrows, views, escapes, closures",
     ),
-    range(400, 499, "Async, threads, FFI, constant evaluation"),
-    range(500, 599, "Manifest and build"),
-    range(600, 699, "Macros"),
-    range(2000, 2999, "Warnings and lints"),
-    range(9000, 9999, "Internal compiler errors"),
+    CodeRange::new(400, 499, "Async, threads, FFI, constant evaluation"),
+    CodeRange::new(500, 599, "Manifest and build"),
+    CodeRange::new(600, 699, "Macros"),
+    CodeRange::new(2000, 2999, "Warnings and lints"),
+    CodeRange::new(9000, 9999, "Internal compiler errors"),
 ];
 
 /// The range a code belongs to, if any.

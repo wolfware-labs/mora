@@ -459,11 +459,7 @@ mod tests {
 
     use super::*;
 
-    const LEXICAL: &[CodeRange] = &[CodeRange {
-        first: Code::new(1),
-        last: Code::new(99),
-        kind: "Lexical",
-    }];
+    const LEXICAL: &[CodeRange] = &[CodeRange::new(1, 99, "Lexical")];
 
     const MR0001: Entry = Entry {
         code: Code::new(1),
