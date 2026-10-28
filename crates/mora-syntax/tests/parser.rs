@@ -218,6 +218,14 @@ fn question_marks_follow_section_7_4() {
         "AssignExpr(P, ConditionalExpr(P, LiteralExpr, LiteralExpr))"
     );
     assert_eq!(shape("x? ?? y"), "BinExpr(PropagateExpr(P), P)");
+    assert_eq!(
+        shape("c ? a?[0] : b"),
+        "ConditionalExpr(P, IndexExpr(P, Arg(LiteralExpr)), P)"
+    );
+    assert_eq!(
+        shape("c ? r? : d"),
+        "ConditionalExpr(P, PropagateExpr(P), P)"
+    );
     assert_eq!(shape("f(x?, y)"), "CallExpr(P)");
     assert_eq!(
         shape("flag ? [1] : []"),

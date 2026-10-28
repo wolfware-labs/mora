@@ -260,6 +260,13 @@ fn at_range_end(p: &Parser<'_>) -> bool {
 /// at the same nesting depth follows before the expression ends (`;`, `)`,
 /// `]`, `}` or `,` at depth zero); otherwise it is propagation.
 pub(crate) fn conditional_follows(input: &Input<'_>, at: usize) -> bool {
+    // `r? : d` in an arm: a conditional cannot have an empty first arm.
+    if matches!(
+        input.kind(at + 1),
+        K::Colon | K::RParen | K::Semicolon | K::Comma
+    ) {
+        return false;
+    }
     let mut depth = 0usize;
     let mut i = at + 1;
     while i < input.len() {
@@ -638,9 +645,10 @@ fn postfix(p: &mut Parser<'_>, mut lhs: CompletedMarker, propagate: bool) -> Com
             let m = lhs.precede(p);
             arg_list(p);
             m.complete(p, K::CallExpr)
-        } else if p.at(K::LBracket)
-            || (p.at(K::QuestionLBracket) && !conditional_follows(p.input(), p.pos()))
-        {
+        } else if p.at(K::LBracket) || p.at(K::QuestionLBracket) {
+            // `?[` written without a space is a null-conditional index, even
+            // in an arm of a conditional (`c ? a?[0] : b`); with a space,
+            // `flag ? [1] : []` is a conditional.
             let m = lhs.precede(p);
             if !p.eat(K::QuestionLBracket) {
                 p.bump(K::LBracket);

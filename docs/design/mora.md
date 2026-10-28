@@ -816,7 +816,7 @@ The enclosing function is the innermost function, lambda or async block. Inside 
 
 **With `await`.** In `await e?` the `?` applies to the awaited value: it parses as `(await e)?`. A `Future` is never a valid operand of `?`, so the rule only removes the need for parentheses (D-19).
 
-**With the conditional operator.** After a primary expression, `?` begins a conditional expression when a `:` at the same nesting depth follows before the end of the expression (`;`, `)`, `]`, `}` or `,` at depth zero); otherwise it is propagation. `x?.y` is always null-conditional access. After propagation, member access needs parentheses: `(r?).Name`. Writing `r?.Name` on a `Result` is error `MR0161` with that fix.
+**With the conditional operator.** After a primary expression, `?` begins a conditional expression when a `:` at the same nesting depth follows before the end of the expression (`;`, `)`, `]`, `}` or `,` at depth zero); otherwise it is propagation. `x?.y` is always null-conditional access, and so is `x?[i]` written without a space between `?` and `[`; with a space, `flag ? [1] : []` is a conditional with a collection expression. A `?` directly followed by `:` is propagation, so `c ? r? : d` propagates in the first arm. After propagation, member access needs parentheses: `(r?).Name`. Writing `r?.Name` on a `Result` is error `MR0161` with that fix.
 
 ### 7.5 Null operators
 
