@@ -17,6 +17,8 @@ public class Counter
 
     () Reset() { }
 
+    (int, string,) Pair() => (1, "a");
+
     public int this[int i] { get => i; }
 
     public T Max<T>(T a, T b) where T : IComparable<T> => a;

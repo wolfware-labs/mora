@@ -257,6 +257,8 @@ pub(crate) fn scan_type(input: &Input<'_>, at: usize) -> Option<usize> {
                     i += 1;
                 }
                 match input.kind(i) {
+                    // A trailing comma, as `tuple_type` takes: `(int, string,)`.
+                    K::Comma if input.kind(i + 1) == K::RParen => break i + 2,
                     K::Comma => i += 1,
                     K::RParen => break i + 1,
                     _ => return None,
