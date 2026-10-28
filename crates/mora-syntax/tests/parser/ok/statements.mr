@@ -1,0 +1,41 @@
+void Run(List<int> items, Dictionary<string, int> counts)
+{
+    let total = 0;
+    var count = 1;
+    let int limit = 10;
+    int index;
+    User? user = null, other = null;
+    let (id, name) = pair;
+
+    if (total > limit) { return; } else if (count == 0) count++; else { }
+    while (count < limit) count *= 2;
+    do { count--; } while (count > 0);
+    for (var i = 0; i < 10; i++) { continue; }
+    for (i = 0, j = 1; ; i++, j--) break;
+    foreach (let item in items) { }
+    foreach (var (key, value) in counts) { }
+    foreach (ref var cell in span) { }
+    foreach (int n in items) { }
+
+    switch (total)
+    {
+        case 0:
+        case 1 when count > 0:
+            Log("small");
+            break;
+        case > 100:
+            Log("big");
+        default:
+            Log("other");
+    }
+
+    int Square(int n) => n * n;
+    static T Pick<T>(T a, T b) { return a; }
+
+    [Cfg(Debug = true)]
+    Log("debug");
+
+    ;
+    { let inner = 1; }
+    return;
+}

@@ -1,14 +1,13 @@
-//! Expressions (§7), by Pratt parsing.
+//! Expressions (§7), by Pratt parsing over the precedence table of §7.1.
 //!
-//! This is the core that declarations need: literals, interpolated strings,
-//! names, member access, calls, indexing, prefix and binary operators,
-//! parentheses and tuples, collection expressions, `new`, `default`,
-//! `nameof`, `sizeof`, macro calls and splices. Lambdas, `switch`, `with`,
-//! patterns, casts, assignments, ranges and the conditional operator arrive
-//! with statements in M1.4.
+//! Each level has a binding power, tightest last. Binary operators,
+//! `is`/`as`, `switch`/`with`, ranges, the conditional operator and
+//! assignment all go through [`expr_bp`]; unary operators, casts and
+//! `await` through [`unary`]; member access, calls, indexing, `++`/`--` and
+//! propagation through [`postfix`].
 
-use super::types::{self, PREDEFINED};
-use super::{CompletedMarker, Parser};
+use super::types::{self, PREDEFINED, scan_type};
+use super::{CompletedMarker, Input, Parser, items, patterns, stmts};
 use crate::SyntaxKind;
 
 use SyntaxKind as K;
@@ -26,36 +25,61 @@ const LITERALS: &[SyntaxKind] = &[
     K::NullKw,
 ];
 
-/// Binary operators and their binding power, tightest last (§7.1).
-/// `??` associates to the right; the others to the left.
+/// Binding powers, loosest first (§7.1).
+const ASSIGN: u8 = 1;
+const CONDITIONAL: u8 = 2;
+const COALESCE: u8 = 3;
+const RELATIONAL: u8 = 10;
+const SWITCH_WITH: u8 = 14;
+const RANGE: u8 = 15;
+
+/// Binary operators and their binding power. `??` associates to the
+/// right; the others to the left.
 const BINARY: &[(SyntaxKind, u8)] = &[
-    (K::QuestionQuestion, 1),
-    (K::PipePipe, 2),
-    (K::AmpAmp, 3),
-    (K::Pipe, 4),
-    (K::Caret, 5),
-    (K::Amp, 6),
-    (K::EqEq, 7),
-    (K::BangEq, 7),
-    (K::Lt, 8),
-    (K::Gt, 8),
-    (K::LtEq, 8),
-    (K::GtEq, 8),
-    (K::Shl, 9),
-    (K::Shr, 9),
-    (K::UShr, 9),
-    (K::Plus, 10),
-    (K::Minus, 10),
-    (K::PlusPercent, 10),
-    (K::MinusPercent, 10),
-    (K::Star, 11),
-    (K::Slash, 11),
-    (K::Percent, 11),
-    (K::StarPercent, 11),
+    (K::QuestionQuestion, COALESCE),
+    (K::PipePipe, 4),
+    (K::AmpAmp, 5),
+    (K::Pipe, 6),
+    (K::Caret, 7),
+    (K::Amp, 8),
+    (K::EqEq, 9),
+    (K::BangEq, 9),
+    (K::Lt, RELATIONAL),
+    (K::Gt, RELATIONAL),
+    (K::LtEq, RELATIONAL),
+    (K::GtEq, RELATIONAL),
+    (K::Shl, 11),
+    (K::Shr, 11),
+    (K::UShr, 11),
+    (K::Plus, 12),
+    (K::Minus, 12),
+    (K::PlusPercent, 12),
+    (K::MinusPercent, 12),
+    (K::Star, 13),
+    (K::Slash, 13),
+    (K::Percent, 13),
+    (K::StarPercent, 13),
 ];
 
-/// The binding power of prefix operators: tighter than any binary one.
-const PREFIX_POWER: u8 = 12;
+/// Assignment operators, longest first so `>>>=` wins over `>>=`.
+const ASSIGNMENTS: &[SyntaxKind] = &[
+    K::UShrEq,
+    K::ShrEq,
+    K::Eq,
+    K::PlusEq,
+    K::MinusEq,
+    K::StarEq,
+    K::SlashEq,
+    K::PercentEq,
+    K::AmpEq,
+    K::PipeEq,
+    K::CaretEq,
+    K::ShlEq,
+    K::QuestionQuestionEq,
+    K::PlusPercentEq,
+    K::MinusPercentEq,
+    K::StarPercentEq,
+];
 
 /// Prefix operators (§7.1); `^` is an index from the end (§7.13).
 const PREFIX: &[SyntaxKind] = &[
@@ -72,6 +96,18 @@ pub(crate) fn expr(p: &mut Parser<'_>) {
     if expr_bp(p, 0).is_none() {
         p.error("expected an expression");
     }
+}
+
+/// An expression above the conditional operator: an operand of a
+/// relational pattern or a constant pattern (§7.8), where `and`, `or`,
+/// `when` and `=>` end it.
+pub(crate) fn pattern_operand(p: &mut Parser<'_>) -> Option<CompletedMarker> {
+    p.lambdas(false, |p| expr_bp(p, RELATIONAL + 1))
+}
+
+/// A `when` guard: a full expression, but `=>` ends it.
+pub(crate) fn guard(p: &mut Parser<'_>) {
+    p.lambdas(false, expr);
 }
 
 /// Whether an expression can start at the next token.
@@ -92,138 +128,506 @@ pub(crate) fn at_expr_start(p: &Parser<'_>) -> bool {
                 | K::SizeofKw
                 | K::Hash
                 | K::Dollar
+                | K::AwaitKw
+                | K::StackallocKw
+                | K::DotDot
+                | K::AsyncKw
+                | K::StaticKw
         )
 }
 
 /// The binary operator at the next token, longest first, so `>>` wins
-/// over `>`.
+/// over `>`; `None` before an assignment such as `>>=`.
 fn binary_op(p: &Parser<'_>) -> Option<(SyntaxKind, u8)> {
-    const LONGEST_FIRST: &[SyntaxKind] = &[K::UShr, K::Shr, K::GtEq];
-    if let Some(&kind) = LONGEST_FIRST.iter().find(|&&kind| p.at(kind)) {
-        // `>>=`, `>>>=` are assignments, which M1.4 parses.
-        if p.at(K::ShrEq) || p.at(K::UShrEq) {
-            return None;
-        }
-        return BINARY.iter().copied().find(|(k, _)| *k == kind);
+    if ASSIGNMENTS.iter().any(|&kind| p.at(kind)) {
+        return None;
     }
-    BINARY.iter().copied().find(|&(kind, _)| p.at(kind))
+    const LONGEST_FIRST: &[SyntaxKind] = &[K::UShr, K::Shr, K::GtEq];
+    let kind = LONGEST_FIRST
+        .iter()
+        .copied()
+        .find(|&kind| p.at(kind))
+        .or_else(|| BINARY.iter().map(|(k, _)| *k).find(|&kind| p.at(kind)))?;
+    BINARY.iter().copied().find(|(k, _)| *k == kind)
 }
 
 fn expr_bp(p: &mut Parser<'_>, min: u8) -> Option<CompletedMarker> {
-    let mut lhs = unary(p)?;
-    while let Some((op, power)) = binary_op(p) {
-        if power < min {
-            break;
+    // A range does not associate: `a..b..c` takes one `..`, then stops.
+    let mut is_range = p.at(K::DotDot) && min <= RANGE;
+    let mut lhs = if is_range {
+        // `..y` and `..`.
+        let m = p.start();
+        p.bump(K::DotDot);
+        if at_range_end(p) {
+            expr_bp(p, RANGE + 1);
         }
-        let m = lhs.precede(p);
-        p.bump(op);
-        // Left operators bind the right operand tighter; `??` does not.
-        let next = if op == K::QuestionQuestion {
-            power
-        } else {
-            power + 1
-        };
-        if expr_bp(p, next).is_none() {
-            p.error("expected an expression");
+        m.complete(p, K::RangeExpr)
+    } else {
+        unary(p)?
+    };
+    loop {
+        // `x..y`, `x..`.
+        if p.at(K::DotDot) && min <= RANGE && !is_range {
+            let m = lhs.precede(p);
+            p.bump(K::DotDot);
+            if at_range_end(p) {
+                expr_bp(p, RANGE + 1);
+            }
+            lhs = m.complete(p, K::RangeExpr);
+            is_range = true;
+            continue;
         }
-        lhs = m.complete(p, K::BinExpr);
+        if min <= SWITCH_WITH && p.at(K::SwitchKw) {
+            let m = lhs.precede(p);
+            switch_expr_body(p);
+            lhs = m.complete(p, K::SwitchExpr);
+            continue;
+        }
+        if min <= SWITCH_WITH && p.at_contextual("with") && p.nth(1) == K::LBrace {
+            let m = lhs.precede(p);
+            p.bump_remap(K::WithKw);
+            object_initializer(p);
+            lhs = m.complete(p, K::WithExpr);
+            continue;
+        }
+        if min <= RELATIONAL && p.at(K::IsKw) {
+            let m = lhs.precede(p);
+            p.bump(K::IsKw);
+            patterns::pattern(p);
+            lhs = m.complete(p, K::IsExpr);
+            continue;
+        }
+        if min <= RELATIONAL && p.at(K::AsKw) {
+            let m = lhs.precede(p);
+            p.bump(K::AsKw);
+            types::ty(p);
+            lhs = m.complete(p, K::AsExpr);
+            continue;
+        }
+        if let Some((op, power)) = binary_op(p)
+            && power >= min
+        {
+            let m = lhs.precede(p);
+            p.bump(op);
+            let next = if op == K::QuestionQuestion {
+                power
+            } else {
+                power + 1
+            };
+            if expr_bp(p, next).is_none() {
+                p.error("expected an expression");
+            }
+            lhs = m.complete(p, K::BinExpr);
+            continue;
+        }
+        if min <= CONDITIONAL && p.at(K::Question) && conditional_follows(p.input(), p.pos()) {
+            // As in C#, each arm is a whole expression, assignment included:
+            // `ok ? x = 1 : y = 2` assigns in either arm.
+            let m = lhs.precede(p);
+            p.bump(K::Question);
+            if expr_bp(p, ASSIGN).is_none() {
+                p.error("expected an expression");
+            }
+            p.expect(K::Colon);
+            if expr_bp(p, ASSIGN).is_none() {
+                p.error("expected an expression");
+            }
+            lhs = m.complete(p, K::ConditionalExpr);
+            continue;
+        }
+        if min <= ASSIGN
+            && let Some(&op) = ASSIGNMENTS.iter().find(|&&kind| p.at(kind))
+        {
+            let m = lhs.precede(p);
+            p.bump(op);
+            if expr_bp(p, ASSIGN).is_none() {
+                p.error("expected an expression");
+            }
+            lhs = m.complete(p, K::AssignExpr);
+            continue;
+        }
+        return Some(lhs);
     }
-    Some(lhs)
+}
+
+/// Whether a range end follows `..`: an expression, but not the `]` or `)`
+/// that closes `a[..]` or the `,` of the next argument.
+fn at_range_end(p: &Parser<'_>) -> bool {
+    at_expr_start(p) && !p.at(K::DotDot)
+}
+
+/// §7.4: after an operand, `?` begins a conditional expression when a `:`
+/// at the same nesting depth follows before the expression ends (`;`, `)`,
+/// `]`, `}` or `,` at depth zero); otherwise it is propagation.
+pub(crate) fn conditional_follows(input: &Input<'_>, at: usize) -> bool {
+    // `r? : d` in an arm: a conditional cannot have an empty first arm.
+    if matches!(
+        input.kind(at + 1),
+        K::Colon | K::RParen | K::Semicolon | K::Comma
+    ) {
+        return false;
+    }
+    let mut depth = 0usize;
+    let mut i = at + 1;
+    while i < input.len() {
+        match input.kind(i) {
+            K::LParen | K::LBracket | K::LBrace | K::HoleOpen => depth += 1,
+            K::RParen | K::RBracket | K::RBrace | K::HoleClose => {
+                if depth == 0 {
+                    return false;
+                }
+                depth -= 1;
+            }
+            K::Semicolon | K::Comma if depth == 0 => return false,
+            K::Colon if depth == 0 => return true,
+            _ => {}
+        }
+        i += 1;
+    }
+    false
 }
 
 fn unary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
+    unary_with(p, true)
+}
+
+/// A unary expression. Without `propagate` (the operand of `await`), no
+/// postfix `?` is taken at any depth of it, so `await -f()?` is
+/// `(await -f())?`.
+fn unary_with(p: &mut Parser<'_>, propagate: bool) -> Option<CompletedMarker> {
     if PREFIX.iter().any(|&kind| p.at(kind)) {
         let m = p.start();
         p.bump_any();
-        if expr_bp(p, PREFIX_POWER).is_none() {
+        if unary_with(p, propagate).is_none() {
             p.error("expected an expression");
         }
         return Some(m.complete(p, K::PrefixExpr));
     }
+    if p.at(K::AwaitKw) {
+        // `await e?` is `(await e)?` (§7.4): the operand takes no `?`, and
+        // propagation applies to the awaited value.
+        let m = p.start();
+        p.bump(K::AwaitKw);
+        if unary_with(p, false).is_none() {
+            p.error("expected an expression");
+        }
+        let awaited = m.complete(p, K::AwaitExpr);
+        return Some(if propagate {
+            propagation(p, awaited)
+        } else {
+            awaited
+        });
+    }
+    if p.at(K::LParen) && at_cast(p) {
+        let m = p.start();
+        p.bump(K::LParen);
+        types::ty(p);
+        p.bump(K::RParen);
+        if unary_with(p, propagate).is_none() {
+            p.error("expected an expression");
+        }
+        return Some(m.complete(p, K::CastExpr));
+    }
     let lhs = primary(p)?;
-    Some(postfix(p, lhs))
+    Some(postfix(p, lhs, propagate))
+}
+
+/// C#'s rule for `(T)x`: the parentheses hold a type, and what follows is
+/// an identifier, a literal, `(`, `~`, `!` or a keyword that can start an
+/// expression; after a predefined type, any operand (§14.4).
+fn at_cast(p: &Parser<'_>) -> bool {
+    let input = p.input();
+    let at = p.pos();
+    let Some(end) = scan_type(input, at + 1) else {
+        return false;
+    };
+    if input.kind(end) != K::RParen || end == at + 1 {
+        return false;
+    }
+    let next = input.kind(end + 1);
+    let predefined = PREDEFINED.contains(&input.kind(at + 1)) && end == at + 2;
+    if predefined {
+        return end + 1 < input.len()
+            && !matches!(next, K::RParen | K::Semicolon | K::Comma | K::Dot);
+    }
+    LITERALS.contains(&next)
+        || matches!(
+            next,
+            K::Ident
+                | K::LParen
+                | K::Tilde
+                | K::Bang
+                | K::ThisKw
+                | K::NewKw
+                | K::DefaultKw
+                | K::SizeofKw
+                | K::AwaitKw
+                | K::StackallocKw
+                | K::InterpStart
+        )
+        || (PREDEFINED.contains(&next))
+}
+
+/// Whether a lambda starts here: `x =>`, `(…) =>`, `async`, `static`, or a
+/// capture list `[weak …]` / `[move …]`.
+fn at_lambda(p: &Parser<'_>) -> bool {
+    if !p.lambdas_allowed() {
+        return false;
+    }
+    match p.current() {
+        K::Ident => p.nth(1) == K::FatArrow,
+        K::AsyncKw | K::StaticKw => true,
+        K::LBracket => matches!(p.nth(1), K::WeakKw | K::MoveKw),
+        K::LParen => {
+            let input = p.input();
+            let mut depth = 0usize;
+            let mut i = p.pos();
+            loop {
+                match input.kind(i) {
+                    K::LParen => depth += 1,
+                    K::RParen => {
+                        depth -= 1;
+                        if depth == 0 {
+                            return input.kind(i + 1) == K::FatArrow;
+                        }
+                    }
+                    _ if i >= input.len() => return false,
+                    _ => {}
+                }
+                i += 1;
+            }
+        }
+        _ => false,
+    }
+}
+
+/// `x => x * 2`, `(int x, int y) => x + y`, `async (Request req) => ...`,
+/// `[weak this] () => this?.Refresh()` (§7.6).
+fn lambda(p: &mut Parser<'_>) -> CompletedMarker {
+    let m = p.start();
+    if p.at(K::LBracket) {
+        let captures = p.start();
+        p.bump(K::LBracket);
+        while !p.at(K::RBracket) && !p.at_end() {
+            let capture = p.start();
+            if p.at(K::WeakKw) || p.at(K::MoveKw) {
+                p.bump_any();
+            } else {
+                p.error("expected `weak` or `move`");
+            }
+            if !p.eat(K::ThisKw) {
+                types::name_ref(p);
+            }
+            capture.complete(p, K::Capture);
+            if !p.eat(K::Comma) {
+                break;
+            }
+        }
+        p.expect(K::RBracket);
+        captures.complete(p, K::CaptureList);
+    }
+    while p.at(K::AsyncKw) || p.at(K::StaticKw) {
+        let modifier = p.start();
+        p.bump_any();
+        modifier.complete(p, K::Modifier);
+    }
+    if p.at(K::LParen) {
+        let list = p.start();
+        p.bump(K::LParen);
+        while !p.at(K::RParen) && !p.at_end() {
+            lambda_param(p);
+            if !p.eat(K::Comma) {
+                break;
+            }
+        }
+        p.expect(K::RParen);
+        list.complete(p, K::LambdaParamList);
+    } else {
+        let param = p.start();
+        types::name(p);
+        param.complete(p, K::LambdaParam);
+    }
+    p.expect(K::FatArrow);
+    if p.at(K::LBrace) {
+        stmts::block(p);
+    } else {
+        expr(p);
+    }
+    m.complete(p, K::LambdaExpr)
+}
+
+/// `int x`, `x`, `ref int x`, `int x = 0`.
+fn lambda_param(p: &mut Parser<'_>) {
+    let m = p.start();
+    while p.at_any(&[K::RefKw, K::InKw, K::OutKw, K::MoveKw, K::ParamsKw]) {
+        let modifier = p.start();
+        p.bump_any();
+        modifier.complete(p, K::Modifier);
+    }
+    let typed = scan_type(p.input(), p.pos()).is_some_and(|end| p.input().kind(end) == K::Ident);
+    if typed {
+        types::ty(p);
+    }
+    types::name(p);
+    if p.eat(K::Eq) {
+        expr(p);
+    }
+    m.complete(p, K::LambdaParam);
 }
 
 fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
+    if at_lambda(p) {
+        return Some(lambda(p));
+    }
     let kind = p.current();
-    let m = p.start();
-    let done = if LITERALS.contains(&kind) {
+    if LITERALS.contains(&kind) {
+        let m = p.start();
         p.bump_any();
-        m.complete(p, K::LiteralExpr)
-    } else if PREDEFINED.contains(&kind) {
+        return Some(m.complete(p, K::LiteralExpr));
+    }
+    if PREDEFINED.contains(&kind) {
         // `int.Parse(...)`.
+        let m = p.start();
         let t = p.start();
         p.bump_any();
         t.complete(p, K::PredefinedType);
-        m.complete(p, K::PredefinedTypeExpr)
-    } else {
-        match kind {
-            K::InterpStart => {
-                m.abandon(p);
-                return Some(interp_string(p));
-            }
-            K::Ident if p.at_contextual("nameof") && p.nth(1) == K::LParen => {
-                p.bump_remap(K::NameofKw);
-                p.bump(K::LParen);
-                expr(p);
-                p.expect(K::RParen);
-                m.complete(p, K::NameofExpr)
-            }
-            K::Ident => {
-                types::path(p, false);
-                m.complete(p, K::PathExpr)
-            }
-            K::ThisKw => {
-                p.bump(K::ThisKw);
-                m.complete(p, K::ThisExpr)
-            }
-            K::LParen => {
-                m.abandon(p);
-                return Some(paren_or_tuple(p));
-            }
-            K::LBracket => {
-                m.abandon(p);
-                return Some(collection(p));
-            }
-            K::NewKw => {
-                m.abandon(p);
-                return Some(new_expr(p));
-            }
-            K::DefaultKw => {
-                p.bump(K::DefaultKw);
-                if p.eat(K::LParen) {
-                    types::ty(p);
-                    p.expect(K::RParen);
-                }
-                m.complete(p, K::DefaultExpr)
-            }
-            K::SizeofKw => {
-                p.bump(K::SizeofKw);
-                p.expect(K::LParen);
+        return Some(m.complete(p, K::PredefinedTypeExpr));
+    }
+    let m = p.start();
+    let done = match kind {
+        K::InterpStart => {
+            m.abandon(p);
+            return Some(interp_string(p));
+        }
+        K::Ident if p.at_contextual("nameof") && p.nth(1) == K::LParen => {
+            p.bump_remap(K::NameofKw);
+            p.bump(K::LParen);
+            expr(p);
+            p.expect(K::RParen);
+            m.complete(p, K::NameofExpr)
+        }
+        K::Ident if p.at_contextual("code") && matches!(p.nth(1), K::LBrace | K::LParen) => {
+            quote(p);
+            m.complete(p, K::QuoteExpr)
+        }
+        K::Ident => {
+            types::path(p, false);
+            m.complete(p, K::PathExpr)
+        }
+        K::ThisKw => {
+            p.bump(K::ThisKw);
+            m.complete(p, K::ThisExpr)
+        }
+        K::LParen => {
+            m.abandon(p);
+            return Some(paren_or_tuple(p));
+        }
+        K::LBracket => {
+            m.abandon(p);
+            return Some(collection(p));
+        }
+        K::NewKw => {
+            m.abandon(p);
+            return Some(new_expr(p));
+        }
+        K::StackallocKw => {
+            m.abandon(p);
+            return Some(stackalloc(p));
+        }
+        K::DefaultKw => {
+            p.bump(K::DefaultKw);
+            if p.eat(K::LParen) {
                 types::ty(p);
                 p.expect(K::RParen);
-                m.complete(p, K::SizeofExpr)
             }
-            K::Hash => {
-                p.bump(K::Hash);
-                types::name_ref(p);
-                arg_list(p);
-                m.complete(p, K::MacroCallExpr)
-            }
-            K::Dollar => {
-                splice(p);
-                m.complete(p, K::SpliceExpr)
-            }
-            _ => {
-                m.abandon(p);
-                return None;
-            }
+            m.complete(p, K::DefaultExpr)
+        }
+        K::SizeofKw => {
+            p.bump(K::SizeofKw);
+            p.expect(K::LParen);
+            types::ty(p);
+            p.expect(K::RParen);
+            m.complete(p, K::SizeofExpr)
+        }
+        K::Hash => {
+            p.bump(K::Hash);
+            types::name_ref(p);
+            arg_list(p);
+            m.complete(p, K::MacroCallExpr)
+        }
+        K::Dollar => {
+            splice(p);
+            m.complete(p, K::SpliceExpr)
+        }
+        _ => {
+            m.abandon(p);
+            return None;
         }
     };
     Some(done)
 }
 
-fn postfix(p: &mut Parser<'_>, mut lhs: CompletedMarker) -> CompletedMarker {
+/// `code { members }`, `code(expr)`, `code(type)` (§9.3). Inside the
+/// parentheses, a type that cannot be an expression (a predefined type, a
+/// tuple, generic arguments, `?` or `[]`) is a type; anything else an
+/// expression.
+fn quote(p: &mut Parser<'_>) {
+    p.bump_remap(K::CodeKw);
+    if p.at(K::LBrace) {
+        items::member_list(p);
+        return;
+    }
+    p.bump(K::LParen);
+    let input = p.input();
+    let at = p.pos();
+    let is_type = scan_type(input, at).is_some_and(|end| {
+        input.kind(end) == K::RParen
+            && (PREDEFINED.contains(&input.kind(at))
+                || input.kind(at) == K::LParen
+                || (at..end).any(|i| matches!(input.kind(i), K::Lt | K::Question | K::LBracket)))
+    });
+    if is_type {
+        types::ty(p);
+    } else {
+        expr(p);
+    }
+    p.expect(K::RParen);
+}
+
+/// `stackalloc byte[256]`, `stackalloc int[] { 1, 2 }` (§5.9).
+fn stackalloc(p: &mut Parser<'_>) -> CompletedMarker {
+    let m = p.start();
+    p.bump(K::StackallocKw);
+    if types::at_type_start(p) {
+        types::element_ty(p);
+    }
+    p.expect(K::LBracket);
+    if !p.at(K::RBracket) {
+        expr(p);
+    }
+    p.expect(K::RBracket);
+    if p.at(K::LBrace) {
+        array_initializer(p);
+    }
+    m.complete(p, K::StackallocExpr)
+}
+
+fn array_initializer(p: &mut Parser<'_>) {
+    let init = p.start();
+    p.bump(K::LBrace);
+    while !p.at(K::RBrace) && !p.at_end() {
+        expr(p);
+        if !p.eat(K::Comma) {
+            break;
+        }
+    }
+    p.expect(K::RBrace);
+    init.complete(p, K::ArrayInitializer);
+}
+
+/// Member access, calls, indexing, `x++`, `x--` and, unless `propagate`
+/// is off (inside `await`), the propagation `x?`.
+fn postfix(p: &mut Parser<'_>, mut lhs: CompletedMarker, propagate: bool) -> CompletedMarker {
     loop {
         lhs = if p.at(K::Dot) || p.at(K::QuestionDot) {
             let m = lhs.precede(p);
@@ -241,7 +645,10 @@ fn postfix(p: &mut Parser<'_>, mut lhs: CompletedMarker) -> CompletedMarker {
             let m = lhs.precede(p);
             arg_list(p);
             m.complete(p, K::CallExpr)
-        } else if p.at(K::QuestionLBracket) || p.at(K::LBracket) {
+        } else if p.at(K::LBracket) || p.at(K::QuestionLBracket) {
+            // `?[` written without a space is a null-conditional index, even
+            // in an arm of a conditional (`c ? a?[0] : b`); with a space,
+            // `flag ? [1] : []` is a conditional.
             let m = lhs.precede(p);
             if !p.eat(K::QuestionLBracket) {
                 p.bump(K::LBracket);
@@ -254,13 +661,63 @@ fn postfix(p: &mut Parser<'_>, mut lhs: CompletedMarker) -> CompletedMarker {
             }
             p.expect(K::RBracket);
             m.complete(p, K::IndexExpr)
+        } else if p.at(K::PlusPlus) || p.at(K::MinusMinus) {
+            let m = lhs.precede(p);
+            p.bump_any();
+            m.complete(p, K::PostfixExpr)
+        } else if propagate && at_propagation(p) {
+            // Member access after propagation needs parentheses (§7.4):
+            // `(r?).Name`. Only another `?` may follow here.
+            let m = lhs.precede(p);
+            p.bump(K::Question);
+            let propagated = m.complete(p, K::PropagateExpr);
+            return propagation(p, propagated);
         } else {
             return lhs;
         };
     }
 }
 
-/// `(args)`: `F(x)`, `F(ref x)`, `F(name: v)`.
+/// `x?` that is not the start of `x ? a : b` (§7.4).
+fn at_propagation(p: &Parser<'_>) -> bool {
+    p.current() == K::Question
+        && !p.at(K::QuestionQuestion)
+        && !conditional_follows(p.input(), p.pos())
+}
+
+fn propagation(p: &mut Parser<'_>, mut lhs: CompletedMarker) -> CompletedMarker {
+    while at_propagation(p) {
+        let m = lhs.precede(p);
+        p.bump(K::Question);
+        lhs = m.complete(p, K::PropagateExpr);
+    }
+    // Member access after propagation needs parentheses (§7.4); `(r?).Name`
+    // is a parenthesized expression, so the operand stops here.
+    lhs
+}
+
+/// `{ arms }` after `switch` in an expression (§7.7).
+fn switch_expr_body(p: &mut Parser<'_>) {
+    p.bump(K::SwitchKw);
+    if !p.expect(K::LBrace) {
+        return;
+    }
+    while !p.at(K::RBrace) && !p.at_end() {
+        let arm = p.start();
+        patterns::pattern(p);
+        if p.at_contextual("when") {
+            patterns::when_clause(p);
+        }
+        p.expect(K::FatArrow);
+        expr(p);
+        arm.complete(p, K::SwitchArm);
+        if !p.eat(K::Comma) {
+            break;
+        }
+    }
+    p.expect(K::RBrace);
+}
+
 pub(crate) fn arg_list(p: &mut Parser<'_>) {
     let m = p.start();
     if !p.expect(K::LParen) {
@@ -278,6 +735,10 @@ pub(crate) fn arg_list(p: &mut Parser<'_>) {
 }
 
 fn arg(p: &mut Parser<'_>) {
+    p.lambdas(true, arg_inner);
+}
+
+fn arg_inner(p: &mut Parser<'_>) {
     let m = p.start();
     if p.at(K::Ident) && p.nth(1) == K::Colon {
         types::name_ref(p);
@@ -326,6 +787,10 @@ fn decl_expr(p: &mut Parser<'_>) {
 /// expression holds its expression directly; a name or a comma makes it a
 /// tuple, and only then is the first expression wrapped in a `TupleElem`.
 fn paren_or_tuple(p: &mut Parser<'_>) -> CompletedMarker {
+    p.lambdas(true, paren_or_tuple_inner)
+}
+
+fn paren_or_tuple_inner(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();
     p.bump(K::LParen);
     if p.eat(K::RParen) {
@@ -366,6 +831,10 @@ fn paren_or_tuple(p: &mut Parser<'_>) -> CompletedMarker {
 }
 
 fn collection(p: &mut Parser<'_>) -> CompletedMarker {
+    p.lambdas(true, collection_inner)
+}
+
+fn collection_inner(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();
     p.bump(K::LBracket);
     while !p.at(K::RBracket) && !p.at_end() {

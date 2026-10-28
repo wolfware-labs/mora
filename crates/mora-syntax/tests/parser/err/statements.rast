@@ -1,0 +1,102 @@
+SourceFile@0..91
+  FunctionDecl@0..90
+    PredefinedType@0..4
+      VoidKw@0..4 "void"
+    Whitespace@4..5 " "
+    Name@5..8
+      Ident@5..8 "Run"
+    ParamList@8..10
+      LParen@8..9 "("
+      RParen@9..10 ")"
+    Newline@10..11 "\n"
+    Block@11..90
+      LBrace@11..12 "{"
+      Newline@12..13 "\n"
+      Whitespace@13..17 "    "
+      LocalDeclStmt@17..26
+        LocalDecl@17..26
+          LetKw@17..20 "let"
+          Whitespace@20..21 " "
+          VariableDeclarator@21..26
+            Name@21..22
+              Ident@21..22 "x"
+            Whitespace@22..23 " "
+            Eq@23..24 "="
+            Whitespace@24..25 " "
+            LiteralExpr@25..26
+              IntNumber@25..26 "1"
+      Newline@26..27 "\n"
+      Whitespace@27..31 "    "
+      LocalDeclStmt@31..41
+        LocalDecl@31..40
+          LetKw@31..34 "let"
+          Whitespace@34..35 " "
+          VariableDeclarator@35..40
+            Name@35..36
+              Ident@35..36 "y"
+            Whitespace@36..37 " "
+            Eq@37..38 "="
+            Whitespace@38..39 " "
+            LiteralExpr@39..40
+              IntNumber@39..40 "2"
+        Semicolon@40..41 ";"
+      Newline@41..42 "\n"
+      Whitespace@42..46 "    "
+      IfStmt@46..66
+        IfKw@46..48 "if"
+        Whitespace@48..49 " "
+        LParen@49..50 "("
+        BinExpr@50..55
+          PathExpr@50..51
+            Path@50..51
+              PathSegment@50..51
+                NameRef@50..51
+                  Ident@50..51 "x"
+          Whitespace@51..52 " "
+          Gt@52..53 ">"
+          Whitespace@53..54 " "
+          LiteralExpr@54..55
+            IntNumber@54..55 "0"
+        Whitespace@55..56 " "
+        Block@56..66
+          LBrace@56..57 "{"
+          Whitespace@57..58 " "
+          ExprStmt@58..64
+            AssignExpr@58..63
+              PathExpr@58..59
+                Path@58..59
+                  PathSegment@58..59
+                    NameRef@58..59
+                      Ident@58..59 "y"
+              Whitespace@59..60 " "
+              Eq@60..61 "="
+              Whitespace@61..62 " "
+              LiteralExpr@62..63
+                IntNumber@62..63 "3"
+            Semicolon@63..64 ";"
+          Whitespace@64..65 " "
+          RBrace@65..66 "}"
+      Newline@66..67 "\n"
+      Whitespace@67..71 "    "
+      Error@71..72
+        RParen@71..72 ")"
+      Whitespace@72..73 " "
+      EmptyStmt@73..74
+        Semicolon@73..74 ";"
+      Newline@74..75 "\n"
+      Whitespace@75..79 "    "
+      ReturnStmt@79..88
+        ReturnKw@79..85 "return"
+        Whitespace@85..86 " "
+        PathExpr@86..87
+          Path@86..87
+            PathSegment@86..87
+              NameRef@86..87
+                Ident@86..87 "y"
+        Semicolon@87..88 ";"
+      Newline@88..89 "\n"
+      RBrace@89..90 "}"
+  Newline@90..91 "\n"
+error MR0110 26..26: expected `;`
+error MR0110 55..55: expected `)`
+error MR0110 71..72: expected a statement

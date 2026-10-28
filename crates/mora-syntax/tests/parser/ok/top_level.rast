@@ -228,13 +228,21 @@ SourceFile@0..382
     Block@245..265
       LBrace@245..246 "{"
       Whitespace@246..247 " "
-      ReturnKw@247..253 "return"
-      Whitespace@253..254 " "
-      Ident@254..259 "items"
-      LBracket@259..260 "["
-      IntNumber@260..261 "0"
-      RBracket@261..262 "]"
-      Semicolon@262..263 ";"
+      ReturnStmt@247..263
+        ReturnKw@247..253 "return"
+        Whitespace@253..254 " "
+        IndexExpr@254..262
+          PathExpr@254..259
+            Path@254..259
+              PathSegment@254..259
+                NameRef@254..259
+                  Ident@254..259 "items"
+          LBracket@259..260 "["
+          Arg@260..261
+            LiteralExpr@260..261
+              IntNumber@260..261 "0"
+          RBracket@261..262 "]"
+        Semicolon@262..263 ";"
       Whitespace@263..264 " "
       RBrace@264..265 "}"
   Newline@265..266 "\n"

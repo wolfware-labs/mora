@@ -1,0 +1,357 @@
+SourceFile@0..312
+  LocalDeclStmt@0..19
+    LocalDecl@0..18
+      LetKw@0..3 "let"
+      Whitespace@3..4 " "
+      VariableDeclarator@4..18
+        Name@4..5
+          Ident@4..5 "a"
+        Whitespace@5..6 " "
+        Eq@6..7 "="
+        Whitespace@7..8 " "
+        LambdaExpr@8..18
+          LambdaParam@8..9
+            Name@8..9
+              Ident@8..9 "x"
+          Whitespace@9..10 " "
+          FatArrow@10..12 "=>"
+          Whitespace@12..13 " "
+          BinExpr@13..18
+            PathExpr@13..14
+              Path@13..14
+                PathSegment@13..14
+                  NameRef@13..14
+                    Ident@13..14 "x"
+            Whitespace@14..15 " "
+            Star@15..16 "*"
+            Whitespace@16..17 " "
+            LiteralExpr@17..18
+              IntNumber@17..18 "2"
+    Semicolon@18..19 ";"
+  Newline@19..20 "\n"
+  LocalDeclStmt@20..52
+    LocalDecl@20..51
+      LetKw@20..23 "let"
+      Whitespace@23..24 " "
+      VariableDeclarator@24..51
+        Name@24..25
+          Ident@24..25 "b"
+        Whitespace@25..26 " "
+        Eq@26..27 "="
+        Whitespace@27..28 " "
+        LambdaExpr@28..51
+          LambdaParamList@28..42
+            LParen@28..29 "("
+            LambdaParam@29..34
+              PredefinedType@29..32
+                IntKw@29..32 "int"
+              Whitespace@32..33 " "
+              Name@33..34
+                Ident@33..34 "x"
+            Comma@34..35 ","
+            Whitespace@35..36 " "
+            LambdaParam@36..41
+              PredefinedType@36..39
+                IntKw@36..39 "int"
+              Whitespace@39..40 " "
+              Name@40..41
+                Ident@40..41 "y"
+            RParen@41..42 ")"
+          Whitespace@42..43 " "
+          FatArrow@43..45 "=>"
+          Whitespace@45..46 " "
+          BinExpr@46..51
+            PathExpr@46..47
+              Path@46..47
+                PathSegment@46..47
+                  NameRef@46..47
+                    Ident@46..47 "x"
+            Whitespace@47..48 " "
+            Plus@48..49 "+"
+            Whitespace@49..50 " "
+            PathExpr@50..51
+              Path@50..51
+                PathSegment@50..51
+                  NameRef@50..51
+                    Ident@50..51 "y"
+    Semicolon@51..52 ";"
+  Newline@52..53 "\n"
+  LocalDeclStmt@53..97
+    LocalDecl@53..96
+      LetKw@53..56 "let"
+      Whitespace@56..57 " "
+      VariableDeclarator@57..96
+        Name@57..58
+          Ident@57..58 "c"
+        Whitespace@58..59 " "
+        Eq@59..60 "="
+        Whitespace@60..61 " "
+        LambdaExpr@61..96
+          Modifier@61..66
+            AsyncKw@61..66 "async"
+          Whitespace@66..67 " "
+          LambdaParamList@67..80
+            LParen@67..68 "("
+            LambdaParam@68..79
+              PathType@68..75
+                Path@68..75
+                  PathSegment@68..75
+                    NameRef@68..75
+                      Ident@68..75 "Request"
+              Whitespace@75..76 " "
+              Name@76..79
+                Ident@76..79 "req"
+            RParen@79..80 ")"
+          Whitespace@80..81 " "
+          FatArrow@81..83 "=>"
+          Whitespace@83..84 " "
+          CallExpr@84..96
+            MemberExpr@84..94
+              PathExpr@84..91
+                Path@84..91
+                  PathSegment@84..91
+                    NameRef@84..91
+                      Ident@84..91 "Results"
+              Dot@91..92 "."
+              NameRef@92..94
+                Ident@92..94 "Ok"
+            ArgList@94..96
+              LParen@94..95 "("
+              RParen@95..96 ")"
+    Semicolon@96..97 ";"
+  Newline@97..98 "\n"
+  LocalDeclStmt@98..130
+    LocalDecl@98..129
+      LetKw@98..101 "let"
+      Whitespace@101..102 " "
+      VariableDeclarator@102..129
+        Name@102..103
+          Ident@102..103 "d"
+        Whitespace@103..104 " "
+        Eq@104..105 "="
+        Whitespace@105..106 " "
+        LambdaExpr@106..129
+          Modifier@106..112
+            StaticKw@106..112 "static"
+          Whitespace@112..113 " "
+          LambdaParamList@113..120
+            LParen@113..114 "("
+            LambdaParam@114..119
+              PredefinedType@114..117
+                IntKw@114..117 "int"
+              Whitespace@117..118 " "
+              Name@118..119
+                Ident@118..119 "x"
+            RParen@119..120 ")"
+          Whitespace@120..121 " "
+          FatArrow@121..123 "=>"
+          Whitespace@123..124 " "
+          BinExpr@124..129
+            PathExpr@124..125
+              Path@124..125
+                PathSegment@124..125
+                  NameRef@124..125
+                    Ident@124..125 "x"
+            Whitespace@125..126 " "
+            Plus@126..127 "+"
+            Whitespace@127..128 " "
+            LiteralExpr@128..129
+              IntNumber@128..129 "1"
+    Semicolon@129..130 ";"
+  Newline@130..131 "\n"
+  LocalDeclStmt@131..173
+    LocalDecl@131..172
+      LetKw@131..134 "let"
+      Whitespace@134..135 " "
+      VariableDeclarator@135..172
+        Name@135..136
+          Ident@135..136 "e"
+        Whitespace@136..137 " "
+        Eq@137..138 "="
+        Whitespace@138..139 " "
+        LambdaExpr@139..172
+          CaptureList@139..150
+            LBracket@139..140 "["
+            Capture@140..149
+              WeakKw@140..144 "weak"
+              Whitespace@144..145 " "
+              ThisKw@145..149 "this"
+            RBracket@149..150 "]"
+          Whitespace@150..151 " "
+          LambdaParamList@151..153
+            LParen@151..152 "("
+            RParen@152..153 ")"
+          Whitespace@153..154 " "
+          FatArrow@154..156 "=>"
+          Whitespace@156..157 " "
+          CallExpr@157..172
+            MemberExpr@157..170
+              ThisExpr@157..161
+                ThisKw@157..161 "this"
+              QuestionDot@161..163 "?."
+              NameRef@163..170
+                Ident@163..170 "Refresh"
+            ArgList@170..172
+              LParen@170..171 "("
+              RParen@171..172 ")"
+    Semicolon@172..173 ";"
+  Newline@173..174 "\n"
+  LocalDeclStmt@174..225
+    LocalDecl@174..224
+      LetKw@174..177 "let"
+      Whitespace@177..178 " "
+      VariableDeclarator@178..224
+        Name@178..179
+          Ident@178..179 "f"
+        Whitespace@179..180 " "
+        Eq@180..181 "="
+        Whitespace@181..182 " "
+        LambdaExpr@182..224
+          CaptureList@182..193
+            LBracket@182..183 "["
+            Capture@183..192
+              MoveKw@183..187 "move"
+              Whitespace@187..188 " "
+              NameRef@188..192
+                Ident@188..192 "conn"
+            RBracket@192..193 "]"
+          Whitespace@193..194 " "
+          Modifier@194..199
+            AsyncKw@194..199 "async"
+          Whitespace@199..200 " "
+          LambdaParamList@200..202
+            LParen@200..201 "("
+            RParen@201..202 ")"
+          Whitespace@202..203 " "
+          FatArrow@203..205 "=>"
+          Whitespace@205..206 " "
+          AwaitExpr@206..224
+            AwaitKw@206..211 "await"
+            Whitespace@211..212 " "
+            CallExpr@212..224
+              MemberExpr@212..222
+                PathExpr@212..216
+                  Path@212..216
+                    PathSegment@212..216
+                      NameRef@212..216
+                        Ident@212..216 "conn"
+                Dot@216..217 "."
+                NameRef@217..222
+                  Ident@217..222 "Close"
+              ArgList@222..224
+                LParen@222..223 "("
+                RParen@223..224 ")"
+    Semicolon@224..225 ";"
+  Newline@225..226 "\n"
+  LocalDeclStmt@226..254
+    LocalDecl@226..253
+      LetKw@226..229 "let"
+      Whitespace@229..230 " "
+      VariableDeclarator@230..253
+        Name@230..231
+          Ident@230..231 "g"
+        Whitespace@231..232 " "
+        Eq@232..233 "="
+        Whitespace@233..234 " "
+        LambdaExpr@234..253
+          LambdaParamList@234..236
+            LParen@234..235 "("
+            RParen@235..236 ")"
+          Whitespace@236..237 " "
+          FatArrow@237..239 "=>"
+          Whitespace@239..240 " "
+          Block@240..253
+            LBrace@240..241 "{"
+            Whitespace@241..242 " "
+            ReturnStmt@242..251
+              ReturnKw@242..248 "return"
+              Whitespace@248..249 " "
+              LiteralExpr@249..250
+                IntNumber@249..250 "1"
+              Semicolon@250..251 ";"
+            Whitespace@251..252 " "
+            RBrace@252..253 "}"
+    Semicolon@253..254 ";"
+  Newline@254..255 "\n"
+  LocalDeclStmt@255..311
+    LocalDecl@255..310
+      LetKw@255..258 "let"
+      Whitespace@258..259 " "
+      VariableDeclarator@259..310
+        Name@259..260
+          Ident@259..260 "h"
+        Whitespace@260..261 " "
+        Eq@261..262 "="
+        Whitespace@262..263 " "
+        CallExpr@263..310
+          MemberExpr@263..293
+            CallExpr@263..286
+              MemberExpr@263..274
+                PathExpr@263..268
+                  Path@263..268
+                    PathSegment@263..268
+                      NameRef@263..268
+                        Ident@263..268 "items"
+                Dot@268..269 "."
+                NameRef@269..274
+                  Ident@269..274 "Where"
+              ArgList@274..286
+                LParen@274..275 "("
+                Arg@275..285
+                  LambdaExpr@275..285
+                    LambdaParam@275..276
+                      Name@275..276
+                        Ident@275..276 "x"
+                    Whitespace@276..277 " "
+                    FatArrow@277..279 "=>"
+                    Whitespace@279..280 " "
+                    BinExpr@280..285
+                      PathExpr@280..281
+                        Path@280..281
+                          PathSegment@280..281
+                            NameRef@280..281
+                              Ident@280..281 "x"
+                      Whitespace@281..282 " "
+                      Gt@282..283 ">"
+                      Whitespace@283..284 " "
+                      LiteralExpr@284..285
+                        IntNumber@284..285 "0"
+                RParen@285..286 ")"
+            Dot@286..287 "."
+            NameRef@287..293
+              Ident@287..293 "Select"
+          ArgList@293..310
+            LParen@293..294 "("
+            Arg@294..309
+              LambdaExpr@294..309
+                LambdaParamList@294..300
+                  LParen@294..295 "("
+                  LambdaParam@295..296
+                    Name@295..296
+                      Ident@295..296 "x"
+                  Comma@296..297 ","
+                  Whitespace@297..298 " "
+                  LambdaParam@298..299
+                    Name@298..299
+                      Ident@298..299 "i"
+                  RParen@299..300 ")"
+                Whitespace@300..301 " "
+                FatArrow@301..303 "=>"
+                Whitespace@303..304 " "
+                BinExpr@304..309
+                  PathExpr@304..305
+                    Path@304..305
+                      PathSegment@304..305
+                        NameRef@304..305
+                          Ident@304..305 "x"
+                  Whitespace@305..306 " "
+                  Plus@306..307 "+"
+                  Whitespace@307..308 " "
+                  PathExpr@308..309
+                    Path@308..309
+                      PathSegment@308..309
+                        NameRef@308..309
+                          Ident@308..309 "i"
+            RParen@309..310 ")"
+    Semicolon@310..311 ";"
+  Newline@311..312 "\n"

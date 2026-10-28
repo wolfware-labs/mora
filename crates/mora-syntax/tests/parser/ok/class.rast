@@ -172,12 +172,22 @@ SourceFile@0..1003
           LBrace@257..258 "{"
           Newline@258..259 "\n"
           Whitespace@259..267 "        "
-          Ident@267..271 "Name"
-          Whitespace@271..272 " "
-          Eq@272..273 "="
-          Whitespace@273..274 " "
-          Ident@274..278 "name"
-          Semicolon@278..279 ";"
+          ExprStmt@267..279
+            AssignExpr@267..278
+              PathExpr@267..271
+                Path@267..271
+                  PathSegment@267..271
+                    NameRef@267..271
+                      Ident@267..271 "Name"
+              Whitespace@271..272 " "
+              Eq@272..273 "="
+              Whitespace@273..274 " "
+              PathExpr@274..278
+                Path@274..278
+                  PathSegment@274..278
+                    NameRef@274..278
+                      Ident@274..278 "name"
+            Semicolon@278..279 ";"
           Newline@279..280 "\n"
           Whitespace@280..284 "    "
           RBrace@284..285 "}"

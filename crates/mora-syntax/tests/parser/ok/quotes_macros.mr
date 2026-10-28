@@ -1,0 +1,7 @@
+let a = code { public int Count => 0; };
+let b = code(x + 1);
+let c = code(List<$t>);
+let d = #Assert(total > 0);
+let e = stackalloc byte[256];
+let f = $"{(ok ? 1 : 2)} and {name,-10:F2}";
+return stackalloc byte[16];

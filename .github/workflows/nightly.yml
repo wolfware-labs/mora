@@ -1,0 +1,52 @@
+name: nightly
+
+# Long-running checks that do not fit in a pull request (spec §20.1).
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # cargo-fuzz needs nightly compiler flags; a dated nightly keeps the job
+  # reproducible. Move it forward on purpose, not by accident.
+  FUZZ_TOOLCHAIN: nightly-2026-10-01
+
+jobs:
+  # The parser never panics and keeps every byte (§14.4), for 10 minutes of
+  # generated input, starting from the parser's test files.
+  fuzz-parse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: rustup toolchain install "$FUZZ_TOOLCHAIN" --profile minimal
+      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        with:
+          tool: cargo-fuzz
+      - name: Seed the corpus
+        shell: bash
+        run: |
+          mkdir -p fuzz/corpus/parse fuzz/seeds
+          for dir in ok err; do
+            for file in crates/mora-syntax/tests/parser/"$dir"/*.mr; do
+              cp "$file" "fuzz/seeds/$dir-$(basename "$file")"
+            done
+          done
+      - name: fuzz
+        working-directory: fuzz
+        run: cargo +"$FUZZ_TOOLCHAIN" fuzz run parse corpus/parse seeds -- -max_total_time=600
+      - name: Keep the failing input
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: fuzz-parse-artifacts
+          path: fuzz/artifacts/
+          retention-days: 14

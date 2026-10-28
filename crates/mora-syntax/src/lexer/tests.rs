@@ -500,7 +500,7 @@ fn repository_sources_lex_losslessly() {
 }
 
 /// Random strings over the characters that switch lexer modes never make
-/// the lexer panic or lose text. M1.4 adds a real fuzz target.
+/// the lexer panic or lose text. `fuzz/` runs the whole parser longer, nightly.
 #[test]
 fn random_inputs_are_lossless() {
     const PIECES: &[&str] = &[
