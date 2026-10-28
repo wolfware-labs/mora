@@ -1,4 +1,4 @@
-SourceFile@0..319
+SourceFile@0..382
   ExprStmt@0..35
     CallExpr@0..34
       MemberExpr@0..17
@@ -292,3 +292,59 @@ SourceFile@0..319
         Ident@313..317 "Hits"
     Semicolon@317..318 ";"
   Newline@318..319 "\n"
+  ExprStmt@319..331
+    CallExpr@319..330
+      MemberExpr@319..328
+        ThisExpr@319..323
+          ThisKw@319..323 "this"
+        Dot@323..324 "."
+        NameRef@324..328
+          Ident@324..328 "Name"
+      ArgList@328..330
+        LParen@328..329 "("
+        RParen@329..330 ")"
+    Semicolon@330..331 ";"
+  Newline@331..332 "\n"
+  ExprStmt@332..340
+    IndexExpr@332..339
+      ThisExpr@332..336
+        ThisKw@332..336 "this"
+      LBracket@336..337 "["
+      Arg@337..338
+        LiteralExpr@337..338
+          IntNumber@337..338 "0"
+      RBracket@338..339 "]"
+    Semicolon@339..340 ";"
+  Newline@340..341 "\n"
+  FunctionDecl@341..381
+    Modifier@341..347
+      StaticKw@341..347 "static"
+    Whitespace@347..348 " "
+    PredefinedType@348..354
+      StringKw@348..354 "string"
+    Whitespace@354..355 " "
+    Name@355..360
+      Ident@355..360 "Shout"
+    ParamList@360..375
+      LParen@360..361 "("
+      Param@361..374
+        Modifier@361..365
+          ThisKw@361..365 "this"
+        Whitespace@365..366 " "
+        PredefinedType@366..372
+          StringKw@366..372 "string"
+        Whitespace@372..373 " "
+        Name@373..374
+          Ident@373..374 "s"
+      RParen@374..375 ")"
+    Whitespace@375..376 " "
+    ExprBody@376..380
+      FatArrow@376..378 "=>"
+      Whitespace@378..379 " "
+      PathExpr@379..380
+        Path@379..380
+          PathSegment@379..380
+            NameRef@379..380
+              Ident@379..380 "s"
+    Semicolon@380..381 ";"
+  Newline@381..382 "\n"

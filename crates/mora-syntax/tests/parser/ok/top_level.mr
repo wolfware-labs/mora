@@ -12,3 +12,6 @@ T First<T>(List<T> items) { return items[0]; }
 [1, 2].Print();
 [Cfg(Debug = true)]
 static int Hits;
+this.Name();
+this[0];
+static string Shout(this string s) => s;

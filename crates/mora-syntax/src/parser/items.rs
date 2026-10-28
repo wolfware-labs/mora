@@ -181,7 +181,7 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
     while p.at(K::LBracket) {
         attribute(p);
     }
-    let modifiers = modifiers(p);
+    let modifiers = modifiers(p, false);
     let has_const_or_static = modifiers
         .iter()
         .any(|k| matches!(k, K::ConstKw | K::StaticKw));
@@ -230,7 +230,7 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
 /// attributes, a modifier, a declaration keyword, or a type followed by a
 /// name and `(` (a function).
 fn at_declaration_start(p: &Parser<'_>) -> bool {
-    if at_attribute(p) || p.at_any(MODIFIERS) || at_contextual_modifier(p) {
+    if at_attribute(p) || (p.at_any(MODIFIERS) && !p.at(K::ThisKw)) || at_contextual_modifier(p) {
         return true;
     }
     if p.at_any(&[
@@ -301,8 +301,10 @@ fn at_contextual_modifier(p: &Parser<'_>) -> bool {
         && (p.nth(1) == K::Ident || p.nth(1).is_keyword())
 }
 
-/// Takes modifiers and returns their kinds.
-fn modifiers(p: &mut Parser<'_>) -> Vec<SyntaxKind> {
+/// Takes modifiers and returns their kinds. `this` is a modifier only on
+/// a parameter (an extension method's receiver, §6.9); elsewhere it starts
+/// an expression or an indexer.
+fn modifiers(p: &mut Parser<'_>, params: bool) -> Vec<SyntaxKind> {
     let mut kinds = Vec::new();
     loop {
         let m = p.start();
@@ -314,7 +316,7 @@ fn modifiers(p: &mut Parser<'_>) -> Vec<SyntaxKind> {
             };
             p.bump_remap(kind);
             kinds.push(kind);
-        } else if p.at_any(MODIFIERS) && !(p.at(K::ThisKw) && p.nth(1) == K::LBracket) {
+        } else if p.at_any(MODIFIERS) && (params || !p.at(K::ThisKw)) {
             kinds.push(p.current());
             p.bump_any();
         } else {
@@ -664,7 +666,7 @@ fn accessor_list(p: &mut Parser<'_>) {
         while p.at(K::LBracket) {
             attribute(p);
         }
-        modifiers(p);
+        modifiers(p, false);
         let kind = ["get", "set", "init"]
             .iter()
             .zip([K::GetKw, K::SetKw, K::InitKw])
@@ -816,7 +818,7 @@ fn param(p: &mut Parser<'_>) {
     while p.at(K::LBracket) {
         attribute(p);
     }
-    modifiers(p);
+    modifiers(p, true);
     types::ty(p);
     name(p);
     if p.eat(K::Eq) {
