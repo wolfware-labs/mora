@@ -221,13 +221,15 @@ fn expr_bp(p: &mut Parser<'_>, min: u8) -> Option<CompletedMarker> {
             continue;
         }
         if min <= CONDITIONAL && p.at(K::Question) && conditional_follows(p.input(), p.pos()) {
+            // As in C#, each arm is a whole expression, assignment included:
+            // `ok ? x = 1 : y = 2` assigns in either arm.
             let m = lhs.precede(p);
             p.bump(K::Question);
-            if expr_bp(p, CONDITIONAL).is_none() {
+            if expr_bp(p, ASSIGN).is_none() {
                 p.error("expected an expression");
             }
             p.expect(K::Colon);
-            if expr_bp(p, CONDITIONAL).is_none() {
+            if expr_bp(p, ASSIGN).is_none() {
                 p.error("expected an expression");
             }
             lhs = m.complete(p, K::ConditionalExpr);

@@ -209,6 +209,14 @@ fn question_marks_follow_section_7_4() {
         shape("a ? b : c ? d : e"),
         "ConditionalExpr(P, P, ConditionalExpr(P, P, P))"
     );
+    assert_eq!(
+        shape("ok ? x = 1 : y = 2"),
+        "ConditionalExpr(P, AssignExpr(P, LiteralExpr), AssignExpr(P, LiteralExpr))"
+    );
+    assert_eq!(
+        shape("x = ok ? 1 : 2"),
+        "AssignExpr(P, ConditionalExpr(P, LiteralExpr, LiteralExpr))"
+    );
     assert_eq!(shape("x? ?? y"), "BinExpr(PropagateExpr(P), P)");
     assert_eq!(shape("f(x?, y)"), "CallExpr(P)");
     assert_eq!(
