@@ -272,11 +272,55 @@ jobs:
           # A Codecov outage must not fail a pull request; the tests are the gate.
           fail_ci_if_error: false
 
+  # Mutation testing on the lines a pull request changes (spec §20.5): each
+  # mutant must make a test fail or stop the build. A mutant that survives is
+  # code no test checks, and fails the job. Pushes to main are not mutated.
+  mutants:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    name: mutants (shard ${{ matrix.shard }}/4)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: mutants
+      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        with:
+          tool: cargo-mutants
+      - name: Diff against the base branch
+        env:
+          BASE: ${{ github.base_ref }}
+        run: git diff "origin/$BASE...HEAD" > "$RUNNER_TEMP/pr.diff"
+      # --in-place builds in the checkout, so the cached target directory is
+      # reused instead of copying the tree for every shard.
+      - name: Mutate the changed lines
+        run: >-
+          cargo mutants --in-diff "$RUNNER_TEMP/pr.diff" --in-place --no-shuffle
+          --shard ${{ matrix.shard }}/4 --output "$RUNNER_TEMP"
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: mutants-${{ matrix.shard }}
+          path: ${{ runner.temp }}/mutants.out
+          retention-days: 7
+
   # One stable check name for rulesets: passes when every job above passed
   # or was skipped by the change filter. `coverage-upload` is left out: its
   # failure only means Codecov missed a report.
   ci-ok:
-    needs: [changes, linux, platforms, thumbv7em, runtime, coverage]
+    needs: [changes, linux, platforms, thumbv7em, runtime, coverage, mutants]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
