@@ -149,14 +149,14 @@ fn is_plain_path(input: &super::Input<'_>, at: usize, end: usize) -> bool {
 }
 
 /// Whether the type at `at..end` can only be a type: a predefined type
-/// (unless member access follows), a tuple, or one with generic
-/// arguments, `?` or `[]`.
+/// (unless member access follows) or one with generic arguments, `?` or
+/// `[]`. Parentheses never get here: as in C#, `(int, string)` is a
+/// positional pattern of two type patterns.
 fn type_only(input: &super::Input<'_>, at: usize, end: usize) -> bool {
     if PREDEFINED.contains(&input.kind(at)) {
         return input.kind(end) != K::Dot;
     }
-    input.kind(at) == K::LParen
-        || (at..end).any(|i| matches!(input.kind(i), K::Lt | K::Question | K::LBracket))
+    (at..end).any(|i| matches!(input.kind(i), K::Lt | K::Question | K::LBracket))
 }
 
 /// A name, `_` or `(a, b)` after `let`, `var` or a type. After a type

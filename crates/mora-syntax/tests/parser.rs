@@ -323,6 +323,11 @@ fn patterns_follow_section_7_8() {
         "ParenPattern(RelationalPattern(LiteralExpr))"
     );
     assert_eq!(pattern("int[]"), "TypePattern(ArrayType(PredefinedType))");
+    // As in C#, parentheses hold a positional pattern, here of type patterns.
+    assert_eq!(
+        pattern("(int, string)"),
+        "PositionalPattern(PatternField(TypePattern(PredefinedType)), PatternField(TypePattern(PredefinedType)))"
+    );
 }
 
 #[test]
@@ -404,4 +409,17 @@ fn nothing_chains_after_propagation() {
         .collect();
     // `r?` ends the expression; `.Name` is then left over.
     assert_eq!(errors.first().map(String::as_str), Some("expected `;`"));
+    // A leading `[` is an attribute only when a statement follows the brackets.
+    let stmts = |text: &str| -> Vec<String> {
+        let parse = parse(text);
+        assert!(parse.errors().is_empty(), "{text}: {:?}", parse.errors());
+        parse
+            .syntax()
+            .children()
+            .map(|n| format!("{:?}", n.kind()))
+            .collect()
+    };
+    assert_eq!(stmts("[x][0];"), ["ExprStmt"]);
+    assert_eq!(stmts("[x](arg);"), ["ExprStmt"]);
+    assert_eq!(stmts("[A]\n[B]\nstatic int X;"), ["FieldDecl"]);
 }

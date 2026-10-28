@@ -255,26 +255,39 @@ pub(crate) fn at_attribute(p: &Parser<'_>) -> bool {
         return false;
     }
     let input = p.input();
-    let mut depth = 0usize;
+    // Skip every bracket group in a row: `[A]\n[B]` stacks attributes,
+    // `[x][0]` indexes a collection. What follows the last one decides.
     let mut i = p.pos();
-    loop {
-        match input.kind(i) {
-            K::LBracket | K::LParen => depth += 1,
-            K::RBracket | K::RParen => {
-                depth -= 1;
-                if depth == 0 {
-                    break;
+    while input.kind(i) == K::LBracket {
+        let mut depth = 0usize;
+        loop {
+            match input.kind(i) {
+                K::LBracket | K::LParen => depth += 1,
+                K::RBracket | K::RParen => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
                 }
+                _ if i >= input.len() => return false,
+                _ => {}
             }
-            _ if i >= input.len() => return false,
-            _ => {}
+            i += 1;
         }
         i += 1;
     }
+    let next = input.kind(i);
     !matches!(
-        input.kind(i + 1),
-        K::Semicolon | K::Dot | K::QuestionDot | K::QuestionLBracket | K::Comma
-    ) && !binary_or_end(input.kind(i + 1))
+        next,
+        K::Semicolon
+            | K::Dot
+            | K::QuestionDot
+            | K::Comma
+            | K::LParen
+            | K::Question
+            | K::PlusPlus
+            | K::MinusMinus
+    ) && !binary_or_end(next)
 }
 
 /// Tokens that can follow a collection expression in a statement.
