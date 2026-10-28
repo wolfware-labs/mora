@@ -24,35 +24,50 @@ SourceFile@0..170
       LBrace@33..34 "{"
       Newline@34..35 "\n"
       Whitespace@35..39 "    "
-      ReturnKw@39..45 "return"
-      Whitespace@45..46 " "
-      Ident@46..50 "code"
-      Newline@50..51 "\n"
-      Whitespace@51..55 "    "
-      LBrace@55..56 "{"
-      Newline@56..57 "\n"
-      Whitespace@57..65 "        "
-      PublicKw@65..71 "public"
-      Whitespace@71..72 " "
-      IntKw@72..75 "int"
-      Whitespace@75..76 " "
-      Ident@76..81 "Count"
-      Whitespace@81..82 " "
-      FatArrow@82..84 "=>"
-      Whitespace@84..85 " "
-      IntNumber@85..86 "0"
-      Semicolon@86..87 ";"
-      Newline@87..88 "\n"
-      Whitespace@88..96 "        "
-      Dollar@96..97 "$"
-      Ident@97..98 "T"
-      Whitespace@98..99 " "
-      Ident@99..104 "value"
-      Semicolon@104..105 ";"
-      Newline@105..106 "\n"
-      Whitespace@106..110 "    "
-      RBrace@110..111 "}"
-      Semicolon@111..112 ";"
+      ReturnStmt@39..112
+        ReturnKw@39..45 "return"
+        Whitespace@45..46 " "
+        QuoteExpr@46..111
+          CodeKw@46..50 "code"
+          Newline@50..51 "\n"
+          Whitespace@51..55 "    "
+          MemberList@55..111
+            LBrace@55..56 "{"
+            Newline@56..57 "\n"
+            Whitespace@57..65 "        "
+            PropertyDecl@65..87
+              Modifier@65..71
+                PublicKw@65..71 "public"
+              Whitespace@71..72 " "
+              PredefinedType@72..75
+                IntKw@72..75 "int"
+              Whitespace@75..76 " "
+              Name@76..81
+                Ident@76..81 "Count"
+              Whitespace@81..82 " "
+              ExprBody@82..86
+                FatArrow@82..84 "=>"
+                Whitespace@84..85 " "
+                LiteralExpr@85..86
+                  IntNumber@85..86 "0"
+              Semicolon@86..87 ";"
+            Newline@87..88 "\n"
+            Whitespace@88..96 "        "
+            FieldDecl@96..105
+              SpliceType@96..98
+                Splice@96..98
+                  Dollar@96..97 "$"
+                  NameRef@97..98
+                    Ident@97..98 "T"
+              Whitespace@98..99 " "
+              VariableDeclarator@99..104
+                Name@99..104
+                  Ident@99..104 "value"
+              Semicolon@104..105 ";"
+            Newline@105..106 "\n"
+            Whitespace@106..110 "    "
+            RBrace@110..111 "}"
+        Semicolon@111..112 ";"
       Newline@112..113 "\n"
       RBrace@113..114 "}"
   Newline@114..115 "\n"

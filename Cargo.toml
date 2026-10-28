@@ -22,6 +22,8 @@ members = [
     "crates/mora-rt",
     "xtask",
 ]
+# Built with `cargo +nightly fuzz` (§20.1).
+exclude = ["fuzz"]
 
 [workspace.package]
 version = "0.0.0"

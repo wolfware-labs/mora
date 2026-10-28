@@ -1,0 +1,19 @@
+// One statement per row of §7.1, from the tightest level to the loosest.
+let primary = a.b?.c(d)[e]?[f]++ + g--;
+let propagation = Load()?;
+let unary = -a + !b + ~c + ++d + --e + ^f + (int)g + await h;
+let range = (a..b, a.., ..b, ..);
+let switching = x switch { 0 => "zero", _ => "many" };
+let with = user with { Name = "Ada" };
+let multiplicative = a * b / c % d *% e;
+let additive = a + b - c +% d -% e;
+let shift = a << b >> c >>> d;
+let relational = a < b && c > d && e <= f && g >= h && x is int && y as User != null;
+let equality = a == b != c;
+let bitwise = a & b ^ c | d;
+let logical = a && b || c;
+let coalescing = a ?? b ?? c;
+let conditional = a ? b : c ? d : e;
+total = count += step;
+x ??= y;
+bits >>>= 2;
