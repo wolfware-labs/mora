@@ -247,6 +247,8 @@ pub(crate) fn scan_type(input: &Input<'_>, at: usize) -> Option<usize> {
                 _ => return None,
             }
         }
+        // `()`, the unit type.
+        K::LParen if input.kind(at + 1) == K::RParen => at + 2,
         K::LParen => {
             let mut i = at + 1;
             loop {

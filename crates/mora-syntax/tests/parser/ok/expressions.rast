@@ -1,4 +1,4 @@
-SourceFile@0..616
+SourceFile@0..687
   LocalDeclStmt@0..21
     LocalDecl@0..20
       LetKw@0..3 "let"
@@ -704,3 +704,76 @@ SourceFile@0..616
           RBracket@613..614 "]"
     Semicolon@614..615 ";"
   Newline@615..616 "\n"
+  LocalDeclStmt@616..686
+    LocalDecl@616..685
+      LetKw@616..619 "let"
+      Whitespace@619..620 " "
+      VariableDeclarator@620..685
+        Name@620..621
+          Ident@620..621 "u"
+        Whitespace@621..622 " "
+        Eq@622..623 "="
+        Whitespace@623..624 " "
+        CallExpr@624..685
+          PathExpr@624..625
+            Path@624..625
+              PathSegment@624..625
+                NameRef@624..625
+                  Ident@624..625 "F"
+          ArgList@625..685
+            LParen@625..626 "("
+            Arg@626..635
+              OutKw@626..629 "out"
+              Whitespace@629..630 " "
+              DeclExpr@630..635
+                VarKw@630..633 "var"
+                Whitespace@633..634 " "
+                Name@634..635
+                  Ident@634..635 "y"
+            Comma@635..636 ","
+            Whitespace@636..637 " "
+            Arg@637..646
+              OutKw@637..640 "out"
+              Whitespace@640..641 " "
+              DeclExpr@641..646
+                PredefinedType@641..644
+                  IntKw@641..644 "int"
+                Whitespace@644..645 " "
+                Name@645..646
+                  Ident@645..646 "z"
+            Comma@646..647 ","
+            Whitespace@647..648 " "
+            Arg@648..657
+              OutKw@648..651 "out"
+              Whitespace@651..652 " "
+              DeclExpr@652..657
+                LetKw@652..655 "let"
+                Whitespace@655..656 " "
+                Name@656..657
+                  Ident@656..657 "w"
+            Comma@657..658 ","
+            Whitespace@658..659 " "
+            Arg@659..673
+              OutKw@659..662 "out"
+              Whitespace@662..663 " "
+              DeclExpr@663..673
+                LetKw@663..666 "let"
+                Whitespace@666..667 " "
+                PredefinedType@667..671
+                  LongKw@667..671 "long"
+                Whitespace@671..672 " "
+                Name@672..673
+                  Ident@672..673 "v"
+            Comma@673..674 ","
+            Whitespace@674..675 " "
+            Arg@675..684
+              RefKw@675..678 "ref"
+              Whitespace@678..679 " "
+              PathExpr@679..684
+                Path@679..684
+                  PathSegment@679..684
+                    NameRef@679..684
+                      Ident@679..684 "total"
+            RParen@684..685 ")"
+    Semicolon@685..686 ";"
+  Newline@686..687 "\n"

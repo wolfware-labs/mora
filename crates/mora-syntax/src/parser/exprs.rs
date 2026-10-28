@@ -283,11 +283,43 @@ fn arg(p: &mut Parser<'_>) {
         types::name_ref(p);
         p.bump(K::Colon);
     }
+    let mut mode = false;
     if p.at_any(&[K::RefKw, K::OutKw, K::InKw, K::MoveKw]) {
         p.bump_any();
+        mode = true;
     }
-    expr(p);
+    if mode && at_decl_expr(p) {
+        decl_expr(p);
+    } else {
+        expr(p);
+    }
     m.complete(p, K::Arg);
+}
+
+/// After `out` or `ref`: `var y`, `let y`, `let int y` or `int y`, a
+/// variable declared by the call (§7.2, §10.3).
+fn at_decl_expr(p: &Parser<'_>) -> bool {
+    if p.at(K::LetKw) || p.at(K::VarKw) {
+        return true;
+    }
+    types::scan_type(p.input(), p.pos()).is_some_and(|end| {
+        p.input().kind(end) == K::Ident && matches!(p.input().kind(end + 1), K::Comma | K::RParen)
+    })
+}
+
+fn decl_expr(p: &mut Parser<'_>) {
+    let m = p.start();
+    let keyword = p.at(K::LetKw) || p.at(K::VarKw);
+    if keyword {
+        p.bump_any();
+    }
+    let typed =
+        types::scan_type(p.input(), p.pos()).is_some_and(|end| p.input().kind(end) == K::Ident);
+    if !keyword || typed {
+        types::ty(p);
+    }
+    types::name(p);
+    m.complete(p, K::DeclExpr);
 }
 
 fn paren_or_tuple(p: &mut Parser<'_>) -> CompletedMarker {

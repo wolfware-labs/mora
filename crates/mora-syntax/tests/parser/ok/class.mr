@@ -15,6 +15,8 @@ public class Counter
 
     ~Counter() { }
 
+    () Reset() { }
+
     public int this[int i] { get => i; }
 
     public T Max<T>(T a, T b) where T : IComparable<T> => a;

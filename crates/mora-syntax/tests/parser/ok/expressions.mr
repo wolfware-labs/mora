@@ -18,3 +18,4 @@ let q = $@"{a}""x""";
 let r = nameof(Counter.Step) + Make<>() + Pair<int, string,>.Default;
 let s = new int[] { 1, 2 };
 let t = new string[3];
+let u = F(out var y, out int z, out let w, out let long v, ref total);
