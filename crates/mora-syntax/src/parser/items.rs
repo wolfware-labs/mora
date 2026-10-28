@@ -177,6 +177,7 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
     while p.at(K::LBracket) {
         attribute(p);
     }
+    let attributed = p.pos() > start;
     let modifiers = modifiers(p, false);
     let has_const_or_static = modifiers
         .iter()
@@ -198,6 +199,16 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
         _ => match scan_type(p.input(), p.pos()).map(|end| p.input().kind(end)) {
             Some(K::OperatorKw) => operator(p, m),
             Some(K::ThisKw) => indexer(p, m, 0),
+            Some(K::Ident | K::Dollar)
+                if cx == Context::TopLevel
+                    && attributed
+                    && modifiers.is_empty()
+                    && !at_function_after_type(p) =>
+            {
+                // `[Cfg(Debug = true)] int x = 1;`: an attributed statement.
+                stmts::statement(p);
+                m.complete(p, K::AttributedStmt);
+            }
             Some(K::Ident | K::Dollar) => {
                 // `int IList<int>.this[int i]`: an explicit indexer.
                 let after_type = scan_type(p.input(), p.pos()).unwrap_or(p.pos());
@@ -212,6 +223,11 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
                 // Nothing taken: the caller reports and recovers.
                 m.abandon(p);
                 return false;
+            }
+            // `[Cfg(Debug = true)] Log(x);` at the top level (§6.11).
+            _ if cx == Context::TopLevel && attributed && modifiers.is_empty() => {
+                stmts::statement(p);
+                m.complete(p, K::AttributedStmt);
             }
             _ => {
                 p.error("expected a declaration after the attributes and modifiers");
@@ -276,26 +292,22 @@ pub(crate) fn at_attribute(p: &Parser<'_>) -> bool {
         }
         i += 1;
     }
+    // Attributes apply to a declaration or a statement. Any operator, or
+    // `is`, `as`, `switch` or `with`, continues an expression instead.
     let next = input.kind(i);
-    !matches!(
-        next,
-        K::Semicolon
-            | K::Dot
-            | K::QuestionDot
-            | K::Comma
-            | K::LParen
-            | K::Question
-            | K::PlusPlus
-            | K::MinusMinus
-    ) && !binary_or_end(next)
+    let operator = SyntaxKind::PUNCTUATION.contains(&next)
+        && !matches!(next, K::LBrace | K::At | K::Dollar | K::Hash);
+    let continues = matches!(next, K::IsKw | K::AsKw | K::SwitchKw)
+        || (input.kind(i) == K::Ident && input.text(i) == "with" && input.kind(i + 1) == K::LBrace);
+    !operator && !continues && i < input.len()
 }
 
-/// Tokens that can follow a collection expression in a statement.
-fn binary_or_end(kind: SyntaxKind) -> bool {
-    matches!(
-        kind,
-        K::Plus | K::Minus | K::Star | K::Slash | K::EqEq | K::BangEq | K::QuestionQuestion | K::Eq
-    )
+/// Whether a type, a name and `(` or `<` follow: a function.
+fn at_function_after_type(p: &Parser<'_>) -> bool {
+    let input = p.input();
+    scan_type(input, p.pos()).is_some_and(|end| {
+        input.kind(end) == K::Ident && matches!(input.kind(end + 1), K::LParen | K::Lt)
+    })
 }
 
 /// `record Point(...)`, `record class Point`, `record struct Point`.

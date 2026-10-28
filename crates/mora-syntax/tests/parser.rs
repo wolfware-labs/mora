@@ -429,5 +429,15 @@ fn nothing_chains_after_propagation() {
     };
     assert_eq!(stmts("[x][0];"), ["ExprStmt"]);
     assert_eq!(stmts("[x](arg);"), ["ExprStmt"]);
+    assert_eq!(stmts("[a] is [_];"), ["ExprStmt"]);
+    assert_eq!(stmts("[a] < b;"), ["ExprStmt"]);
+    assert_eq!(stmts("[a] with { };"), ["ExprStmt"]);
+    assert_eq!(stmts("[Cfg(Debug = true)]\nLog(1);"), ["AttributedStmt"]);
+    assert_eq!(stmts("[Inline] { }"), ["AttributedStmt"]);
+    assert_eq!(stmts("[Cfg(Debug = true)]\nint x = 1;"), ["AttributedStmt"]);
+    assert_eq!(
+        stmts("[Inline]\nint Twice(int x) => x * 2;"),
+        ["FunctionDecl"]
+    );
     assert_eq!(stmts("[A]\n[B]\nstatic int X;"), ["FieldDecl"]);
 }
