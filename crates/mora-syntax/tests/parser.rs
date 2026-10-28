@@ -386,3 +386,22 @@ fn every_runnable_example_parses_cleanly() {
     assert!(checked >= 10, "{checked}");
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }
+
+#[test]
+fn nothing_chains_after_propagation() {
+    assert_eq!(
+        shape("items?[flag ? 0 : 1]"),
+        "IndexExpr(P, Arg(ConditionalExpr(P, LiteralExpr, LiteralExpr)))"
+    );
+    assert_eq!(
+        shape("(T)stackalloc byte[1]"),
+        "CastExpr(PathType(Path(PathSegment(NameRef))), StackallocExpr(PredefinedType, LiteralExpr))"
+    );
+    let errors: Vec<_> = parse("let _ = r? .Name;")
+        .errors()
+        .iter()
+        .map(|e| e.message.clone())
+        .collect();
+    // `r?` ends the expression; `.Name` is then left over.
+    assert_eq!(errors.first().map(String::as_str), Some("expected `;`"));
+}

@@ -353,6 +353,7 @@ fn at_cast(p: &Parser<'_>) -> bool {
                 | K::DefaultKw
                 | K::SizeofKw
                 | K::AwaitKw
+                | K::StackallocKw
                 | K::InterpStart
         )
         || (PREDEFINED.contains(&next))
@@ -655,9 +656,12 @@ fn postfix(p: &mut Parser<'_>, mut lhs: CompletedMarker, propagate: bool) -> Com
             p.bump_any();
             m.complete(p, K::PostfixExpr)
         } else if propagate && at_propagation(p) {
+            // Member access after propagation needs parentheses (§7.4):
+            // `(r?).Name`. Only another `?` may follow here.
             let m = lhs.precede(p);
             p.bump(K::Question);
-            m.complete(p, K::PropagateExpr)
+            let propagated = m.complete(p, K::PropagateExpr);
+            return propagation(p, propagated);
         } else {
             return lhs;
         };
