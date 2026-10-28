@@ -1,0 +1,218 @@
+SourceFile@0..301
+  StructDecl@0..110
+    DocComment@0..25 "/// A point on the plane."
+    Newline@25..26 "\n"
+    Modifier@26..32
+      PublicKw@26..32 "public"
+    Whitespace@32..33 " "
+    StructKw@33..39 "struct"
+    Whitespace@39..40 " "
+    Name@40..45
+      Ident@40..45 "Point"
+    Newline@45..46 "\n"
+    MemberList@46..110
+      LBrace@46..47 "{"
+      Newline@47..48 "\n"
+      Whitespace@48..52 "    "
+      FieldDecl@52..65
+        Modifier@52..58
+          PublicKw@52..58 "public"
+        Whitespace@58..59 " "
+        PredefinedType@59..62
+          IntKw@59..62 "int"
+        Whitespace@62..63 " "
+        VariableDeclarator@63..64
+          Name@63..64
+            Ident@63..64 "X"
+        Semicolon@64..65 ";"
+      Newline@65..66 "\n"
+      Whitespace@66..70 "    "
+      FieldDecl@70..83
+        Modifier@70..76
+          PublicKw@70..76 "public"
+        Whitespace@76..77 " "
+        PredefinedType@77..80
+          IntKw@77..80 "int"
+        Whitespace@80..81 " "
+        VariableDeclarator@81..82
+          Name@81..82
+            Ident@81..82 "Y"
+        Semicolon@82..83 ";"
+      Newline@83..84 "\n"
+      Whitespace@84..88 "    "
+      FieldDecl@88..108
+        Modifier@88..91
+          MutKw@88..91 "mut"
+        Whitespace@91..92 " "
+        PredefinedType@92..95
+          IntKw@92..95 "int"
+        Whitespace@95..96 " "
+        VariableDeclarator@96..107
+          Name@96..103
+            Ident@96..103 "_visits"
+          Whitespace@103..104 " "
+          Eq@104..105 "="
+          Whitespace@105..106 " "
+          LiteralExpr@106..107
+            IntNumber@106..107 "0"
+        Semicolon@107..108 ";"
+      Newline@108..109 "\n"
+      RBrace@109..110 "}"
+  Newline@110..111 "\n"
+  Newline@111..112 "\n"
+  StructDecl@112..180
+    Modifier@112..118
+      PublicKw@112..118 "public"
+    Whitespace@118..119 " "
+    Modifier@119..122
+      RefKw@119..122 "ref"
+    Whitespace@122..123 " "
+    StructKw@123..129 "struct"
+    Whitespace@129..130 " "
+    Name@130..136
+      Ident@130..136 "Cursor"
+    TypeParamList@136..139
+      Lt@136..137 "<"
+      TypeParam@137..138
+        Name@137..138
+          Ident@137..138 "T"
+      Gt@138..139 ">"
+    Whitespace@139..140 " "
+    WhereClause@140..156
+      WhereKw@140..145 "where"
+      Whitespace@145..146 " "
+      NameRef@146..147
+        Ident@146..147 "T"
+      Whitespace@147..148 " "
+      Colon@148..149 ":"
+      Whitespace@149..150 " "
+      KindConstraint@150..156
+        StructKw@150..156 "struct"
+    Newline@156..157 "\n"
+    MemberList@157..180
+      LBrace@157..158 "{"
+      Newline@158..159 "\n"
+      Whitespace@159..163 "    "
+      FieldDecl@163..178
+        PathType@163..170
+          Path@163..170
+            PathSegment@163..170
+              NameRef@163..167
+                Ident@163..167 "Span"
+              GenericArgList@167..170
+                Lt@167..168 "<"
+                PathType@168..169
+                  Path@168..169
+                    PathSegment@168..169
+                      NameRef@168..169
+                        Ident@168..169 "T"
+                Gt@169..170 ">"
+        Whitespace@170..171 " "
+        VariableDeclarator@171..177
+          Name@171..177
+            Ident@171..177 "_items"
+        Semicolon@177..178 ";"
+      Newline@178..179 "\n"
+      RBrace@179..180 "}"
+  Newline@180..181 "\n"
+  Newline@181..182 "\n"
+  StructDecl@182..300
+    Modifier@182..188
+      PublicKw@182..188 "public"
+    Whitespace@188..189 " "
+    Modifier@189..197
+      ReadonlyKw@189..197 "readonly"
+    Whitespace@197..198 " "
+    StructKw@198..204 "struct"
+    Whitespace@204..205 " "
+    Name@205..209
+      Ident@205..209 "Pair"
+    TypeParamList@209..215
+      Lt@209..210 "<"
+      TypeParam@210..211
+        Name@210..211
+          Ident@210..211 "A"
+      Comma@211..212 ","
+      Whitespace@212..213 " "
+      TypeParam@213..214
+        Name@213..214
+          Ident@213..214 "B"
+      Gt@214..215 ">"
+    Whitespace@215..216 " "
+    BaseList@216..240
+      Colon@216..217 ":"
+      Whitespace@217..218 " "
+      PathType@218..240
+        Path@218..240
+          PathSegment@218..240
+            NameRef@218..228
+              Ident@218..228 "IEquatable"
+            GenericArgList@228..240
+              Lt@228..229 "<"
+              PathType@229..239
+                Path@229..239
+                  PathSegment@229..239
+                    NameRef@229..233
+                      Ident@229..233 "Pair"
+                    GenericArgList@233..239
+                      Lt@233..234 "<"
+                      PathType@234..235
+                        Path@234..235
+                          PathSegment@234..235
+                            NameRef@234..235
+                              Ident@234..235 "A"
+                      Comma@235..236 ","
+                      Whitespace@236..237 " "
+                      PathType@237..238
+                        Path@237..238
+                          PathSegment@237..238
+                            NameRef@237..238
+                              Ident@237..238 "B"
+                      Gt@238..239 ">"
+              Gt@239..240 ">"
+    Whitespace@240..241 " "
+    WhereClause@241..271
+      WhereKw@241..246 "where"
+      Whitespace@246..247 " "
+      NameRef@247..248
+        Ident@247..248 "A"
+      Whitespace@248..249 " "
+      Colon@249..250 ":"
+      Whitespace@250..251 " "
+      TypeConstraint@251..264
+        PathType@251..264
+          Path@251..264
+            PathSegment@251..264
+              NameRef@251..261
+                Ident@251..261 "IEquatable"
+              GenericArgList@261..264
+                Lt@261..262 "<"
+                PathType@262..263
+                  Path@262..263
+                    PathSegment@262..263
+                      NameRef@262..263
+                        Ident@262..263 "A"
+                Gt@263..264 ">"
+      Comma@264..265 ","
+      Whitespace@265..266 " "
+      NewConstraint@266..271
+        NewKw@266..269 "new"
+        LParen@269..270 "("
+        RParen@270..271 ")"
+    Whitespace@271..272 " "
+    WhereClause@272..299
+      WhereKw@272..277 "where"
+      Whitespace@277..278 " "
+      NameRef@278..279
+        Ident@278..279 "B"
+      Whitespace@279..280 " "
+      Colon@280..281 ":"
+      Whitespace@281..282 " "
+      RefStructConstraint@282..299
+        AllowsKw@282..288 "allows"
+        Whitespace@288..289 " "
+        RefKw@289..292 "ref"
+        Whitespace@292..293 " "
+        StructKw@293..299 "struct"
+    Semicolon@299..300 ";"
+  Newline@300..301 "\n"

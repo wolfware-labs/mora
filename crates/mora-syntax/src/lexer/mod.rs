@@ -38,9 +38,9 @@ pub struct Token {
     pub range: TextRange,
 }
 
-/// A lexical error.
+/// A lexical or syntax error.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LexError {
+pub struct SyntaxError {
     pub code: Code,
     pub range: TextRange,
     pub message: String,
@@ -50,7 +50,7 @@ pub struct LexError {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Lexed {
     pub tokens: Vec<Token>,
-    pub errors: Vec<LexError>,
+    pub errors: Vec<SyntaxError>,
 }
 
 impl Lexed {
@@ -428,7 +428,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn error(&mut self, code: Code, range: std::ops::Range<usize>, message: impl Into<String>) {
-        self.out.errors.push(LexError {
+        self.out.errors.push(SyntaxError {
             code,
             range: TextRange::new(size(range.start), size(range.end)),
             message: message.into(),

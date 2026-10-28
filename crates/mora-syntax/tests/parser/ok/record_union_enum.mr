@@ -1,0 +1,18 @@
+public record User(int Id, string Name);
+public record struct Money(long Cents) : IComparable<Money>;
+record class Tag(string Value)
+{
+    public string Upper => Value;
+}
+
+public union Json
+{
+    Null,
+    Bool(bool Value),
+    [Default] Number(double Value),
+    indirect Array(List<Json> Items);
+
+    public bool IsNull => false;
+}
+
+enum Color : byte { Red, Green = 2, Blue = Green + 1, }

@@ -1,0 +1,95 @@
+SourceFile@0..170
+  MacroDecl@0..114
+    Modifier@0..6
+      PublicKw@0..6 "public"
+    Whitespace@6..7 " "
+    MacroKw@7..12 "macro"
+    Whitespace@12..13 " "
+    Name@13..20
+      Ident@13..20 "Counted"
+    ParamList@20..32
+      LParen@20..21 "("
+      Param@21..31
+        PathType@21..29
+          Path@21..29
+            PathSegment@21..29
+              NameRef@21..29
+                Ident@21..29 "TypeInfo"
+        Whitespace@29..30 " "
+        Name@30..31
+          Ident@30..31 "t"
+      RParen@31..32 ")"
+    Newline@32..33 "\n"
+    Block@33..114
+      LBrace@33..34 "{"
+      Newline@34..35 "\n"
+      Whitespace@35..39 "    "
+      ReturnKw@39..45 "return"
+      Whitespace@45..46 " "
+      Ident@46..50 "code"
+      Newline@50..51 "\n"
+      Whitespace@51..55 "    "
+      LBrace@55..56 "{"
+      Newline@56..57 "\n"
+      Whitespace@57..65 "        "
+      PublicKw@65..71 "public"
+      Whitespace@71..72 " "
+      IntKw@72..75 "int"
+      Whitespace@75..76 " "
+      Ident@76..81 "Count"
+      Whitespace@81..82 " "
+      FatArrow@82..84 "=>"
+      Whitespace@84..85 " "
+      IntNumber@85..86 "0"
+      Semicolon@86..87 ";"
+      Newline@87..88 "\n"
+      Whitespace@88..96 "        "
+      Dollar@96..97 "$"
+      Ident@97..98 "T"
+      Whitespace@98..99 " "
+      Ident@99..104 "value"
+      Semicolon@104..105 ";"
+      Newline@105..106 "\n"
+      Whitespace@106..110 "    "
+      RBrace@110..111 "}"
+      Semicolon@111..112 ";"
+      Newline@112..113 "\n"
+      RBrace@113..114 "}"
+  Newline@114..115 "\n"
+  Newline@115..116 "\n"
+  ClassDecl@116..169
+    Modifier@116..122
+      PublicKw@116..122 "public"
+    Whitespace@122..123 " "
+    ClassKw@123..128 "class"
+    Whitespace@128..129 " "
+    Name@129..135
+      Ident@129..135 "Holder"
+    Newline@135..136 "\n"
+    MemberList@136..169
+      LBrace@136..137 "{"
+      Newline@137..138 "\n"
+      Whitespace@138..142 "    "
+      FieldDecl@142..151
+        SpliceType@142..144
+          Splice@142..144
+            Dollar@142..143 "$"
+            NameRef@143..144
+              Ident@143..144 "T"
+        Whitespace@144..145 " "
+        VariableDeclarator@145..150
+          Name@145..150
+            Ident@145..150 "value"
+        Semicolon@150..151 ";"
+      Newline@151..152 "\n"
+      Whitespace@152..156 "    "
+      SpliceMember@156..167
+        Splice@156..166
+          Dollar@156..157 "$"
+          DotDot@157..159 ".."
+          NameRef@159..166
+            Ident@159..166 "members"
+        Semicolon@166..167 ";"
+      Newline@167..168 "\n"
+      RBrace@168..169 "}"
+  Newline@169..170 "\n"

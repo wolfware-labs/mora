@@ -1,0 +1,13 @@
+public interface IShape : IDisplay
+{
+    float Area();
+    string Name => "shape";
+    static abstract IShape Unit { get; }
+    type Points : IEnumerable<Point>;
+}
+
+[Derive]
+public macro Equatable(TypeInfo t) adds IEquatable<T>
+{
+    return code { };
+}

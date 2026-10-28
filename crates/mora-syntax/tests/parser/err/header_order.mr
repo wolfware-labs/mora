@@ -1,0 +1,6 @@
+import Core;
+namespace App;
+using Std.Json;
+class C { }
+import Late;
+namespace Again;

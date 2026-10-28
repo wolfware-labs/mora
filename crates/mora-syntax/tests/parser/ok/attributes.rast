@@ -1,0 +1,147 @@
+SourceFile@0..193
+  ClassDecl@0..192
+    Attribute@0..6
+      LBracket@0..1 "["
+      AttributeItem@1..5
+        Path@1..5
+          PathSegment@1..5
+            NameRef@1..5
+              Ident@1..5 "Json"
+      RBracket@5..6 "]"
+    Newline@6..7 "\n"
+    Attribute@7..40
+      LBracket@7..8 "["
+      AttributeItem@8..39
+        Path@8..11
+          PathSegment@8..11
+            NameRef@8..11
+              Ident@8..11 "Cfg"
+        AttributeArgList@11..39
+          LParen@11..12 "("
+          AttributeArg@12..24
+            NameRef@12..14
+              Ident@12..14 "Os"
+            Whitespace@14..15 " "
+            Eq@15..16 "="
+            Whitespace@16..17 " "
+            LiteralExpr@17..24
+              String@17..24 "\"linux\""
+          Comma@24..25 ","
+          Whitespace@25..26 " "
+          AttributeArg@26..38
+            NameRef@26..31
+              Ident@26..31 "Debug"
+            Whitespace@31..32 " "
+            Eq@32..33 "="
+            Whitespace@33..34 " "
+            LiteralExpr@34..38
+              TrueKw@34..38 "true"
+          RParen@38..39 ")"
+      RBracket@39..40 "]"
+    Newline@40..41 "\n"
+    Attribute@41..67
+      LBracket@41..42 "["
+      AttributeItem@42..57
+        Path@42..47
+          PathSegment@42..47
+            NameRef@42..47
+              Ident@42..47 "Allow"
+        AttributeArgList@47..57
+          LParen@47..48 "("
+          AttributeArg@48..56
+            LiteralExpr@48..56
+              String@48..56 "\"MR2001\""
+          RParen@56..57 ")"
+      Comma@57..58 ","
+      Whitespace@58..59 " "
+      AttributeItem@59..66
+        Path@59..66
+          PathSegment@59..66
+            NameRef@59..66
+              Ident@59..66 "MustUse"
+      RBracket@66..67 "]"
+    Newline@67..68 "\n"
+    Modifier@68..74
+      PublicKw@68..74 "public"
+    Whitespace@74..75 " "
+    ClassKw@75..80 "class"
+    Whitespace@80..81 " "
+    Name@81..88
+      Ident@81..88 "Options"
+    Newline@88..89 "\n"
+    MemberList@89..192
+      LBrace@89..90 "{"
+      Newline@90..91 "\n"
+      Whitespace@91..95 "    "
+      PropertyDecl@95..143
+        Attribute@95..112
+          LBracket@95..96 "["
+          AttributeItem@96..111
+            Path@96..101
+              PathSegment@96..101
+                NameRef@96..101
+                  Ident@96..101 "Range"
+            AttributeArgList@101..111
+              LParen@101..102 "("
+              AttributeArg@102..103
+                LiteralExpr@102..103
+                  IntNumber@102..103 "1"
+              Comma@103..104 ","
+              Whitespace@104..105 " "
+              AttributeArg@105..110
+                LiteralExpr@105..110
+                  IntNumber@105..110 "65535"
+              RParen@110..111 ")"
+          RBracket@111..112 "]"
+        Whitespace@112..113 " "
+        Modifier@113..119
+          PublicKw@113..119 "public"
+        Whitespace@119..120 " "
+        PredefinedType@120..123
+          IntKw@120..123 "int"
+        Whitespace@123..124 " "
+        Name@124..128
+          Ident@124..128 "Port"
+        Whitespace@128..129 " "
+        AccessorList@129..143
+          LBrace@129..130 "{"
+          Whitespace@130..131 " "
+          Accessor@131..135
+            GetKw@131..134 "get"
+            Semicolon@134..135 ";"
+          Whitespace@135..136 " "
+          Accessor@136..141
+            InitKw@136..140 "init"
+            Semicolon@140..141 ";"
+          Whitespace@141..142 " "
+          RBrace@142..143 "}"
+      Newline@143..144 "\n"
+      Whitespace@144..148 "    "
+      PropertyDecl@148..190
+        Modifier@148..154
+          PublicKw@148..154 "public"
+        Whitespace@154..155 " "
+        Modifier@155..163
+          RequiredKw@155..163 "required"
+        Whitespace@163..164 " "
+        PredefinedType@164..170
+          StringKw@164..170 "string"
+        Whitespace@170..171 " "
+        Name@171..175
+          Ident@171..175 "Host"
+        Whitespace@175..176 " "
+        AccessorList@176..190
+          LBrace@176..177 "{"
+          Whitespace@177..178 " "
+          Accessor@178..182
+            GetKw@178..181 "get"
+            Semicolon@181..182 ";"
+          Whitespace@182..183 " "
+          Accessor@183..188
+            InitKw@183..187 "init"
+            Semicolon@187..188 ";"
+          Whitespace@188..189 " "
+          RBrace@189..190 "}"
+      Newline@190..191 "\n"
+      RBrace@191..192 "}"
+  Newline@192..193 "\n"
