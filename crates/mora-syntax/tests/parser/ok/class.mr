@@ -32,6 +32,8 @@ public class Counter
     float IShape.Area() => 0.0f;
 
     int IList<int>.Count => 0;
+
+    int IList<int>.this[int i] { get => i; }
 }
 
 public unique class Connection

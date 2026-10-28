@@ -201,9 +201,16 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
         K::Ident if cx == Context::Member && p.nth(1) == K::LParen => constructor(p, m),
         _ => match scan_type(p.input(), p.pos()).map(|end| p.input().kind(end)) {
             Some(K::OperatorKw) => operator(p, m),
-            Some(K::ThisKw) => indexer(p, m),
+            Some(K::ThisKw) => indexer(p, m, 0),
             Some(K::Ident | K::Dollar) => {
-                member_after_type(p, m, cx, has_const_or_static);
+                // `int IList<int>.this[int i]`: an explicit indexer.
+                let after_type = scan_type(p.input(), p.pos()).unwrap_or(p.pos());
+                let (segments, _, end) = name_segments(p, after_type);
+                if p.input().kind(end) == K::Dot && p.input().kind(end + 1) == K::ThisKw {
+                    indexer(p, m, segments);
+                } else {
+                    member_after_type(p, m, cx, has_const_or_static);
+                }
             }
             _ if p.pos() == start => {
                 // Nothing taken: the caller reports and recovers.
@@ -539,7 +546,7 @@ fn members(p: &mut Parser<'_>) {
 fn member_after_type(p: &mut Parser<'_>, m: Marker, cx: Context, has_const_or_static: bool) {
     // Decide from the tokens after the name before taking anything.
     let after_type = scan_type(p.input(), p.pos()).unwrap_or(p.pos());
-    let (segments, name_at) = name_segments(p, after_type);
+    let (segments, name_at, _) = name_segments(p, after_type);
     let next = p.input().kind(name_at + 1);
     let is_function = matches!(next, K::LParen | K::Lt);
     let is_property = cx == Context::Member && matches!(next, K::LBrace | K::FatArrow);
@@ -588,9 +595,10 @@ fn member_after_type(p: &mut Parser<'_>, m: Marker, cx: Context, has_const_or_st
 }
 
 /// The dotted name after the type at `at`: how many segments it has
-/// (more than one means an explicit implementation, `IShape.Area`) and the
-/// index of the last one, the member's own name.
-fn name_segments(p: &Parser<'_>, at: usize) -> (usize, usize) {
+/// (more than one means an explicit implementation, `IShape.Area`), the
+/// index of the last one, the member's own name, and the index after it
+/// and its generic arguments.
+fn name_segments(p: &Parser<'_>, at: usize) -> (usize, usize, usize) {
     let input = p.input();
     let mut i = at;
     let mut segments = 0;
@@ -603,10 +611,10 @@ fn name_segments(p: &Parser<'_>, at: usize) -> (usize, usize) {
         if input.kind(j) == K::Dot && input.kind(j + 1) == K::Ident {
             i = j + 1;
         } else {
-            break;
+            return (segments, i, j);
         }
     }
-    (segments, i)
+    (segments, i, i)
 }
 
 /// `IShape.` before the member name: the first `segments` segments of the
@@ -675,10 +683,14 @@ fn accessor_list(p: &mut Parser<'_>) {
     m.complete(p, K::AccessorList);
 }
 
-/// `public T this[int i] { get => ...; }` (§6.9).
-fn indexer(p: &mut Parser<'_>, m: Marker) {
+/// `public T this[int i] { ... }`; with `explicit` segments, an explicit
+/// implementation such as `int IList<int>.this[int i]`.
+fn indexer(p: &mut Parser<'_>, m: Marker, explicit: usize) {
     types::ty(p);
-    p.bump(K::ThisKw);
+    if explicit > 0 {
+        explicit_impl(p, explicit);
+    }
+    p.expect(K::ThisKw);
     p.expect(K::LBracket);
     while !p.at(K::RBracket) && !p.at_end() {
         param(p);
@@ -899,7 +911,10 @@ fn expr_body(p: &mut Parser<'_>) {
 
 /// A block. Until statements are parsed (M1.4), its tokens stay as they
 /// are, balanced by braces. An access modifier cannot appear in a body, so
-/// meeting one means the `}` is missing.
+/// meeting one at depth 0 means the `}` is missing and the member after it
+/// keeps its tree. A member without one cannot be told apart from a local
+/// function (`void Second() { }` is valid in a body), so after a missing
+/// `}` it stays in the body, as it does in C#.
 fn block(p: &mut Parser<'_>) {
     let m = p.start();
     if !p.expect(K::LBrace) {

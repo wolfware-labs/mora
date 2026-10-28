@@ -1,5 +1,5 @@
-SourceFile@0..917
-  ClassDecl@0..852
+SourceFile@0..963
+  ClassDecl@0..898
     Modifier@0..6
       PublicKw@0..6 "public"
     Whitespace@6..7 " "
@@ -8,7 +8,7 @@ SourceFile@0..917
     Name@13..20
       Ident@13..20 "Counter"
     Newline@20..21 "\n"
-    MemberList@21..852
+    MemberList@21..898
       LBrace@21..22 "{"
       Newline@22..23 "\n"
       Whitespace@23..27 "    "
@@ -635,42 +635,87 @@ SourceFile@0..917
             IntNumber@848..849 "0"
         Semicolon@849..850 ";"
       Newline@850..851 "\n"
-      RBrace@851..852 "}"
-  Newline@852..853 "\n"
-  Newline@853..854 "\n"
-  ClassDecl@854..916
-    Modifier@854..860
-      PublicKw@854..860 "public"
-    Whitespace@860..861 " "
-    Modifier@861..867
-      UniqueKw@861..867 "unique"
-    Whitespace@867..868 " "
-    ClassKw@868..873 "class"
-    Whitespace@873..874 " "
-    Name@874..884
-      Ident@874..884 "Connection"
-    Newline@884..885 "\n"
-    MemberList@885..916
-      LBrace@885..886 "{"
-      Newline@886..887 "\n"
-      Whitespace@887..891 "    "
-      FunctionDecl@891..914
-        Modifier@891..897
-          PublicKw@891..897 "public"
-        Whitespace@897..898 " "
-        PredefinedType@898..902
-          VoidKw@898..902 "void"
-        Whitespace@902..903 " "
-        Name@903..908
-          Ident@903..908 "Close"
-        ParamList@908..910
-          LParen@908..909 "("
-          RParen@909..910 ")"
-        Whitespace@910..911 " "
-        Block@911..914
-          LBrace@911..912 "{"
-          Whitespace@912..913 " "
-          RBrace@913..914 "}"
-      Newline@914..915 "\n"
-      RBrace@915..916 "}"
-  Newline@916..917 "\n"
+      Newline@851..852 "\n"
+      Whitespace@852..856 "    "
+      IndexerDecl@856..896
+        PredefinedType@856..859
+          IntKw@856..859 "int"
+        Whitespace@859..860 " "
+        ExplicitImpl@860..871
+          Path@860..870
+            PathSegment@860..870
+              NameRef@860..865
+                Ident@860..865 "IList"
+              GenericArgList@865..870
+                Lt@865..866 "<"
+                PredefinedType@866..869
+                  IntKw@866..869 "int"
+                Gt@869..870 ">"
+          Dot@870..871 "."
+        ThisKw@871..875 "this"
+        LBracket@875..876 "["
+        Param@876..881
+          PredefinedType@876..879
+            IntKw@876..879 "int"
+          Whitespace@879..880 " "
+          Name@880..881
+            Ident@880..881 "i"
+        RBracket@881..882 "]"
+        Whitespace@882..883 " "
+        AccessorList@883..896
+          LBrace@883..884 "{"
+          Whitespace@884..885 " "
+          Accessor@885..894
+            GetKw@885..888 "get"
+            Whitespace@888..889 " "
+            ExprBody@889..893
+              FatArrow@889..891 "=>"
+              Whitespace@891..892 " "
+              PathExpr@892..893
+                Path@892..893
+                  PathSegment@892..893
+                    NameRef@892..893
+                      Ident@892..893 "i"
+            Semicolon@893..894 ";"
+          Whitespace@894..895 " "
+          RBrace@895..896 "}"
+      Newline@896..897 "\n"
+      RBrace@897..898 "}"
+  Newline@898..899 "\n"
+  Newline@899..900 "\n"
+  ClassDecl@900..962
+    Modifier@900..906
+      PublicKw@900..906 "public"
+    Whitespace@906..907 " "
+    Modifier@907..913
+      UniqueKw@907..913 "unique"
+    Whitespace@913..914 " "
+    ClassKw@914..919 "class"
+    Whitespace@919..920 " "
+    Name@920..930
+      Ident@920..930 "Connection"
+    Newline@930..931 "\n"
+    MemberList@931..962
+      LBrace@931..932 "{"
+      Newline@932..933 "\n"
+      Whitespace@933..937 "    "
+      FunctionDecl@937..960
+        Modifier@937..943
+          PublicKw@937..943 "public"
+        Whitespace@943..944 " "
+        PredefinedType@944..948
+          VoidKw@944..948 "void"
+        Whitespace@948..949 " "
+        Name@949..954
+          Ident@949..954 "Close"
+        ParamList@954..956
+          LParen@954..955 "("
+          RParen@955..956 ")"
+        Whitespace@956..957 " "
+        Block@957..960
+          LBrace@957..958 "{"
+          Whitespace@958..959 " "
+          RBrace@959..960 "}"
+      Newline@960..961 "\n"
+      RBrace@961..962 "}"
+  Newline@962..963 "\n"

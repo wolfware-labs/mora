@@ -322,35 +322,47 @@ fn decl_expr(p: &mut Parser<'_>) {
     m.complete(p, K::DeclExpr);
 }
 
+/// `(e)`, `()`, `(a, b)`, `(Id: 1, Name: "a")`. A parenthesized
+/// expression holds its expression directly; a name or a comma makes it a
+/// tuple, and only then is the first expression wrapped in a `TupleElem`.
 fn paren_or_tuple(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();
     p.bump(K::LParen);
     if p.eat(K::RParen) {
         return m.complete(p, K::TupleExpr);
     }
-    let mut elements = 0;
-    let mut named = false;
-    loop {
+    if !(p.at(K::Ident) && p.nth(1) == K::Colon) {
+        let first = expr_bp(p, 0);
+        if !p.at(K::Comma) {
+            if first.is_none() {
+                p.error("expected an expression");
+            }
+            p.expect(K::RParen);
+            return m.complete(p, K::ParenExpr);
+        }
+        match first {
+            Some(first) => {
+                let e = first.precede(p);
+                e.complete(p, K::TupleElem);
+            }
+            None => p.error("expected an expression"),
+        }
+        p.bump(K::Comma);
+    }
+    while !p.at(K::RParen) && !p.at_end() {
         let e = p.start();
         if p.at(K::Ident) && p.nth(1) == K::Colon {
             types::name_ref(p);
             p.bump(K::Colon);
-            named = true;
         }
         expr(p);
         e.complete(p, K::TupleElem);
-        elements += 1;
-        if !p.eat(K::Comma) || p.at(K::RParen) {
+        if !p.eat(K::Comma) {
             break;
         }
     }
     p.expect(K::RParen);
-    if elements == 1 && !named {
-        // `(e)`: the element node was only a guess.
-        m.complete(p, K::ParenExpr)
-    } else {
-        m.complete(p, K::TupleExpr)
-    }
+    m.complete(p, K::TupleExpr)
 }
 
 fn collection(p: &mut Parser<'_>) -> CompletedMarker {
