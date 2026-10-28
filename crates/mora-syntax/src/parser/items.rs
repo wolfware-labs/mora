@@ -223,7 +223,7 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
 /// attributes, a modifier, a declaration keyword, or a type followed by a
 /// name and `(` (a function).
 fn at_declaration_start(p: &Parser<'_>) -> bool {
-    if p.at(K::LBracket) || p.at_any(MODIFIERS) || at_contextual_modifier(p) {
+    if at_attribute(p) || p.at_any(MODIFIERS) || at_contextual_modifier(p) {
         return true;
     }
     if p.at_any(&[
@@ -242,6 +242,44 @@ fn at_declaration_start(p: &Parser<'_>) -> bool {
         return false;
     };
     p.input().kind(end) == K::Ident && matches!(p.input().kind(end + 1), K::LParen | K::Lt)
+}
+
+/// Whether a `[` at the top level opens an attribute rather than a
+/// collection expression: an attribute names something and is followed by
+/// what it applies to, while `[1, 2].Count` and `[x];` go on as expressions.
+fn at_attribute(p: &Parser<'_>) -> bool {
+    if !p.at(K::LBracket) || p.nth(1) != K::Ident {
+        return false;
+    }
+    let input = p.input();
+    let mut depth = 0usize;
+    let mut i = p.pos();
+    loop {
+        match input.kind(i) {
+            K::LBracket | K::LParen => depth += 1,
+            K::RBracket | K::RParen => {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            _ if i >= input.len() => return false,
+            _ => {}
+        }
+        i += 1;
+    }
+    !matches!(
+        input.kind(i + 1),
+        K::Semicolon | K::Dot | K::QuestionDot | K::QuestionLBracket | K::Comma
+    ) && !binary_or_end(input.kind(i + 1))
+}
+
+/// Tokens that can follow a collection expression in a statement.
+fn binary_or_end(kind: SyntaxKind) -> bool {
+    matches!(
+        kind,
+        K::Plus | K::Minus | K::Star | K::Slash | K::EqEq | K::BangEq | K::QuestionQuestion | K::Eq
+    )
 }
 
 /// `record Point(...)`, `record class Point`, `record struct Point`.
@@ -468,7 +506,10 @@ fn member_list(p: &mut Parser<'_>) {
 fn members(p: &mut Parser<'_>) {
     while !p.at(K::RBrace) && !p.at_end() {
         let before = p.pos();
-        if p.at(K::Dollar) {
+        // `$..members;` is a splice of members; `$T value;` declares a field.
+        let declares = scan_type(p.input(), p.pos())
+            .is_some_and(|end| matches!(p.input().kind(end), K::Ident | K::Dollar));
+        if p.at(K::Dollar) && !declares {
             let m = p.start();
             exprs::splice(p);
             p.eat(K::Semicolon);
@@ -867,7 +908,7 @@ fn block(p: &mut Parser<'_>) {
     }
     let mut depth = 0usize;
     loop {
-        if p.at_end() || p.at_any(ACCESS) {
+        if p.at_end() || (depth == 0 && p.at_any(ACCESS)) {
             p.error(format!("expected {}", super::describe(K::RBrace)));
             break;
         }

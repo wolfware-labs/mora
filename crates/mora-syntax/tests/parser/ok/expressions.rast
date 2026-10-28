@@ -1,4 +1,4 @@
-SourceFile@0..565
+SourceFile@0..616
   LocalDeclStmt@0..21
     LocalDecl@0..20
       LetKw@0..3 "let"
@@ -652,3 +652,55 @@ SourceFile@0..565
               Ident@556..563 "Default"
     Semicolon@563..564 ";"
   Newline@564..565 "\n"
+  LocalDeclStmt@565..592
+    LocalDecl@565..591
+      LetKw@565..568 "let"
+      Whitespace@568..569 " "
+      VariableDeclarator@569..591
+        Name@569..570
+          Ident@569..570 "s"
+        Whitespace@570..571 " "
+        Eq@571..572 "="
+        Whitespace@572..573 " "
+        NewArrayExpr@573..591
+          NewKw@573..576 "new"
+          Whitespace@576..577 " "
+          PredefinedType@577..580
+            IntKw@577..580 "int"
+          LBracket@580..581 "["
+          RBracket@581..582 "]"
+          Whitespace@582..583 " "
+          ArrayInitializer@583..591
+            LBrace@583..584 "{"
+            Whitespace@584..585 " "
+            LiteralExpr@585..586
+              IntNumber@585..586 "1"
+            Comma@586..587 ","
+            Whitespace@587..588 " "
+            LiteralExpr@588..589
+              IntNumber@588..589 "2"
+            Whitespace@589..590 " "
+            RBrace@590..591 "}"
+    Semicolon@591..592 ";"
+  Newline@592..593 "\n"
+  LocalDeclStmt@593..615
+    LocalDecl@593..614
+      LetKw@593..596 "let"
+      Whitespace@596..597 " "
+      VariableDeclarator@597..614
+        Name@597..598
+          Ident@597..598 "t"
+        Whitespace@598..599 " "
+        Eq@599..600 "="
+        Whitespace@600..601 " "
+        NewArrayExpr@601..614
+          NewKw@601..604 "new"
+          Whitespace@604..605 " "
+          PredefinedType@605..611
+            StringKw@605..611 "string"
+          LBracket@611..612 "["
+          LiteralExpr@612..613
+            IntNumber@612..613 "3"
+          RBracket@613..614 "]"
+    Semicolon@614..615 ";"
+  Newline@615..616 "\n"

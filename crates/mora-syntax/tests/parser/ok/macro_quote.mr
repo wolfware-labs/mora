@@ -1,0 +1,14 @@
+public macro Counted(TypeInfo t)
+{
+    return code
+    {
+        public int Count => 0;
+        $T value;
+    };
+}
+
+public class Holder
+{
+    $T value;
+    $..members;
+}

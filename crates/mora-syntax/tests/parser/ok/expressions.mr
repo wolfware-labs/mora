@@ -16,3 +16,5 @@ let o = a < b;
 let p = F(name: v, ref w, out z);
 let q = $@"{a}""x""";
 let r = nameof(Counter.Step) + Make<>() + Pair<int, string,>.Default;
+let s = new int[] { 1, 2 };
+let t = new string[3];

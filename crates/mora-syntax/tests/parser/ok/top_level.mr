@@ -9,3 +9,6 @@ static int Calls;
 int Add(int a, int b) => a + b;
 
 T First<T>(List<T> items) { return items[0]; }
+[1, 2].Print();
+[Cfg(Debug = true)]
+static int Hits;

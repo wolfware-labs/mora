@@ -344,7 +344,7 @@ fn new_expr(p: &mut Parser<'_>) -> CompletedMarker {
     p.bump(K::NewKw);
     let has_type = types::at_type_start(p) && !p.at(K::LParen);
     if has_type {
-        types::ty(p);
+        types::element_ty(p);
     }
     if p.at(K::LBracket) {
         p.bump(K::LBracket);

@@ -1,4 +1,4 @@
-SourceFile@0..266
+SourceFile@0..319
   ExprStmt@0..35
     CallExpr@0..34
       MemberExpr@0..17
@@ -238,3 +238,57 @@ SourceFile@0..266
       Whitespace@263..264 " "
       RBrace@264..265 "}"
   Newline@265..266 "\n"
+  ExprStmt@266..281
+    CallExpr@266..280
+      MemberExpr@266..278
+        CollectionExpr@266..272
+          LBracket@266..267 "["
+          CollectionElem@267..268
+            LiteralExpr@267..268
+              IntNumber@267..268 "1"
+          Comma@268..269 ","
+          Whitespace@269..270 " "
+          CollectionElem@270..271
+            LiteralExpr@270..271
+              IntNumber@270..271 "2"
+          RBracket@271..272 "]"
+        Dot@272..273 "."
+        NameRef@273..278
+          Ident@273..278 "Print"
+      ArgList@278..280
+        LParen@278..279 "("
+        RParen@279..280 ")"
+    Semicolon@280..281 ";"
+  Newline@281..282 "\n"
+  FieldDecl@282..318
+    Attribute@282..301
+      LBracket@282..283 "["
+      AttributeItem@283..300
+        Path@283..286
+          PathSegment@283..286
+            NameRef@283..286
+              Ident@283..286 "Cfg"
+        AttributeArgList@286..300
+          LParen@286..287 "("
+          AttributeArg@287..299
+            NameRef@287..292
+              Ident@287..292 "Debug"
+            Whitespace@292..293 " "
+            Eq@293..294 "="
+            Whitespace@294..295 " "
+            LiteralExpr@295..299
+              TrueKw@295..299 "true"
+          RParen@299..300 ")"
+      RBracket@300..301 "]"
+    Newline@301..302 "\n"
+    Modifier@302..308
+      StaticKw@302..308 "static"
+    Whitespace@308..309 " "
+    PredefinedType@309..312
+      IntKw@309..312 "int"
+    Whitespace@312..313 " "
+    VariableDeclarator@313..317
+      Name@313..317
+        Ident@313..317 "Hits"
+    Semicolon@317..318 ";"
+  Newline@318..319 "\n"

@@ -27,6 +27,16 @@ pub(crate) const PREDEFINED: &[SyntaxKind] = &[
 
 /// Parses a type, or reports that one is missing.
 pub(crate) fn ty(p: &mut Parser<'_>) {
+    ty_with(p, true);
+}
+
+/// The element type of `new int[10]` and `new int[] { 1 }`: the brackets
+/// that follow belong to the allocation, not to the type.
+pub(crate) fn element_ty(p: &mut Parser<'_>) {
+    ty_with(p, false);
+}
+
+fn ty_with(p: &mut Parser<'_>, arrays: bool) {
     if !at_type_start(p) {
         p.error("expected a type");
         return;
@@ -61,7 +71,7 @@ pub(crate) fn ty(p: &mut Parser<'_>) {
             let m = lhs.precede(p);
             p.bump(K::Question);
             lhs = m.complete(p, K::OptionalType);
-        } else if p.at(K::LBracket) && p.nth_at(1, K::RBracket) {
+        } else if arrays && p.at(K::LBracket) && p.nth_at(1, K::RBracket) {
             let m = lhs.precede(p);
             p.bump(K::LBracket);
             p.bump(K::RBracket);
@@ -209,6 +219,34 @@ pub(crate) fn scan_type(input: &Input<'_>, at: usize) -> Option<usize> {
     let mut i = match input.kind(at) {
         kind if PREDEFINED.contains(&kind) => at + 1,
         K::WeakKw => return scan_type(input, at + 1),
+        // `$t`, `$..ts`, `$(expr)` (§9.3).
+        K::Dollar => {
+            let mut i = at + 1;
+            if input.kind(i) == K::DotDot {
+                i += 1;
+            }
+            match input.kind(i) {
+                K::Ident => i + 1,
+                K::LParen => {
+                    let mut depth = 0usize;
+                    loop {
+                        match input.kind(i) {
+                            K::LParen => depth += 1,
+                            K::RParen => {
+                                depth -= 1;
+                                if depth == 0 {
+                                    break i + 1;
+                                }
+                            }
+                            _ if i >= input.len() => return None,
+                            _ => {}
+                        }
+                        i += 1;
+                    }
+                }
+                _ => return None,
+            }
+        }
         K::LParen => {
             let mut i = at + 1;
             loop {
