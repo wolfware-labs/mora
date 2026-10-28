@@ -30,10 +30,17 @@ SourceFile@0..95
           LBrace@45..46 "{"
           Newline@46..47 "\n"
           Whitespace@47..55 "        "
-          Ident@55..59 "Work"
-          LParen@59..60 "("
-          RParen@60..61 ")"
-          Semicolon@61..62 ";"
+          ExprStmt@55..62
+            CallExpr@55..61
+              PathExpr@55..59
+                Path@55..59
+                  PathSegment@55..59
+                    NameRef@55..59
+                      Ident@55..59 "Work"
+              ArgList@59..61
+                LParen@59..60 "("
+                RParen@60..61 ")"
+            Semicolon@61..62 ";"
       Newline@62..63 "\n"
       Newline@63..64 "\n"
       Whitespace@64..68 "    "

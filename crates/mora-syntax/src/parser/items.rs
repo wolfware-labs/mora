@@ -1,8 +1,8 @@
 //! Compilation units, declarations and members (§4, §6, §8.2, §9.2).
 
-use super::exprs::{self, at_expr_start};
+use super::exprs;
 use super::types::{self, name, name_ref, scan_type};
-use super::{Marker, Parser};
+use super::{Marker, Parser, stmts};
 use crate::SyntaxKind;
 
 use SyntaxKind as K;
@@ -49,10 +49,6 @@ const ITEM_RECOVERY: &[SyntaxKind] = &[
     K::UsingKw,
     K::NamespaceKw,
 ];
-
-/// Access modifiers: they never appear inside a body, so a body scan that
-/// meets one has lost its `}`.
-const ACCESS: &[SyntaxKind] = &[K::PublicKw, K::PrivateKw, K::InternalKw];
 
 /// How far into a file the parser is: imports, then usings, then the file
 /// namespace, then items and statements (§4.2).
@@ -105,7 +101,7 @@ fn top_level(p: &mut Parser<'_>, phase: Phase) -> Phase {
         )
     } else {
         if !declaration(p, Context::TopLevel) {
-            statement(p);
+            stmts::statement(p);
         }
         return Phase::Items;
     };
@@ -181,6 +177,7 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
     while p.at(K::LBracket) {
         attribute(p);
     }
+    let attributed = p.pos() > start;
     let modifiers = modifiers(p, false);
     let has_const_or_static = modifiers
         .iter()
@@ -202,6 +199,16 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
         _ => match scan_type(p.input(), p.pos()).map(|end| p.input().kind(end)) {
             Some(K::OperatorKw) => operator(p, m),
             Some(K::ThisKw) => indexer(p, m, 0),
+            Some(K::Ident | K::Dollar)
+                if cx == Context::TopLevel
+                    && attributed
+                    && modifiers.is_empty()
+                    && !at_function_after_type(p) =>
+            {
+                // `[Cfg(Debug = true)] int x = 1;`: an attributed statement.
+                stmts::statement(p);
+                m.complete(p, K::AttributedStmt);
+            }
             Some(K::Ident | K::Dollar) => {
                 // `int IList<int>.this[int i]`: an explicit indexer.
                 let after_type = scan_type(p.input(), p.pos()).unwrap_or(p.pos());
@@ -216,6 +223,11 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
                 // Nothing taken: the caller reports and recovers.
                 m.abandon(p);
                 return false;
+            }
+            // `[Cfg(Debug = true)] Log(x);` at the top level (§6.11).
+            _ if cx == Context::TopLevel && attributed && modifiers.is_empty() => {
+                stmts::statement(p);
+                m.complete(p, K::AttributedStmt);
             }
             _ => {
                 p.error("expected a declaration after the attributes and modifiers");
@@ -254,39 +266,48 @@ fn at_declaration_start(p: &Parser<'_>) -> bool {
 /// Whether a `[` at the top level opens an attribute rather than a
 /// collection expression: an attribute names something and is followed by
 /// what it applies to, while `[1, 2].Count` and `[x];` go on as expressions.
-fn at_attribute(p: &Parser<'_>) -> bool {
+pub(crate) fn at_attribute(p: &Parser<'_>) -> bool {
     if !p.at(K::LBracket) || p.nth(1) != K::Ident {
         return false;
     }
     let input = p.input();
-    let mut depth = 0usize;
+    // Skip every bracket group in a row: `[A]\n[B]` stacks attributes,
+    // `[x][0]` indexes a collection. What follows the last one decides.
     let mut i = p.pos();
-    loop {
-        match input.kind(i) {
-            K::LBracket | K::LParen => depth += 1,
-            K::RBracket | K::RParen => {
-                depth -= 1;
-                if depth == 0 {
-                    break;
+    while input.kind(i) == K::LBracket {
+        let mut depth = 0usize;
+        loop {
+            match input.kind(i) {
+                K::LBracket | K::LParen => depth += 1,
+                K::RBracket | K::RParen => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
                 }
+                _ if i >= input.len() => return false,
+                _ => {}
             }
-            _ if i >= input.len() => return false,
-            _ => {}
+            i += 1;
         }
         i += 1;
     }
-    !matches!(
-        input.kind(i + 1),
-        K::Semicolon | K::Dot | K::QuestionDot | K::QuestionLBracket | K::Comma
-    ) && !binary_or_end(input.kind(i + 1))
+    // Attributes apply to a declaration or a statement. Any operator, or
+    // `is`, `as`, `switch` or `with`, continues an expression instead.
+    let next = input.kind(i);
+    let operator = SyntaxKind::PUNCTUATION.contains(&next)
+        && !matches!(next, K::LBrace | K::At | K::Dollar | K::Hash);
+    let continues = matches!(next, K::IsKw | K::AsKw | K::SwitchKw)
+        || (input.kind(i) == K::Ident && input.text(i) == "with" && input.kind(i + 1) == K::LBrace);
+    !operator && !continues && i < input.len()
 }
 
-/// Tokens that can follow a collection expression in a statement.
-fn binary_or_end(kind: SyntaxKind) -> bool {
-    matches!(
-        kind,
-        K::Plus | K::Minus | K::Star | K::Slash | K::EqEq | K::BangEq | K::QuestionQuestion | K::Eq
-    )
+/// Whether a type, a name and `(` or `<` follow: a function.
+fn at_function_after_type(p: &Parser<'_>) -> bool {
+    let input = p.input();
+    scan_type(input, p.pos()).is_some_and(|end| {
+        input.kind(end) == K::Ident && matches!(input.kind(end + 1), K::LParen | K::Lt)
+    })
 }
 
 /// `record Point(...)`, `record class Point`, `record struct Point`.
@@ -328,7 +349,7 @@ fn modifiers(p: &mut Parser<'_>, params: bool) -> Vec<SyntaxKind> {
 }
 
 /// `[Json]`, `[Cfg(Os = "linux")]`, `[Allow("MR2001"), MustUse]` (§6.11).
-fn attribute(p: &mut Parser<'_>) {
+pub(crate) fn attribute(p: &mut Parser<'_>) {
     let m = p.start();
     p.bump(K::LBracket);
     while !p.at(K::RBracket) && !p.at_end() {
@@ -498,11 +519,11 @@ fn macro_decl(p: &mut Parser<'_>, m: Marker) {
         }
         adds.complete(p, K::AddsClause);
     }
-    block(p);
+    stmts::block(p);
     m.complete(p, K::MacroDecl);
 }
 
-fn member_list(p: &mut Parser<'_>) {
+pub(crate) fn member_list(p: &mut Parser<'_>) {
     let m = p.start();
     if p.expect(K::LBrace) {
         members(p);
@@ -555,7 +576,7 @@ fn member_after_type(p: &mut Parser<'_>, m: Marker, cx: Context, has_const_or_st
     if cx == Context::TopLevel && !is_function && !has_const_or_static {
         // `int x = 1;` at the top level is a local variable (§4.2).
         m.abandon(p);
-        local_decl_stmt(p, false);
+        stmts::local_decl_stmt(p);
         return;
     }
     types::ty(p);
@@ -640,7 +661,7 @@ fn explicit_impl(p: &mut Parser<'_>, segments: usize) {
     m.complete(p, K::ExplicitImpl);
 }
 
-fn variable_declarators(p: &mut Parser<'_>) {
+pub(crate) fn variable_declarators(p: &mut Parser<'_>) {
     loop {
         let d = p.start();
         if p.at(K::Dollar) {
@@ -895,7 +916,7 @@ fn where_clause(p: &mut Parser<'_>) {
 /// A body: a block, `=> expr;`, or `;` for a declaration without one.
 fn body_or_semicolon(p: &mut Parser<'_>) {
     if p.at(K::LBrace) {
-        block(p);
+        stmts::block(p);
     } else if p.at(K::FatArrow) {
         expr_body(p);
         p.expect(K::Semicolon);
@@ -911,78 +932,10 @@ fn expr_body(p: &mut Parser<'_>) {
     m.complete(p, K::ExprBody);
 }
 
-/// A block. Until statements are parsed (M1.4), its tokens stay as they
-/// are, balanced by braces. An access modifier cannot appear in a body, so
-/// meeting one at depth 0 means the `}` is missing and the member after it
-/// keeps its tree. A member without one cannot be told apart from a local
-/// function (`void Second() { }` is valid in a body), so after a missing
-/// `}` it stays in the body, as it does in C#.
-fn block(p: &mut Parser<'_>) {
+/// A local function in a body: modifiers such as `static` or `async`, a
+/// return type, a name and the rest of a function (§7.11).
+pub(crate) fn local_function(p: &mut Parser<'_>) {
     let m = p.start();
-    if !p.expect(K::LBrace) {
-        m.complete(p, K::Block);
-        return;
-    }
-    let mut depth = 0usize;
-    loop {
-        if p.at_end() || (depth == 0 && p.at_any(ACCESS)) {
-            p.error(format!("expected {}", super::describe(K::RBrace)));
-            break;
-        }
-        if p.at(K::RBrace) {
-            if depth == 0 {
-                p.bump(K::RBrace);
-                break;
-            }
-            depth -= 1;
-        } else if p.at(K::LBrace) {
-            depth += 1;
-        }
-        p.bump_any();
-    }
-    m.complete(p, K::Block);
-}
-
-/// A top-level statement, until M1.4 parses every kind: a local variable
-/// or an expression statement.
-fn statement(p: &mut Parser<'_>) {
-    if p.at(K::LetKw) || p.at(K::VarKw) {
-        local_decl_stmt(p, true);
-        return;
-    }
-    if let Some(end) = scan_type(p.input(), p.pos())
-        && p.input().kind(end) == K::Ident
-        && matches!(p.input().kind(end + 1), K::Eq | K::Semicolon | K::Comma)
-    {
-        local_decl_stmt(p, false);
-        return;
-    }
-    if !at_expr_start(p) {
-        p.err_recover("expected a declaration or a statement", ITEM_RECOVERY);
-        return;
-    }
-    let m = p.start();
-    exprs::expr(p);
-    p.expect(K::Semicolon);
-    m.complete(p, K::ExprStmt);
-}
-
-/// `let x = 1;`, `var x = 1;`, `let int x = 1;`, `int x = 1;` (§7.10).
-fn local_decl_stmt(p: &mut Parser<'_>, keyword: bool) {
-    let m = p.start();
-    let decl = p.start();
-    if keyword {
-        p.bump_any();
-        let typed =
-            scan_type(p.input(), p.pos()).is_some_and(|end| p.input().kind(end) == K::Ident);
-        if typed {
-            types::ty(p);
-        }
-    } else {
-        types::ty(p);
-    }
-    variable_declarators(p);
-    decl.complete(p, K::LocalDecl);
-    p.expect(K::Semicolon);
-    m.complete(p, K::LocalDeclStmt);
+    modifiers(p, false);
+    member_after_type(p, m, Context::Member, false);
 }

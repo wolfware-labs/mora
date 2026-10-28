@@ -1,0 +1,9 @@
+let a = c ? x : y;
+let b = Parse(s)?;
+let c = user?.Name;
+let d = await Fetch()?;
+let e = F<A, B>(c);
+let f = (r?).Name;
+let g = items?[0];
+let h = flag ? [1] : [];
+let i = (F < A, B > c);

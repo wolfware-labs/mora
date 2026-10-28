@@ -14,6 +14,8 @@
 mod build;
 mod exprs;
 mod items;
+mod patterns;
+mod stmts;
 mod types;
 
 use mora_diag::codes;
@@ -145,6 +147,7 @@ pub(crate) struct Parser<'t> {
     input: &'t Input<'t>,
     pos: usize,
     events: Vec<Event>,
+    no_lambda: bool,
 }
 
 /// A node that is open: it must be completed or abandoned.
@@ -204,11 +207,28 @@ impl<'t> Parser<'t> {
             input,
             pos: 0,
             events: Vec::new(),
+            no_lambda: false,
         }
     }
 
     fn finish(self) -> Vec<Event> {
         self.events
+    }
+
+    /// Runs `parse` with `x => ...` read as something else than a lambda,
+    /// or, with `allowed`, as a lambda again. In a switch arm `None => 0`
+    /// and in a guard `when ok => 1`, the `=>` ends the pattern or the
+    /// guard; inside parentheses, brackets and arguments lambdas come back.
+    pub(crate) fn lambdas<T>(&mut self, allowed: bool, parse: impl FnOnce(&mut Self) -> T) -> T {
+        let saved = self.no_lambda;
+        self.no_lambda = !allowed;
+        let result = parse(self);
+        self.no_lambda = saved;
+        result
+    }
+
+    pub(crate) fn lambdas_allowed(&self) -> bool {
+        !self.no_lambda
     }
 
     pub(crate) fn start(&mut self) -> Marker {
@@ -320,19 +340,6 @@ impl<'t> Parser<'t> {
         self.events.push(Event::Error {
             message: message.into(),
         });
-    }
-
-    /// Reports an error and wraps the next token in an `Error` node, unless
-    /// the token is in `recovery` or closes a block, which the caller stops at.
-    pub(crate) fn err_recover(&mut self, message: impl Into<String>, recovery: &[SyntaxKind]) {
-        if self.at_end() || self.at_any(recovery) || self.at(K::RBrace) {
-            self.error(message);
-            return;
-        }
-        let m = self.start();
-        self.error(message);
-        self.bump_any();
-        m.complete(self, K::Error);
     }
 }
 

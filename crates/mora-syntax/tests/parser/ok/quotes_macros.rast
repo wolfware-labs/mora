@@ -1,0 +1,212 @@
+SourceFile@0..217
+  LocalDeclStmt@0..40
+    LocalDecl@0..39
+      LetKw@0..3 "let"
+      Whitespace@3..4 " "
+      VariableDeclarator@4..39
+        Name@4..5
+          Ident@4..5 "a"
+        Whitespace@5..6 " "
+        Eq@6..7 "="
+        Whitespace@7..8 " "
+        QuoteExpr@8..39
+          CodeKw@8..12 "code"
+          Whitespace@12..13 " "
+          MemberList@13..39
+            LBrace@13..14 "{"
+            Whitespace@14..15 " "
+            PropertyDecl@15..37
+              Modifier@15..21
+                PublicKw@15..21 "public"
+              Whitespace@21..22 " "
+              PredefinedType@22..25
+                IntKw@22..25 "int"
+              Whitespace@25..26 " "
+              Name@26..31
+                Ident@26..31 "Count"
+              Whitespace@31..32 " "
+              ExprBody@32..36
+                FatArrow@32..34 "=>"
+                Whitespace@34..35 " "
+                LiteralExpr@35..36
+                  IntNumber@35..36 "0"
+              Semicolon@36..37 ";"
+            Whitespace@37..38 " "
+            RBrace@38..39 "}"
+    Semicolon@39..40 ";"
+  Newline@40..41 "\n"
+  LocalDeclStmt@41..61
+    LocalDecl@41..60
+      LetKw@41..44 "let"
+      Whitespace@44..45 " "
+      VariableDeclarator@45..60
+        Name@45..46
+          Ident@45..46 "b"
+        Whitespace@46..47 " "
+        Eq@47..48 "="
+        Whitespace@48..49 " "
+        QuoteExpr@49..60
+          CodeKw@49..53 "code"
+          LParen@53..54 "("
+          BinExpr@54..59
+            PathExpr@54..55
+              Path@54..55
+                PathSegment@54..55
+                  NameRef@54..55
+                    Ident@54..55 "x"
+            Whitespace@55..56 " "
+            Plus@56..57 "+"
+            Whitespace@57..58 " "
+            LiteralExpr@58..59
+              IntNumber@58..59 "1"
+          RParen@59..60 ")"
+    Semicolon@60..61 ";"
+  Newline@61..62 "\n"
+  LocalDeclStmt@62..85
+    LocalDecl@62..84
+      LetKw@62..65 "let"
+      Whitespace@65..66 " "
+      VariableDeclarator@66..84
+        Name@66..67
+          Ident@66..67 "c"
+        Whitespace@67..68 " "
+        Eq@68..69 "="
+        Whitespace@69..70 " "
+        QuoteExpr@70..84
+          CodeKw@70..74 "code"
+          LParen@74..75 "("
+          PathType@75..83
+            Path@75..83
+              PathSegment@75..83
+                NameRef@75..79
+                  Ident@75..79 "List"
+                GenericArgList@79..83
+                  Lt@79..80 "<"
+                  SpliceType@80..82
+                    Splice@80..82
+                      Dollar@80..81 "$"
+                      NameRef@81..82
+                        Ident@81..82 "t"
+                  Gt@82..83 ">"
+          RParen@83..84 ")"
+    Semicolon@84..85 ";"
+  Newline@85..86 "\n"
+  LocalDeclStmt@86..113
+    LocalDecl@86..112
+      LetKw@86..89 "let"
+      Whitespace@89..90 " "
+      VariableDeclarator@90..112
+        Name@90..91
+          Ident@90..91 "d"
+        Whitespace@91..92 " "
+        Eq@92..93 "="
+        Whitespace@93..94 " "
+        MacroCallExpr@94..112
+          Hash@94..95 "#"
+          NameRef@95..101
+            Ident@95..101 "Assert"
+          ArgList@101..112
+            LParen@101..102 "("
+            Arg@102..111
+              BinExpr@102..111
+                PathExpr@102..107
+                  Path@102..107
+                    PathSegment@102..107
+                      NameRef@102..107
+                        Ident@102..107 "total"
+                Whitespace@107..108 " "
+                Gt@108..109 ">"
+                Whitespace@109..110 " "
+                LiteralExpr@110..111
+                  IntNumber@110..111 "0"
+            RParen@111..112 ")"
+    Semicolon@112..113 ";"
+  Newline@113..114 "\n"
+  LocalDeclStmt@114..143
+    LocalDecl@114..142
+      LetKw@114..117 "let"
+      Whitespace@117..118 " "
+      VariableDeclarator@118..142
+        Name@118..119
+          Ident@118..119 "e"
+        Whitespace@119..120 " "
+        Eq@120..121 "="
+        Whitespace@121..122 " "
+        StackallocExpr@122..142
+          StackallocKw@122..132 "stackalloc"
+          Whitespace@132..133 " "
+          PredefinedType@133..137
+            ByteKw@133..137 "byte"
+          LBracket@137..138 "["
+          LiteralExpr@138..141
+            IntNumber@138..141 "256"
+          RBracket@141..142 "]"
+    Semicolon@142..143 ";"
+  Newline@143..144 "\n"
+  LocalDeclStmt@144..188
+    LocalDecl@144..187
+      LetKw@144..147 "let"
+      Whitespace@147..148 " "
+      VariableDeclarator@148..187
+        Name@148..149
+          Ident@148..149 "f"
+        Whitespace@149..150 " "
+        Eq@150..151 "="
+        Whitespace@151..152 " "
+        InterpString@152..187
+          InterpStart@152..154 "$\""
+          InterpHole@154..168
+            HoleOpen@154..155 "{"
+            ParenExpr@155..167
+              LParen@155..156 "("
+              ConditionalExpr@156..166
+                PathExpr@156..158
+                  Path@156..158
+                    PathSegment@156..158
+                      NameRef@156..158
+                        Ident@156..158 "ok"
+                Whitespace@158..159 " "
+                Question@159..160 "?"
+                Whitespace@160..161 " "
+                LiteralExpr@161..162
+                  IntNumber@161..162 "1"
+                Whitespace@162..163 " "
+                Colon@163..164 ":"
+                Whitespace@164..165 " "
+                LiteralExpr@165..166
+                  IntNumber@165..166 "2"
+              RParen@166..167 ")"
+            HoleClose@167..168 "}"
+          InterpTextPart@168..173
+            InterpText@168..173 " and "
+          InterpHole@173..186
+            HoleOpen@173..174 "{"
+            PathExpr@174..178
+              Path@174..178
+                PathSegment@174..178
+                  NameRef@174..178
+                    Ident@174..178 "name"
+            Comma@178..179 ","
+            PrefixExpr@179..182
+              Minus@179..180 "-"
+              LiteralExpr@180..182
+                IntNumber@180..182 "10"
+            HoleFormat@182..185 ":F2"
+            HoleClose@185..186 "}"
+          InterpEnd@186..187 "\""
+    Semicolon@187..188 ";"
+  Newline@188..189 "\n"
+  ReturnStmt@189..216
+    ReturnKw@189..195 "return"
+    Whitespace@195..196 " "
+    StackallocExpr@196..215
+      StackallocKw@196..206 "stackalloc"
+      Whitespace@206..207 " "
+      PredefinedType@207..211
+        ByteKw@207..211 "byte"
+      LBracket@211..212 "["
+      LiteralExpr@212..214
+        IntNumber@212..214 "16"
+      RBracket@214..215 "]"
+    Semicolon@215..216 ";"
+  Newline@216..217 "\n"
