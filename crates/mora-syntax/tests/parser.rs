@@ -187,6 +187,20 @@ fn question_marks_follow_section_7_4() {
     assert_eq!(shape("x?.y"), "MemberExpr(P, NameRef)");
     assert_eq!(shape("await f()?"), "PropagateExpr(AwaitExpr(CallExpr(P)))");
     assert_eq!(shape("await f()"), "AwaitExpr(CallExpr(P))");
+    assert_eq!(shape("await -x"), "AwaitExpr(PrefixExpr(P))");
+    assert_eq!(shape("await !ready"), "AwaitExpr(PrefixExpr(P))");
+    assert_eq!(
+        shape("await (int)value"),
+        "AwaitExpr(CastExpr(PredefinedType, P))"
+    );
+    assert_eq!(
+        shape("await -f()?"),
+        "PropagateExpr(AwaitExpr(PrefixExpr(CallExpr(P))))"
+    );
+    assert_eq!(
+        shape("stackalloc byte[256]"),
+        "StackallocExpr(PredefinedType, LiteralExpr)"
+    );
     assert_eq!(
         shape("(r?).Name"),
         "MemberExpr(ParenExpr(PropagateExpr(P)), NameRef)"

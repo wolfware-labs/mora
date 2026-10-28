@@ -1,4 +1,4 @@
-SourceFile@0..189
+SourceFile@0..217
   LocalDeclStmt@0..40
     LocalDecl@0..39
       LetKw@0..3 "let"
@@ -196,3 +196,17 @@ SourceFile@0..189
           InterpEnd@186..187 "\""
     Semicolon@187..188 ";"
   Newline@188..189 "\n"
+  ReturnStmt@189..216
+    ReturnKw@189..195 "return"
+    Whitespace@195..196 " "
+    StackallocExpr@196..215
+      StackallocKw@196..206 "stackalloc"
+      Whitespace@206..207 " "
+      PredefinedType@207..211
+        ByteKw@207..211 "byte"
+      LBracket@211..212 "["
+      LiteralExpr@212..214
+        IntNumber@212..214 "16"
+      RBracket@214..215 "]"
+    Semicolon@215..216 ";"
+  Newline@216..217 "\n"

@@ -129,6 +129,7 @@ pub(crate) fn at_expr_start(p: &Parser<'_>) -> bool {
                 | K::Hash
                 | K::Dollar
                 | K::AwaitKw
+                | K::StackallocKw
                 | K::DotDot
                 | K::AsyncKw
                 | K::StaticKw
@@ -278,10 +279,17 @@ pub(crate) fn conditional_follows(input: &Input<'_>, at: usize) -> bool {
 }
 
 fn unary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
+    unary_with(p, true)
+}
+
+/// A unary expression. Without `propagate` (the operand of `await`), no
+/// postfix `?` is taken at any depth of it, so `await -f()?` is
+/// `(await -f())?`.
+fn unary_with(p: &mut Parser<'_>, propagate: bool) -> Option<CompletedMarker> {
     if PREFIX.iter().any(|&kind| p.at(kind)) {
         let m = p.start();
         p.bump_any();
-        if unary(p).is_none() {
+        if unary_with(p, propagate).is_none() {
             p.error("expected an expression");
         }
         return Some(m.complete(p, K::PrefixExpr));
@@ -291,27 +299,28 @@ fn unary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         // propagation applies to the awaited value.
         let m = p.start();
         p.bump(K::AwaitKw);
-        match primary(p) {
-            Some(operand) => {
-                postfix(p, operand, false);
-            }
-            None => p.error("expected an expression"),
+        if unary_with(p, false).is_none() {
+            p.error("expected an expression");
         }
         let awaited = m.complete(p, K::AwaitExpr);
-        return Some(propagation(p, awaited));
+        return Some(if propagate {
+            propagation(p, awaited)
+        } else {
+            awaited
+        });
     }
     if p.at(K::LParen) && at_cast(p) {
         let m = p.start();
         p.bump(K::LParen);
         types::ty(p);
         p.bump(K::RParen);
-        if unary(p).is_none() {
+        if unary_with(p, propagate).is_none() {
             p.error("expected an expression");
         }
         return Some(m.complete(p, K::CastExpr));
     }
     let lhs = primary(p)?;
-    Some(postfix(p, lhs, true))
+    Some(postfix(p, lhs, propagate))
 }
 
 /// C#'s rule for `(T)x`: the parentheses hold a type, and what follows is
