@@ -31,7 +31,7 @@ pub fn string_value(text: &str) -> Option<(String, bool)> {
     };
     let value = if let Some(body) = text.strip_prefix("@\"") {
         body.strip_suffix('"')?.replace("\"\"", "\"")
-    } else if text.starts_with("\"\"\"") {
+    } else if text.starts_with('`') || text.starts_with("\"\"\"") {
         raw_value(text)?
     } else {
         regular_value(text.strip_prefix('"')?.strip_suffix('"')?)?
@@ -54,10 +54,11 @@ fn regular_value(body: &str) -> Option<String> {
 }
 
 /// The contents of a raw string: as written on one line; on several lines,
-/// the lines between the delimiters' lines with the closing quotes'
+/// the lines between the delimiters' lines with the closing delimiter's
 /// indentation removed. Line breaks are kept as written.
 fn raw_value(text: &str) -> Option<String> {
-    let quotes = text.bytes().take_while(|&b| b == b'"').count();
+    let delim = text.bytes().next()?;
+    let quotes = text.bytes().take_while(|&b| b == delim).count();
     let content = text.get(quotes..text.len().checked_sub(quotes)?)?;
     if !content.contains('\n') {
         return Some(content.to_owned());
@@ -123,6 +124,9 @@ mod tests {
             ("\"\"\"\n  a\n\n  b\n  \"\"\"u8", "a\n\nb", true),
             ("\"\"\"\n  \"\"\"", "", false),
             ("\"\"\"\r\n\"\"\"", "", false),
+            ("`C:\\data\\x.json`", "C:\\data\\x.json", false),
+            ("``a`b``u8", "a`b", true),
+            ("`\n    \"a\"\n      b\n    `", "\"a\"\n  b", false),
         ] {
             assert_eq!(string_value(text), Some((value.to_owned(), utf8)), "{text}");
         }
