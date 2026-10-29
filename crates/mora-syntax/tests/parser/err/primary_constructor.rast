@@ -31,4 +31,4 @@ SourceFile@0..37
       Whitespace@34..35 " "
       RBrace@35..36 "}"
   Newline@36..37 "\n"
-error MR0110 18..18: a class or struct has no parameter list; declare fields and a constructor
+error MR0128 18..32: a class or struct has no parameter list

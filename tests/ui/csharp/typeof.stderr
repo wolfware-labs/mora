@@ -1,0 +1,7 @@
+error[MR0103]: `typeof`: there is no runtime reflection
+ --> tests/ui/csharp/typeof.mr:1:12
+  |
+1 | let name = typeof(List<int>).Name; //~ ERROR MR0103
+  |            ^^^^^^
+  |
+  = note: Use `nameof`, a generic constraint or a macro.

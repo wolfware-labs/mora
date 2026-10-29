@@ -1,0 +1,410 @@
+SourceFile@0..457
+  FunctionDecl@0..456
+    PredefinedType@0..4
+      VoidKw@0..4 "void"
+    Whitespace@4..5 " "
+    Name@5..6
+      Ident@5..6 "F"
+    ParamList@6..8
+      LParen@6..7 "("
+      RParen@7..8 ")"
+    Newline@8..9 "\n"
+    Block@9..456
+      LBrace@9..10 "{"
+      Newline@10..11 "\n"
+      Whitespace@11..15 "    "
+      Error@15..94
+        TryKw@15..18 "try"
+        Whitespace@18..19 " "
+        Block@19..27
+          LBrace@19..20 "{"
+          Whitespace@20..21 " "
+          ExprStmt@21..25
+            CallExpr@21..24
+              PathExpr@21..22
+                Path@21..22
+                  PathSegment@21..22
+                    NameRef@21..22
+                      Ident@21..22 "G"
+              ArgList@22..24
+                LParen@22..23 "("
+                RParen@23..24 ")"
+            Semicolon@24..25 ";"
+          Whitespace@25..26 " "
+          RBrace@26..27 "}"
+        Whitespace@27..28 " "
+        CatchKw@28..33 "catch"
+        Whitespace@33..34 " "
+        LParen@34..35 "("
+        Ident@35..46 "IOException"
+        Whitespace@46..47 " "
+        Ident@47..48 "e"
+        RParen@48..49 ")"
+        Whitespace@49..50 " "
+        Ident@50..54 "when"
+        Whitespace@54..55 " "
+        LParen@55..56 "("
+        Ident@56..57 "e"
+        Dot@57..58 "."
+        Ident@58..63 "Retry"
+        RParen@63..64 ")"
+        Whitespace@64..65 " "
+        Block@65..73
+          LBrace@65..66 "{"
+          Whitespace@66..67 " "
+          ExprStmt@67..71
+            CallExpr@67..70
+              PathExpr@67..68
+                Path@67..68
+                  PathSegment@67..68
+                    NameRef@67..68
+                      Ident@67..68 "H"
+              ArgList@68..70
+                LParen@68..69 "("
+                RParen@69..70 ")"
+            Semicolon@70..71 ";"
+          Whitespace@71..72 " "
+          RBrace@72..73 "}"
+        Whitespace@73..74 " "
+        FinallyKw@74..81 "finally"
+        Whitespace@81..82 " "
+        Block@82..94
+          LBrace@82..83 "{"
+          Whitespace@83..84 " "
+          ExprStmt@84..92
+            CallExpr@84..91
+              PathExpr@84..89
+                Path@84..89
+                  PathSegment@84..89
+                    NameRef@84..89
+                      Ident@84..89 "Close"
+              ArgList@89..91
+                LParen@89..90 "("
+                RParen@90..91 ")"
+            Semicolon@91..92 ";"
+          Whitespace@92..93 " "
+          RBrace@93..94 "}"
+      Newline@94..95 "\n"
+      Whitespace@95..99 "    "
+      Error@99..117
+        ThrowKw@99..104 "throw"
+        Whitespace@104..105 " "
+        NewExpr@105..116
+          NewKw@105..108 "new"
+          Whitespace@108..109 " "
+          PathType@109..114
+            Path@109..114
+              PathSegment@109..114
+                NameRef@109..114
+                  Ident@109..114 "Error"
+          ArgList@114..116
+            LParen@114..115 "("
+            RParen@115..116 ")"
+        Semicolon@116..117 ";"
+      Newline@117..118 "\n"
+      Whitespace@118..122 "    "
+      Error@122..146
+        LockKw@122..126 "lock"
+        Whitespace@126..127 " "
+        LParen@127..128 "("
+        Ident@128..132 "gate"
+        RParen@132..133 ")"
+        Whitespace@133..134 " "
+        Block@134..146
+          LBrace@134..135 "{"
+          Whitespace@135..136 " "
+          ExprStmt@136..144
+            PostfixExpr@136..143
+              PathExpr@136..141
+                Path@136..141
+                  PathSegment@136..141
+                    NameRef@136..141
+                      Ident@136..141 "Count"
+              PlusPlus@141..143 "++"
+            Semicolon@143..144 ";"
+          Whitespace@144..145 " "
+          RBrace@145..146 "}"
+      Newline@146..147 "\n"
+      Whitespace@147..151 "    "
+      Error@151..161
+        GotoKw@151..155 "goto"
+        Whitespace@155..156 " "
+        Ident@156..160 "done"
+        Semicolon@160..161 ";"
+      Newline@161..162 "\n"
+      Whitespace@162..166 "    "
+      Error@166..189
+        FixedKw@166..171 "fixed"
+        Whitespace@171..172 " "
+        LParen@172..173 "("
+        IntKw@173..176 "int"
+        Star@176..177 "*"
+        Whitespace@177..178 " "
+        Ident@178..179 "p"
+        Whitespace@179..180 " "
+        Eq@180..181 "="
+        Whitespace@181..182 " "
+        Amp@182..183 "&"
+        Ident@183..184 "x"
+        RParen@184..185 ")"
+        Whitespace@185..186 " "
+        Block@186..189
+          LBrace@186..187 "{"
+          Whitespace@187..188 " "
+          RBrace@188..189 "}"
+      Newline@189..190 "\n"
+      Whitespace@190..194 "    "
+      Error@194..204
+        UnsafeKw@194..200 "unsafe"
+        Whitespace@200..201 " "
+        Block@201..204
+          LBrace@201..202 "{"
+          Whitespace@202..203 " "
+          RBrace@203..204 "}"
+      Newline@204..205 "\n"
+      Whitespace@205..209 "    "
+      Error@209..244
+        UsingKw@209..214 "using"
+        Whitespace@214..215 " "
+        LParen@215..216 "("
+        VarKw@216..219 "var"
+        Whitespace@219..220 " "
+        Ident@220..221 "f"
+        Whitespace@221..222 " "
+        Eq@222..223 "="
+        Whitespace@223..224 " "
+        Ident@224..228 "Open"
+        LParen@228..229 "("
+        RParen@229..230 ")"
+        RParen@230..231 ")"
+        Whitespace@231..232 " "
+        Block@232..244
+          LBrace@232..233 "{"
+          Whitespace@233..234 " "
+          ExprStmt@234..242
+            CallExpr@234..241
+              PathExpr@234..238
+                Path@234..238
+                  PathSegment@234..238
+                    NameRef@234..238
+                      Ident@234..238 "Read"
+              ArgList@238..241
+                LParen@238..239 "("
+                Arg@239..240
+                  PathExpr@239..240
+                    Path@239..240
+                      PathSegment@239..240
+                        NameRef@239..240
+                          Ident@239..240 "f"
+                RParen@240..241 ")"
+            Semicolon@241..242 ";"
+          Whitespace@242..243 " "
+          RBrace@243..244 "}"
+      Newline@244..245 "\n"
+      Whitespace@245..249 "    "
+      Error@249..270
+        UsingKw@249..254 "using"
+        Whitespace@254..255 " "
+        LocalDeclStmt@255..270
+          LocalDecl@255..269
+            VarKw@255..258 "var"
+            Whitespace@258..259 " "
+            VariableDeclarator@259..269
+              Name@259..260
+                Ident@259..260 "g"
+              Whitespace@260..261 " "
+              Eq@261..262 "="
+              Whitespace@262..263 " "
+              CallExpr@263..269
+                PathExpr@263..267
+                  Path@263..267
+                    PathSegment@263..267
+                      NameRef@263..267
+                        Ident@263..267 "Open"
+                ArgList@267..269
+                  LParen@267..268 "("
+                  RParen@268..269 ")"
+          Semicolon@269..270 ";"
+      Newline@270..271 "\n"
+      Whitespace@271..275 "    "
+      Error@275..295
+        Ident@275..282 "checked"
+        Whitespace@282..283 " "
+        Block@283..295
+          LBrace@283..284 "{"
+          Whitespace@284..285 " "
+          ExprStmt@285..293
+            PostfixExpr@285..292
+              PathExpr@285..290
+                Path@285..290
+                  PathSegment@285..290
+                    NameRef@285..290
+                      Ident@285..290 "Count"
+              PlusPlus@290..292 "++"
+            Semicolon@292..293 ";"
+          Whitespace@293..294 " "
+          RBrace@294..295 "}"
+      Newline@295..296 "\n"
+      Whitespace@296..300 "    "
+      LocalDeclStmt@300..325
+        LocalDecl@300..324
+          LetKw@300..303 "let"
+          Whitespace@303..304 " "
+          VariableDeclarator@304..324
+            Name@304..305
+              Ident@304..305 "t"
+            Whitespace@305..306 " "
+            Eq@306..307 "="
+            Whitespace@307..308 " "
+            MemberExpr@308..324
+              Error@308..319
+                TypeofKw@308..314 "typeof"
+                LParen@314..315 "("
+                PredefinedType@315..318
+                  IntKw@315..318 "int"
+                RParen@318..319 ")"
+              Dot@319..320 "."
+              NameRef@320..324
+                Ident@320..324 "Name"
+        Semicolon@324..325 ";"
+      Newline@325..326 "\n"
+      Whitespace@326..330 "    "
+      LocalDeclStmt@330..351
+        LocalDecl@330..350
+          LetKw@330..333 "let"
+          Whitespace@333..334 " "
+          VariableDeclarator@334..350
+            Name@334..335
+              Ident@334..335 "n"
+            Whitespace@335..336 " "
+            Eq@336..337 "="
+            Whitespace@337..338 " "
+            MemberExpr@338..350
+              Error@338..343
+                PathExpr@338..342
+                  Path@338..342
+                    PathSegment@338..342
+                      NameRef@338..342
+                        Ident@338..342 "name"
+                Bang@342..343 "!"
+              Dot@343..344 "."
+              NameRef@344..350
+                Ident@344..350 "Length"
+        Semicolon@350..351 ";"
+      Newline@351..352 "\n"
+      Whitespace@352..356 "    "
+      LocalDeclStmt@356..383
+        LocalDecl@356..382
+          LetKw@356..359 "let"
+          Whitespace@359..360 " "
+          VariableDeclarator@360..382
+            Name@360..365
+              Ident@360..365 "total"
+            Whitespace@365..366 " "
+            Eq@366..367 "="
+            Whitespace@367..368 " "
+            CallExpr@368..382
+              PathExpr@368..375
+                Path@368..375
+                  PathSegment@368..375
+                    NameRef@368..375
+                      Ident@368..375 "checked"
+              ArgList@375..382
+                LParen@375..376 "("
+                Arg@376..381
+                  BinExpr@376..381
+                    PathExpr@376..377
+                      Path@376..377
+                        PathSegment@376..377
+                          NameRef@376..377
+                            Ident@376..377 "a"
+                    Whitespace@377..378 " "
+                    Plus@378..379 "+"
+                    Whitespace@379..380 " "
+                    PathExpr@380..381
+                      Path@380..381
+                        PathSegment@380..381
+                          NameRef@380..381
+                            Ident@380..381 "b"
+                RParen@381..382 ")"
+        Semicolon@382..383 ";"
+      Newline@383..384 "\n"
+      Whitespace@384..388 "    "
+      LocalDeclStmt@388..426
+        LocalDecl@388..425
+          LetKw@388..391 "let"
+          Whitespace@391..392 " "
+          VariableDeclarator@392..425
+            Name@392..400
+              Ident@392..400 "fallback"
+            Whitespace@400..401 " "
+            Eq@401..402 "="
+            Whitespace@402..403 " "
+            BinExpr@403..425
+              PathExpr@403..404
+                Path@403..404
+                  PathSegment@403..404
+                    NameRef@403..404
+                      Ident@403..404 "x"
+              Whitespace@404..405 " "
+              QuestionQuestion@405..407 "??"
+              Whitespace@407..408 " "
+              Error@408..425
+                ThrowKw@408..413 "throw"
+                Whitespace@413..414 " "
+                NewExpr@414..425
+                  NewKw@414..417 "new"
+                  Whitespace@417..418 " "
+                  PathType@418..423
+                    Path@418..423
+                      PathSegment@418..423
+                        NameRef@418..423
+                          Ident@418..423 "Error"
+                  ArgList@423..425
+                    LParen@423..424 "("
+                    RParen@424..425 ")"
+        Semicolon@425..426 ";"
+      Newline@426..427 "\n"
+      Whitespace@427..431 "    "
+      ExprStmt@431..442
+        CallExpr@431..441
+          MemberExpr@431..439
+            Error@431..435
+              BaseKw@431..435 "base"
+            Dot@435..436 "."
+            NameRef@436..439
+              Ident@436..439 "Run"
+          ArgList@439..441
+            LParen@439..440 "("
+            RParen@440..441 ")"
+        Semicolon@441..442 ";"
+      Newline@442..443 "\n"
+      Whitespace@443..447 "    "
+      ExprStmt@447..454
+        CallExpr@447..453
+          PathExpr@447..451
+            Path@447..451
+              PathSegment@447..451
+                NameRef@447..451
+                  Ident@447..451 "Done"
+          ArgList@451..453
+            LParen@451..452 "("
+            RParen@452..453 ")"
+        Semicolon@453..454 ";"
+      Newline@454..455 "\n"
+      RBrace@455..456 "}"
+  Newline@456..457 "\n"
+error MR0101 15..18: `try`: Mora has no exceptions
+error MR0101 99..104: `throw`: Mora has no exceptions
+error MR0104 122..126: `lock`: Mora has no `lock` or `volatile`
+error MR0106 151..155: `goto`: Mora has no `goto`
+error MR0107 166..171: `fixed`: Mora has no unsafe code yet
+error MR0107 194..200: `unsafe`: Mora has no unsafe code yet
+error MR0121 209..214: `using`: Mora has no disposal statement
+error MR0121 249..254: `using`: Mora has no disposal statement
+error MR0109 275..282: `checked`: Mora sets overflow checking per build profile
+error MR0103 308..314: `typeof`: there is no runtime reflection
+error MR0160 342..343: `x!`: Mora has no null-forgiving operator
+error MR0109 368..375: `checked`: Mora sets overflow checking per build profile
+error MR0101 408..413: `throw`: Mora has no exceptions
+error MR0108 431..435: `base`: Mora has no class inheritance

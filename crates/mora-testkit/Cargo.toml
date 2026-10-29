@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 mora-diag.workspace = true
 mora-span.workspace = true
+mora-syntax.workspace = true
 
 # Both read the `tests/ui` and `tests/run` suites at the repository root, with
 # their own reports instead of the standard harness's.

@@ -15,4 +15,4 @@ pub mod harness;
 pub mod run;
 pub mod ui;
 
-pub use compiler::{Backend, Checked, Compiler, Output, Unbuilt, compiler};
+pub use compiler::{Backend, Checked, Compiler, Output, SyntaxOnly, Unbuilt, compiler};

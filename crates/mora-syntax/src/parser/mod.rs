@@ -12,6 +12,7 @@
 //! member, so every later declaration still gets its tree.
 
 mod build;
+mod csharp;
 mod exprs;
 mod items;
 mod patterns;
@@ -19,7 +20,7 @@ mod stmts;
 mod types;
 
 use mora_diag::codes;
-use mora_span::TextRange;
+use mora_span::{TextRange, TextSize};
 
 use crate::ast::{self, AstNode};
 use crate::lexer::{Lexed, lex};
@@ -62,8 +63,9 @@ pub fn parse(text: &str) -> Parse {
     let input = Input::new(text, &lexed);
     let mut p = Parser::new(&input);
     items::source_file(&mut p);
-    let events = p.finish();
+    let (events, reports) = p.finish();
     let (green, mut errors) = build::build(text, &lexed, events);
+    errors.extend(reports);
     errors.extend(lexed.errors.iter().cloned());
     errors.sort_by_key(|error| error.range.start());
     Parse { green, errors }
@@ -115,6 +117,20 @@ impl<'t> Input<'t> {
         self.ranges.get(i).map_or("", |range| &self.text[*range])
     }
 
+    /// The whole text.
+    pub(crate) fn source(&self) -> &'t str {
+        self.text
+    }
+
+    /// Where token `i` is, or an empty range at the end of the text past
+    /// the last token.
+    pub(crate) fn range(&self, i: usize) -> TextRange {
+        self.ranges
+            .get(i)
+            .copied()
+            .unwrap_or_else(|| TextRange::empty(TextSize::of(self.text)))
+    }
+
     fn is_joined(&self, i: usize) -> bool {
         self.joined.get(i).copied().unwrap_or(false)
     }
@@ -147,6 +163,8 @@ pub(crate) struct Parser<'t> {
     input: &'t Input<'t>,
     pos: usize,
     events: Vec<Event>,
+    /// Errors with their own code and range, such as `MR0101` on `try`.
+    reports: Vec<SyntaxError>,
     no_lambda: bool,
 }
 
@@ -207,12 +225,30 @@ impl<'t> Parser<'t> {
             input,
             pos: 0,
             events: Vec::new(),
+            reports: Vec::new(),
             no_lambda: false,
         }
     }
 
-    fn finish(self) -> Vec<Event> {
-        self.events
+    fn finish(self) -> (Vec<Event>, Vec<SyntaxError>) {
+        (self.events, self.reports)
+    }
+
+    /// Reports an error other than `MR0110`, with its own range.
+    pub(crate) fn report(&mut self, error: SyntaxError) {
+        self.reports.push(error);
+    }
+
+    /// The end of the last token taken, or the start of the text.
+    pub(crate) fn prev_end(&self) -> TextSize {
+        self.pos
+            .checked_sub(1)
+            .map_or(TextSize::new(0), |i| self.input.range(i).end())
+    }
+
+    /// Where the `n`th token from here is.
+    pub(crate) fn range(&self, n: usize) -> TextRange {
+        self.input.range(self.pos + n)
     }
 
     /// Runs `parse` with `x => ...` read as something else than a lambda,

@@ -1,0 +1,23 @@
+error[MR0121]: `using`: Mora has no disposal statement
+ --> tests/ui/csharp/using_statement.mr:2:1
+  |
+2 | using (var log = new Log()) { } //~ ERROR MR0121
+  | ^^^^^
+  |
+  = note: A value's destructor runs when its owner goes out of scope, so declare it without `using`.
+
+error[MR0121]: `using`: Mora has no disposal statement
+ --> tests/ui/csharp/using_statement.mr:3:1
+  |
+3 | using var other = new Log(); //~ ERROR MR0121
+  | ^^^^^
+  |
+  = note: A value's destructor runs when its owner goes out of scope, so declare it without `using`.
+
+error[MR0121]: `using`: Mora has no disposal statement
+ --> tests/ui/csharp/using_statement.mr:4:1
+  |
+4 | using Log third = new Log(); //~ ERROR MR0121
+  | ^^^^^
+  |
+  = note: A value's destructor runs when its owner goes out of scope, so declare it without `using`.

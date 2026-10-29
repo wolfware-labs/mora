@@ -1,0 +1,23 @@
+error[MR0105]: `delegate`: Mora has no delegates or events
+ --> tests/ui/csharp/delegates_events.mr:1:1
+  |
+1 | delegate int Transform(int x); //~ ERROR MR0105
+  | ^^^^^^^^
+  |
+  = note: Use a function type such as `Func<A, R>` or `Action<A>`, and `Signal<T>` for events.
+
+error[MR0105]: `event`: Mora has no delegates or events
+ --> tests/ui/csharp/delegates_events.mr:4:12
+  |
+4 |     public event Action Clicked; //~ ERROR MR0105
+  |            ^^^^^
+  |
+  = note: Use a function type such as `Func<A, R>` or `Action<A>`, and `Signal<T>` for events.
+
+error[MR0105]: `delegate`: Mora has no delegates or events
+ --> tests/ui/csharp/delegates_events.mr:6:13
+  |
+6 | let twice = delegate (int x) { return x * 2; }; //~ ERROR MR0105
+  |             ^^^^^^^^
+  |
+  = note: Use a function type such as `Func<A, R>` or `Action<A>`, and `Signal<T>` for events.

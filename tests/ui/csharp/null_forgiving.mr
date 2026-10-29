@@ -1,0 +1,3 @@
+string? name = "Ada";
+let length = name!.Length; //~ ERROR MR0160
+Console.WriteLine(name!); //~ ERROR MR0160

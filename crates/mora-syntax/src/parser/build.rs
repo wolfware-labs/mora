@@ -181,11 +181,8 @@ impl Sink<'_> {
                 .map_or(TextSize::new(0), |token| token.range.end());
             TextRange::empty(end)
         };
-        self.errors.push(SyntaxError {
-            code: SYNTAX_ERROR,
-            range,
-            message,
-        });
+        self.errors
+            .push(SyntaxError::new(SYNTAX_ERROR, range, message));
     }
 }
 

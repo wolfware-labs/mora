@@ -7,7 +7,7 @@
 //! propagation through [`postfix`].
 
 use super::types::{self, PREDEFINED, scan_type};
-use super::{CompletedMarker, Input, Parser, items, patterns, stmts};
+use super::{CompletedMarker, Input, Parser, csharp, items, patterns, stmts};
 use crate::SyntaxKind;
 
 use SyntaxKind as K;
@@ -133,6 +133,12 @@ pub(crate) fn at_expr_start(p: &Parser<'_>) -> bool {
                 | K::DotDot
                 | K::AsyncKw
                 | K::StaticKw
+                | K::TypeofKw
+                | K::BaseKw
+                | K::ThrowKw
+                | K::DelegateKw
+                | K::ObjectKw
+                | K::DynamicKw
         )
 }
 
@@ -470,6 +476,9 @@ fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     if at_lambda(p) {
         return Some(lambda(p));
     }
+    if let Some(done) = csharp::primary(p) {
+        return Some(done);
+    }
     let kind = p.current();
     if LITERALS.contains(&kind) {
         let m = p.start();
@@ -502,6 +511,10 @@ fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
             m.complete(p, K::QuoteExpr)
         }
         K::Ident => {
+            // `checked(a + b)` is reported and parsed as the call it looks like.
+            if csharp::at_checked(p) && p.nth(1) == K::LParen {
+                csharp::report_checked(p);
+            }
             types::path(p, false);
             m.complete(p, K::PathExpr)
         }
@@ -656,6 +669,13 @@ fn postfix(p: &mut Parser<'_>, mut lhs: CompletedMarker, propagate: bool) -> Com
             let m = lhs.precede(p);
             p.bump_any();
             m.complete(p, K::PostfixExpr)
+        } else if p.at(K::Bang) {
+            // No binary operator is spelled `!`, so after an operand it is
+            // C#'s null-forgiving operator.
+            csharp::report_null_forgiving(p);
+            let m = lhs.precede(p);
+            p.bump(K::Bang);
+            m.complete(p, K::Error)
         } else if propagate && at_propagation(p) {
             // Member access after propagation needs parentheses (§7.4):
             // `(r?).Name`. Only another `?` may follow here.

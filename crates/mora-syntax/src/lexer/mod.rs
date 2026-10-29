@@ -24,9 +24,8 @@ pub mod number;
 use std::borrow::Cow;
 
 use logos::Logos;
-use mora_diag::Code;
-use mora_diag::codes;
-use mora_span::{TextRange, TextSize};
+use mora_diag::{Code, Diagnostic, Fix, Label, TextEdit, codes};
+use mora_span::{FileId, Span, TextRange, TextSize};
 use unicode_normalization::{UnicodeNormalization, is_nfc};
 
 use crate::SyntaxKind;
@@ -44,6 +43,78 @@ pub struct SyntaxError {
     pub code: Code,
     pub range: TextRange,
     pub message: String,
+    /// Extra explanation, such as what Mora uses instead of a C# construct.
+    pub note: Option<String>,
+    /// A change that removes the error.
+    pub fix: Option<SyntaxFix>,
+}
+
+impl SyntaxError {
+    pub fn new(code: Code, range: TextRange, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            range,
+            message: message.into(),
+            note: None,
+            fix: None,
+        }
+    }
+
+    #[must_use]
+    pub fn with_note(mut self, note: impl Into<String>) -> Self {
+        self.note = Some(note.into());
+        self
+    }
+
+    #[must_use]
+    pub fn with_fix(mut self, fix: SyntaxFix) -> Self {
+        self.fix = Some(fix);
+        self
+    }
+
+    /// The error as a diagnostic in `file`.
+    pub fn to_diagnostic(&self, file: FileId) -> Diagnostic {
+        let span = |range: TextRange| Span::new(file, range);
+        let mut diagnostic =
+            Diagnostic::error(self.code, &self.message, Label::unlabeled(span(self.range)));
+        if let Some(note) = &self.note {
+            diagnostic = diagnostic.with_note(note);
+        }
+        if let Some(fix) = &self.fix {
+            let edits = fix
+                .edits
+                .iter()
+                .map(|(range, text)| TextEdit::replace(span(*range), text))
+                .collect();
+            diagnostic = diagnostic.with_fix(Fix::new(&fix.message, edits));
+        }
+        diagnostic
+    }
+}
+
+/// Edits to the text that fix a [`SyntaxError`]: each replaces a range,
+/// and an empty range inserts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SyntaxFix {
+    pub message: String,
+    pub edits: Vec<(TextRange, String)>,
+}
+
+impl SyntaxFix {
+    /// `text` with the edits applied. The ranges must not overlap.
+    pub fn apply(&self, text: &str) -> String {
+        let mut edits: Vec<_> = self.edits.iter().collect();
+        edits.sort_by_key(|(range, _)| range.start());
+        let mut out = String::with_capacity(text.len());
+        let mut at = 0;
+        for (range, replacement) in edits {
+            out.push_str(&text[at..usize::from(range.start())]);
+            out.push_str(replacement);
+            at = usize::from(range.end());
+        }
+        out.push_str(&text[at..]);
+        out
+    }
 }
 
 /// The tokens of a text and the errors found while lexing it.
@@ -428,11 +499,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn error(&mut self, code: Code, range: std::ops::Range<usize>, message: impl Into<String>) {
-        self.out.errors.push(SyntaxError {
+        self.out.errors.push(SyntaxError::new(
             code,
-            range: TextRange::new(size(range.start), size(range.end)),
-            message: message.into(),
-        });
+            TextRange::new(size(range.start), size(range.end)),
+            message,
+        ));
     }
 
     /// Lexes one token of code.
@@ -446,8 +517,24 @@ impl<'a> Lexer<'a> {
             let name_len = rest[1..]
                 .find(|c: char| !is_ident_continue(c))
                 .unwrap_or(rest.len() - 1);
-            if DIRECTIVES.contains(&&rest[1..1 + name_len]) {
-                self.push(SyntaxKind::Directive, line_len(rest));
+            let name = &rest[1..1 + name_len];
+            if DIRECTIVES.contains(&name) {
+                let len = line_len(rest);
+                if !matches!(name, "region" | "endregion") {
+                    let end = self.pos + rest[..len].trim_end().len();
+                    self.out.errors.push(
+                        SyntaxError::new(
+                            codes::MR0002,
+                            TextRange::new(size(self.pos), size(end)),
+                            format!("`#{name}`: Mora has no preprocessor directives"),
+                        )
+                        .with_note(
+                            "Conditional compilation uses the `[Cfg]` attribute, and \
+                             warnings are silenced with `[Allow]`.",
+                        ),
+                    );
+                }
+                self.push(SyntaxKind::Directive, len);
                 return;
             }
         }

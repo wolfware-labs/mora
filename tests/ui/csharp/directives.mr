@@ -1,0 +1,6 @@
+#region Setup
+#if DEBUG //~ ERROR MR0002
+Console.WriteLine("debug");
+#endif //~ ERROR MR0002
+#pragma warning disable CS0168 //~ ERROR MR0002
+#endregion
