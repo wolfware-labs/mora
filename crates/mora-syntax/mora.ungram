@@ -576,7 +576,7 @@ LiteralExpr =
   value:(
     'int_number' | 'real_number' | 'char_literal'
   | 'string_literal' | 'verbatim_string' | 'raw_string'
-  | 'true' | 'false' | 'null'
+  | 'true' | 'false' | 'none'
   )
 
 // §3.5, §14.4. `$"x = {x,5:F2}"`.
@@ -802,7 +802,7 @@ Pattern =
 | ListPattern
 | SlicePattern
 
-// `0`, `"GET"`, `null`, `-1`, `Color.Red`, `None`. A bare or dotted name stays a
+// `0`, `"GET"`, `none`, `-1`, `Color.Red`, `None`. A bare or dotted name stays a
 // ConstantPattern; name resolution decides constant, enum member, fieldless case or type.
 ConstantPattern =
   Expr
@@ -826,11 +826,11 @@ DiscardPattern =
 RelationalPattern =
   op:('<' | '>' | '<=' | '>=') Expr
 
-// `not null`, `not 0`.
+// `not none`, `not 0`.
 NotPattern =
   'not' Pattern
 
-// `> 0 and < 10`, `null or ""`. `and` binds tighter than `or`.
+// `> 0 and < 10`, `none or ""`. `and` binds tighter than `or`.
 BinPattern =
   lhs:Pattern op:('and' | 'or') rhs:Pattern
 

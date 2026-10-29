@@ -8,7 +8,7 @@ let with = user with { Name = "Ada" };
 let multiplicative = a * b / c % d *% e;
 let additive = a + b - c +% d -% e;
 let shift = a << b >> c >>> d;
-let relational = a < b && c > d && e <= f && g >= h && x is int && y as User != null;
+let relational = a < b && c > d && e <= f && g >= h && x is int && y as User != none;
 let equality = a == b != c;
 let bitwise = a & b ^ c | d;
 let logical = a && b || c;

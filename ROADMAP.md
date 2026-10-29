@@ -544,7 +544,7 @@ Spec: [§10.7](docs/design/mora.md#107-weak-references). Crates: `mora-hir`, `mo
 
 Done when:
 
-- A run test reads `null` after the target dies.
+- A run test reads `none` after the target dies.
 - Lint tests: a parent and child pair is reported; a self-referential tree is not.
 
 ### M2.11 Closures and function types
@@ -614,7 +614,7 @@ Done when:
 | [M3.2](#m32-enums) | Enums | `hir` | M3.1 |
 | [M3.3](#m33-patterns-and-switch) | Patterns and switch | `hir` | M3.2 |
 | [M3.4](#m34-exhaustiveness-and-reachability) | Exhaustiveness and reachability | `check` | M3.3 |
-| [M3.5](#m35-options-null-and-flow-narrowing) | Options, null and flow narrowing | `hir` | M3.4 |
+| [M3.5](#m35-options-none-and-flow-narrowing) | Options, `none` and flow narrowing | `hir` | M3.4 |
 | [M3.6](#m36-operators-conversions-and-indexers) | Operators, conversions and indexers | `hir` | M3.3 |
 | [M3.7](#m37-results-and--propagation) | Results and `?` propagation | `hir` | M3.5, M3.6 |
 | [M3.8](#m38-generics-and-constraints) | Generics and constraints | `hir` | M3.1 |
@@ -671,16 +671,16 @@ Done when:
 - UI tests show the missing case text, for example `missing case: Rect(_, _)`.
 - A property test checks that no arm matches any reported missing value.
 
-### M3.5 Options, null and flow narrowing
+### M3.5 Options, `none` and flow narrowing
 
-Spec: [§5.6](docs/design/mora.md#56-option-types-and-null), [§7.5](docs/design/mora.md#75-null-operators). Crates: `mora-hir`, `std`. Blocked by: M3.4.
+Spec: [§5.6](docs/design/mora.md#56-option-types-and-none), [§7.5](docs/design/mora.md#75-option-operators). Crates: `mora-hir`, `std`. Blocked by: M3.4.
 
-`Option<T>` in the standard library, `T?` syntax, `null` (D-7) and `MR0131`, implicit `T` to `T?`, `??`, `??=`, `?.`, `?[]`, the members of §5.6, `MR0162`, `MR2001`, and flow narrowing after `null` checks.
+`Option<T>` in the standard library, `T?` syntax, `none` (D-54), `MR0129` and `MR0131`, implicit `T` to `T?`, `??`, `??=`, `?.`, `?[]`, the members of §5.6, `MR0162`, `MR2001`, and flow narrowing after `none` checks.
 
 Done when:
 
 - Run tests for every operator.
-- UI tests: `x.y` on `T?` offers both fixes; after `if (u is null) return;` `u` has type `User`.
+- UI tests: `x.y` on `T?` offers both fixes; after `if (u is none) return;` `u` has type `User`.
 
 ### M3.6 Operators, conversions and indexers
 
@@ -1026,7 +1026,7 @@ The members of §15.6: `Console` input and error output, `Environment`, `TimeSpa
 Done when:
 
 - `DateTime.UtcNow.ToString("O")` matches the ISO 8601 format.
-- `Console.ReadLine()` returns `null` at end of input.
+- `Console.ReadLine()` returns `none` at end of input.
 
 ### M5.9 Files, directories and paths
 

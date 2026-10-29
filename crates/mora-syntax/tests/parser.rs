@@ -304,7 +304,7 @@ fn patterns_follow_section_7_8() {
         "ConstantPattern(MemberExpr(P, NameRef))"
     );
     assert_eq!(
-        pattern("not null"),
+        pattern("not none"),
         "NotPattern(ConstantPattern(LiteralExpr))"
     );
     assert_eq!(

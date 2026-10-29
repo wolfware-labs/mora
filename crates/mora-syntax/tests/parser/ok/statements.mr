@@ -4,7 +4,7 @@ void Run(List<int> items, Dictionary<string, int> counts)
     var count = 1;
     let int limit = 10;
     int index;
-    User? user = null, other = null;
+    User? user = none, other = none;
     let (id, name) = pair;
 
     if (total > limit) { return; } else if (count == 0) count++; else { }

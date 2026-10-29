@@ -270,6 +270,8 @@ pub enum SyntaxKind {
     NewKw,
     /// The keyword `nint`.
     NintKw,
+    /// The keyword `none`.
+    NoneKw,
     /// The keyword `nuint`.
     NuintKw,
     /// The keyword `null`.
@@ -854,6 +856,7 @@ impl SyntaxKind {
         NamespaceKw,
         NewKw,
         NintKw,
+        NoneKw,
         NuintKw,
         NullKw,
         ObjectKw,
@@ -1191,6 +1194,7 @@ impl SyntaxKind {
         NamespaceKw,
         NewKw,
         NintKw,
+        NoneKw,
         NuintKw,
         NullKw,
         ObjectKw,
@@ -1363,6 +1367,7 @@ impl SyntaxKind {
             NamespaceKw => "namespace",
             NewKw => "new",
             NintKw => "nint",
+            NoneKw => "none",
             NuintKw => "nuint",
             NullKw => "null",
             ObjectKw => "object",
@@ -1485,6 +1490,7 @@ impl SyntaxKind {
             "namespace" => NamespaceKw,
             "new" => NewKw,
             "nint" => NintKw,
+            "none" => NoneKw,
             "nuint" => NuintKw,
             "null" => NullKw,
             "object" => ObjectKw,

@@ -1013,7 +1013,7 @@ mod tests {
     fn the_real_spec_has_both_keyword_lists() {
         let spec = std::fs::read_to_string(crate::root().join(crate::error_codes::SPEC)).unwrap();
         let tokens = Tokens::from_spec(&spec).unwrap();
-        assert_eq!(tokens.keywords.len(), 93);
+        assert_eq!(tokens.keywords.len(), 94);
         assert!(tokens.contextual.contains(&"adds".to_owned()));
     }
 

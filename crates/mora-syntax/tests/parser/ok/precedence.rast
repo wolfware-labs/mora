@@ -588,7 +588,7 @@ SourceFile@0..722
             BangEq@517..519 "!="
             Whitespace@519..520 " "
             LiteralExpr@520..524
-              NullKw@520..524 "null"
+              NoneKw@520..524 "none"
     Semicolon@524..525 ";"
   Newline@525..526 "\n"
   LocalDeclStmt@526..553

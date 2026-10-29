@@ -84,7 +84,7 @@ SourceFile@0..784
             Whitespace@71..72 " "
             ConstantPattern@72..76
               LiteralExpr@72..76
-                NullKw@72..76 "null"
+                NoneKw@72..76 "none"
           Whitespace@76..77 " "
           PipePipe@77..79 "||"
           Whitespace@79..80 " "
@@ -102,7 +102,7 @@ SourceFile@0..784
               Whitespace@88..89 " "
               ConstantPattern@89..93
                 LiteralExpr@89..93
-                  NullKw@89..93 "null"
+                  NoneKw@89..93 "none"
     Semicolon@93..94 ";"
   Newline@94..95 "\n"
   LocalDeclStmt@95..125
@@ -293,7 +293,7 @@ SourceFile@0..784
             BinPattern@285..295
               ConstantPattern@285..289
                 LiteralExpr@285..289
-                  NullKw@285..289 "null"
+                  NoneKw@285..289 "none"
               Whitespace@289..290 " "
               OrKw@290..292 "or"
               Whitespace@292..293 " "

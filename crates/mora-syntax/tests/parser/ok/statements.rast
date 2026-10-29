@@ -123,7 +123,7 @@ SourceFile@0..971
             Eq@152..153 "="
             Whitespace@153..154 " "
             LiteralExpr@154..158
-              NullKw@154..158 "null"
+              NoneKw@154..158 "none"
           Comma@158..159 ","
           Whitespace@159..160 " "
           VariableDeclarator@160..172
@@ -133,7 +133,7 @@ SourceFile@0..971
             Eq@166..167 "="
             Whitespace@167..168 " "
             LiteralExpr@168..172
-              NullKw@168..172 "null"
+              NoneKw@168..172 "none"
         Semicolon@172..173 ";"
       Newline@173..174 "\n"
       Whitespace@174..178 "    "

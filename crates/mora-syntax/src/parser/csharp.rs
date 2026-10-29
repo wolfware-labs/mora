@@ -309,6 +309,30 @@ pub(crate) fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     Some(m.complete(p, K::Error))
 }
 
+/// `null`, reported and taken as the `none` it stands for, so the tree
+/// and everything after it read as if `none` had been written.
+pub(crate) fn null_literal(p: &mut Parser<'_>) -> Option<CompletedMarker> {
+    if !p.at(K::NullKw) {
+        return None;
+    }
+    let range = p.range(0);
+    p.report(
+        SyntaxError::new(
+            codes::MR0129,
+            range,
+            "`null`: Mora writes the empty option as `none`",
+        )
+        .with_note("A `T?` holds either a value or `none`; no other type can be empty.")
+        .with_fix(SyntaxFix {
+            message: "write `none`".to_owned(),
+            edits: vec![(range, "none".to_owned())],
+        }),
+    );
+    let m = p.start();
+    p.bump_remap(K::NoneKw);
+    Some(m.complete(p, K::LiteralExpr))
+}
+
 /// `object` or `dynamic` where a type goes.
 pub(crate) fn reserved_type(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();

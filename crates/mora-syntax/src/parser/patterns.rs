@@ -128,7 +128,7 @@ fn primary_pattern(p: &mut Parser<'_>) -> Option<CompletedMarker> {
             return Some(m.complete(p, K::TypePattern));
         }
     }
-    // `0`, `"GET"`, `null`, `-1`, `Color.Red`, `None`.
+    // `0`, `"GET"`, `none`, `-1`, `Color.Red`, `None`.
     let m = p.start();
     if pattern_operand(p).is_none() {
         m.abandon(p);
