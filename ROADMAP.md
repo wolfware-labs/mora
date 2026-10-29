@@ -240,7 +240,7 @@ Done when:
 
 Spec: [§4](docs/design/mora.md#4-program-structure), [§6](docs/design/mora.md#6-declarations), [§9.2](docs/design/mora.md#92-declaring-macros). Crates: `mora-syntax`. Blocked by: M1.2.
 
-Recursive-descent parsing of compilation units: imports, using directives, file-scoped namespaces, attributes, every type declaration (struct, class, record, unique class, union, enum, interface, `ref struct`, `macro`), members (fields, properties, indexers, methods, constructors including primary constructors, destructors, operators, conversions), modifiers, type parameters and constraints, with recovery at member and item boundaries.
+Recursive-descent parsing of compilation units: imports, using directives, file-scoped namespaces, attributes, every type declaration (struct and positional struct, class, unique class, union, enum, interface, `ref struct`, `macro`), members (fields, properties, indexers, methods, constructors including primary constructors, destructors, operators, conversions), modifiers, type parameters and constraints, with recovery at member and item boundaries.
 
 Done when:
 
@@ -261,9 +261,9 @@ Done when:
 
 ### M1.5 Diagnostics for C# constructs
 
-Spec: [§3.2](docs/design/mora.md#32-comments-and-doc-comments), [§3.4](docs/design/mora.md#34-keywords), [§4.2](docs/design/mora.md#42-file-layout), [§4.3](docs/design/mora.md#43-using-directives), [§7.1](docs/design/mora.md#71-operator-precedence). Crates: `mora-syntax`, `mora-diag`. Blocked by: M1.4, M0.7.
+Spec: [§3.2](docs/design/mora.md#32-comments-and-doc-comments), [§3.4](docs/design/mora.md#34-keywords), [§4.2](docs/design/mora.md#42-file-layout), [§4.3](docs/design/mora.md#43-using-directives), [§7.1](docs/design/mora.md#71-operator-precedence), [§6.5](docs/design/mora.md#65-positional-structs), [§6.9](docs/design/mora.md#69-members). Crates: `mora-syntax`, `mora-diag`. Blocked by: M1.4, M0.7.
 
-Targeted errors with fixes for C# constructs Mora replaces: `MR0002` (`#` directives), `MR0101` to `MR0109` (reserved keywords), `MR0120` (block namespaces, with a rewrite), `MR0121` (`using` disposal), `MR0160` (`x!`). Each code gets its `docs/errors` page.
+Targeted errors with fixes for C# constructs Mora replaces: `MR0002` (`#` directives), `MR0101` to `MR0109` (reserved keywords), `MR0120` (block namespaces, with a rewrite), `MR0121` (`using` disposal), `MR0133` (`record`, with a rewrite to `struct`), `MR0134` (`required` and `init`), `MR0160` (`x!`). Each code gets its `docs/errors` page.
 
 Done when:
 
@@ -415,14 +415,14 @@ Done when:
 
 ## M2: Memory model
 
-**Goal.** Classes, records, unique classes, parameter modes, moves, drops, destructors, borrows, views, weak references and closures, with ARC inserted and optimized, and a test suite that proves the rules of §10.
+**Goal.** Classes, structs, unique classes, parameter modes, moves, drops, destructors, borrows, views, weak references and closures, with ARC inserted and optimized, and a test suite that proves the rules of §10.
 
 **Exit criteria.** The suite of §20.3 passes; the §10.13 snapshots pass.
 
 | ID | Deliverable | Area | Blocked by |
 |---|---|---|---|
 | [M2.1](#m21-classes-fields-properties-and-constructors) | Classes, fields, properties and constructors | `hir` | M1.16 |
-| [M2.2](#m22-records-and-record-structs) | Records and record structs | `hir` | M2.1 |
+| [M2.2](#m22-positional-structs) | Positional structs | `hir` | M2.1 |
 | [M2.3](#m23-shared-objects-and-reference-counts-in-the-runtime) | Shared objects and reference counts in the runtime | `rt` | M2.1 |
 | [M2.4](#m24-parameter-modes-and-this) | Parameter modes and `this` | `mir` | M2.1 |
 | [M2.5](#m25-move-checking-and-drop-elaboration) | Move checking and drop elaboration | `mir` | M2.4 |
@@ -441,22 +441,22 @@ Done when:
 
 Spec: [§6.3](docs/design/mora.md#63-classes), [§6.9](docs/design/mora.md#69-members). Crates: `mora-hir`, `mora-mir`. Blocked by: M1.16.
 
-Class declarations, read-only and `mut` fields (D-15), auto-properties with `get`, `set`, `init` and `private set`, computed properties, constructors and primary constructors, definite initialization `MR0140`, object initializers and `required` (`MR0144`), and `new` producing a heap object (counting arrives in M2.3).
+Class declarations, read-only and `mut` fields (D-15), auto-properties with `get`, `set` and `private set`, computed properties, constructors and primary constructors, definite initialization `MR0140`, memberwise creation (`MR0143`, `MR0144`), initializers after a constructor, and `new` producing a heap object (counting arrives in M2.3).
 
 Done when:
 
-- UI tests for `MR0140`, `MR0144` and assigning a read-only field.
+- UI tests for `MR0140`, `MR0143`, `MR0144` and assigning a read-only field.
 - Run tests for every property form.
 
-### M2.2 Records and record structs
+### M2.2 Positional structs
 
-Spec: [§6.5](docs/design/mora.md#65-records). Crates: `mora-hir`. Blocked by: M2.1.
+Spec: [§6.2](docs/design/mora.md#62-structs), [§6.5](docs/design/mora.md#65-positional-structs). Crates: `mora-hir`. Blocked by: M2.1.
 
-Positional records and record structs, generated constructor and `{ get; init; }` properties, `with` expressions and deconstruction. Equality, hashing and printing come from macros in M4.9.
+Positional structs with their generated constructor, public read-only fields and deconstruction, and `with` expressions on every struct. Equality, hashing and printing come from macros in M4.9.
 
 Done when:
 
-- Run tests for `with` and deconstruction on both kinds.
+- Run tests for `with` on plain and positional structs, and for deconstruction.
 
 ### M2.3 Shared objects and reference counts in the runtime
 
@@ -806,7 +806,7 @@ Done when:
 
 **Goal.** Attribute and expression macros written in Mora, run at compile time on a typed model, plus the standard-library macros that replace a derive list.
 
-**Exit criteria.** Every §9 example runs; `[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` pass their `MacroTest` suites; records get their automatic implementations from these macros.
+**Exit criteria.** Every §9 example runs; `[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` pass their `MacroTest` suites; structs get their automatic implementations from these macros.
 
 | ID | Deliverable | Area | Blocked by |
 |---|---|---|---|
@@ -908,14 +908,14 @@ Done when:
 
 ### M4.9 Standard-library macros
 
-Spec: [§9.1](docs/design/mora.md#91-a-complete-example), [§9.6](docs/design/mora.md#96-what-a-macro-sees), [§9.9](docs/design/mora.md#99-standard-library-macros), [§6.5](docs/design/mora.md#65-records). Crates: `std`, `mora-hir`. Blocked by: M4.7.
+Spec: [§9.1](docs/design/mora.md#91-a-complete-example), [§9.6](docs/design/mora.md#96-what-a-macro-sees), [§9.9](docs/design/mora.md#99-standard-library-macros), [§6.2](docs/design/mora.md#62-structs). Crates: `std`, `mora-hir`. Blocked by: M4.7.
 
-`[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` with the behaviour of §9.9, and their automatic application to records, record structs, tuples, enums and unions.
+`[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` with the behaviour of §9.9, and their automatic application to structs, tuples, enums and unions.
 
 Done when:
 
 - A `MacroTest` suite per macro.
-- §9.1's example prints `True`; records compare structurally and print as `User { Id = 1, ... }`.
+- §9.1's example prints `True`; structs compare by fields and print as `User { Id = 1, ... }`.
 
 ## M5: Standard library core
 
