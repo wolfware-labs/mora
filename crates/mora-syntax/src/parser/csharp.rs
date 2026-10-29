@@ -240,6 +240,14 @@ pub(crate) const RESERVED_MODIFIERS: &[SyntaxKind] = &[
     K::FixedKw,
 ];
 
+/// Whether a reserved modifier starts a declaration here, rather than the
+/// statements `unsafe { ... }` and `fixed (...) ...`.
+pub(crate) fn at_reserved_modifier(p: &Parser<'_>) -> bool {
+    p.at_any(RESERVED_MODIFIERS)
+        && !(p.at(K::UnsafeKw) && p.nth(1) == K::LBrace)
+        && !(p.at(K::FixedKw) && p.nth(1) == K::LParen)
+}
+
 /// A reserved C# keyword among the modifiers of a declaration, such as
 /// `virtual` or `event`. Takes it and returns `true` if there is one.
 /// `abstract` is a modifier of Mora's static abstract interface members and

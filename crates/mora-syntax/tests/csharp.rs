@@ -135,6 +135,12 @@ fn each_construct_reports_one_error_and_recovers() {
         ("void F() { unsafe void G() { } }", &[("MR0107", "unsafe")]),
         ("void F() { unsafe { G(); } }", &[("MR0107", "unsafe")]),
         ("unsafe { G(); }", &[("MR0107", "unsafe")]),
+        ("fixed (int* p = &x) { G(); }", &[("MR0107", "fixed")]),
+        // A reserved modifier before a tuple type still starts a declaration.
+        (
+            "virtual (int, int) F() => (1, 2);",
+            &[("MR0108", "virtual")],
+        ),
         // An anonymous delegate is an expression, wherever it starts.
         (
             "void F() { delegate (int x) { G(); }; H(); }",

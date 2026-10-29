@@ -296,7 +296,7 @@ fn at_declaration_start(p: &Parser<'_>) -> bool {
     if at_attribute(p)
         || (p.at_any(MODIFIERS) && !p.at(K::ThisKw))
         || at_contextual_modifier(p)
-        || (p.at_any(csharp::RESERVED_MODIFIERS) && !(p.at(K::UnsafeKw) && p.nth(1) == K::LBrace))
+        || csharp::at_reserved_modifier(p)
     {
         return true;
     }
