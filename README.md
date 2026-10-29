@@ -2,7 +2,7 @@
 
 [![Coverage](https://img.shields.io/codecov/c/github/wolfware-labs/mora?logo=codecov&label=coverage)](https://codecov.io/gh/wolfware-labs/mora)
 
-Mora is a programming language that reads and writes like modern C#, manages memory with reference counting and single ownership instead of a garbage collector, and compiles to one native executable. The compiler, runtime, language server and package tool are written in Rust.
+Mora is a programming language with the syntax and feel of modern C#, memory managed by reference counting and single ownership instead of a garbage collector, and compilation to one native executable. It borrows C#'s look and idioms without copying the language: no exceptions, no inheritance, no `null` references. The compiler, runtime, language server and package tool are written in Rust.
 
 ```mora
 Console.WriteLine("Hello, world!");
@@ -15,7 +15,7 @@ Mora is in design and early development. Nothing here is ready to install.
 - [Specification](docs/design/mora.md): the language, its memory model, runtime, standard library and toolchain, as the MVP is built against them.
 - [Roadmap](ROADMAP.md): milestones M0 to M13, with every MVP deliverable tracked as a [GitHub issue](https://github.com/wolfware-labs/mora/issues).
 
-The MVP is done when a REST API with JSON bodies, written in Mora, builds into a native executable on Linux, macOS and Windows, and a C# developer can install the toolchain with one command and get diagnostics in VS Code.
+The MVP is done when a REST API with JSON bodies, written in Mora, builds into a native executable on Linux, macOS and Windows, and a developer new to Mora can install the toolchain with one command and get diagnostics in VS Code.
 
 ## Contributing
 
