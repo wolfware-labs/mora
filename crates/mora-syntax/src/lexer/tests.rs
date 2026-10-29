@@ -733,7 +733,21 @@ fn legacy_interpolated_strings_are_errors_with_a_backtick_fix() {
     ] {
         assert_eq!(legacy_fixed(text), fixed, "{text}");
         assert!(errors(fixed).is_empty(), "{fixed}");
+        assert_eq!(holes(fixed), holes(text), "{text} -> {fixed}");
     }
+}
+
+/// The holes of an interpolated string: their tokens, without the text
+/// between them and with hole braces counted once, however many there are.
+fn holes(text: &str) -> Vec<(SyntaxKind, &str)> {
+    tokens(text)
+        .into_iter()
+        .filter(|(kind, _)| !matches!(kind, K::InterpStart | K::InterpText | K::InterpEnd))
+        .map(|(kind, text)| match kind {
+            K::HoleOpen | K::HoleClose => (kind, ""),
+            _ => (kind, text),
+        })
+        .collect()
 }
 
 #[test]
