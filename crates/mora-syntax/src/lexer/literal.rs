@@ -100,6 +100,7 @@ mod tests {
         }
         assert_eq!(char_value("'ab'"), None);
         assert_eq!(char_value("''"), None);
+        assert_eq!(char_value(r"'\nx'"), None);
     }
 
     #[test]

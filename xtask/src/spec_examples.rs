@@ -578,9 +578,40 @@ F();
     }
 
     #[test]
+    fn an_error_example_fails_on_its_code_as_a_warning() {
+        struct Mild;
+        impl Compiler for Mild {
+            fn check(&self, path: &str, text: &str) -> Checked {
+                let mut checked = Obedient.check(path, text);
+                checked.diagnostics[0].severity = Severity::Warning;
+                checked
+            }
+            fn backends(&self) -> &[Backend] {
+                &[]
+            }
+            fn run(&self, _: &str, _: &str, _: Backend) -> Result<Output, Checked> {
+                unreachable!()
+            }
+        }
+        let example = &repo("").examples[2];
+        assert_eq!(run_example(example, &Mild), ["MR0300 was not reported"]);
+    }
+
+    #[test]
+    fn other_languages_end_only_at_their_fence() {
+        let text = "```sh\necho\n# 9.9 a shell comment\n```\n\n```mora\n// expect: x\n```\n";
+        let examples = extract("doc.md", None, text);
+        let ids: Vec<_> = examples.iter().map(|e| e.id.as_str()).collect();
+        assert_eq!(ids, ["0#1"]);
+    }
+
+    #[test]
     fn repository_passes() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-        let outcome = check(&load(&root).unwrap(), mora_testkit::compiler());
+        let repo = load(&root).unwrap();
+        assert!(repo.examples.len() > 1);
+        assert!(repo.deliverables.contains(&"M1.4".to_owned()));
+        let outcome = check(&repo, mora_testkit::compiler());
         assert_eq!(outcome.problems, []);
     }
 }

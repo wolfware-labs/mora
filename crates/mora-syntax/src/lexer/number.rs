@@ -71,7 +71,10 @@ pub fn real_value(text: &str) -> Option<(f64, RealSuffix)> {
 pub(crate) fn check(text: &str) -> (SyntaxKind, Vec<(Code, std::ops::Range<usize>, String)>) {
     let whole = 0..text.len();
     let Some(parts) = split(text) else {
-        let kind = if text.contains(['.', 'e', 'E']) && !text.starts_with("0x") {
+        let hex = text
+            .get(..2)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("0x"));
+        let kind = if text.contains(['.', 'e', 'E']) && !hex {
             SyntaxKind::RealNumber
         } else {
             SyntaxKind::IntNumber
@@ -307,6 +310,19 @@ mod tests {
         ] {
             let (_, codes) = codes_of(text);
             assert_eq!(codes, vec![codes::MR0014], "{text}");
+        }
+    }
+
+    #[test]
+    fn malformed_numbers_keep_their_kind() {
+        for (text, kind) in [
+            ("0xge", SyntaxKind::IntNumber),
+            ("0Xge", SyntaxKind::IntNumber),
+            ("12abc", SyntaxKind::IntNumber),
+            ("1e", SyntaxKind::RealNumber),
+            ("1._5", SyntaxKind::RealNumber),
+        ] {
+            assert_eq!(codes_of(text), (kind, vec![codes::MR0014]), "{text}");
         }
     }
 }

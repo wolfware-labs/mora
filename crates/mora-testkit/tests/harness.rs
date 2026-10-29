@@ -5,6 +5,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 
 use mora_diag::{Code, Diagnostic, Files, Label};
 use mora_span::{Span, TextRange, TextSize};
@@ -340,5 +341,37 @@ fn run_without_a_backend_fails() {
     assert_eq!(
         failure(&report),
         "the compiler has no backend to run programs with"
+    );
+}
+
+#[test]
+fn an_unreadable_snapshot_fails_its_case() {
+    let root = suite_dir("ui-unreadable", "ui", &[("a.mr", "print a\n")]);
+    fs::create_dir(root.join("tests/ui/a.stderr")).unwrap();
+    let report = ui(&root, &Options::default());
+    let problems = failure(&report);
+    assert!(
+        problems.starts_with("cannot read the snapshot: "),
+        "{problems}"
+    );
+}
+
+#[test]
+fn finish_fails_only_when_a_case_failed() {
+    let code = |report: &Report| format!("{:?}", report.finish("ui"));
+    let passed = Report {
+        passed: 2,
+        failures: Vec::new(),
+    };
+    assert_eq!(code(&passed), format!("{:?}", ExitCode::SUCCESS));
+    assert_eq!(passed.summary("ui"), "ui result: ok. 2 passed; 0 failed");
+    let failed = Report {
+        passed: 1,
+        failures: vec![("tests/ui/a.mr".to_owned(), "broken".to_owned())],
+    };
+    assert_eq!(code(&failed), format!("{:?}", ExitCode::FAILURE));
+    assert_eq!(
+        failed.summary("run"),
+        "run result: FAILED. 1 passed; 1 failed"
     );
 }

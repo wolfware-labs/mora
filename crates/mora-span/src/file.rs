@@ -66,4 +66,11 @@ mod tests {
     fn cover_refuses_two_files() {
         assert_eq!(span(1, 4, 6).cover(span(2, 4, 6)), None);
     }
+
+    #[test]
+    fn file_id_keeps_its_raw_value_and_displays_it() {
+        let id = FileId::new(42);
+        assert_eq!(id.raw(), 42);
+        assert_eq!(id.to_string(), "file#42");
+    }
 }

@@ -74,17 +74,23 @@ impl Report {
         for (path, problems) in &self.failures {
             println!("---- {path} ----\n{problems}");
         }
-        let failed = self.failures.len();
-        let result = if failed == 0 { "ok" } else { "FAILED" };
-        println!(
-            "{suite} result: {result}. {} passed; {failed} failed",
-            self.passed
-        );
-        if failed == 0 {
+        println!("{}", self.summary(suite));
+        if self.failures.is_empty() {
             ExitCode::SUCCESS
         } else {
             ExitCode::FAILURE
         }
+    }
+
+    /// The last line [`Report::finish`] prints, as the standard harness
+    /// words it.
+    pub fn summary(&self, suite: &str) -> String {
+        let failed = self.failures.len();
+        let result = if failed == 0 { "ok" } else { "FAILED" };
+        format!(
+            "{suite} result: {result}. {} passed; {failed} failed",
+            self.passed
+        )
     }
 }
 

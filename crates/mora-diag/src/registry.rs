@@ -218,4 +218,24 @@ mod tests {
             assert!(pair[0].last < pair[1].first);
         }
     }
+
+    #[test]
+    fn contains_is_inclusive_at_both_ends() {
+        let range = CodeRange::new(300, 399, "Memory model");
+        assert!(!range.contains(Code::new(299)));
+        assert!(range.contains(Code::new(300)));
+        assert!(range.contains(Code::new(350)));
+        assert!(range.contains(Code::new(399)));
+        assert!(!range.contains(Code::new(400)));
+    }
+
+    #[test]
+    fn codes_between_ranges_have_no_range() {
+        assert_eq!(range_of(Code::new(0)), None);
+        assert_eq!(range_of(Code::new(1500)), None);
+        assert_eq!(
+            range_of(Code::new(310)).map(|range| range.kind),
+            Some(RANGES[3].kind)
+        );
+    }
 }

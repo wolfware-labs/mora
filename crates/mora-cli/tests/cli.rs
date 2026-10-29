@@ -147,3 +147,40 @@ fn color_follows_the_option() {
     let auto = stderr(&mora(&["check"]));
     assert!(!auto.contains('\u{1b}'), "{auto:?}");
 }
+
+#[test]
+fn version_lists_the_runtimes_installed_beside_the_executable() {
+    let root = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("toolchain");
+    let _ = std::fs::remove_dir_all(&root);
+    let exe = std::path::Path::new(env!("CARGO_BIN_EXE_mora"));
+    let bin = root.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let installed = bin.join(exe.file_name().unwrap());
+    // A hard link, not a copy: a copy is a file this test writes and then
+    // runs, which fails with "Text file busy" when another test thread
+    // starts a process while the copy is still open.
+    std::fs::hard_link(exe, &installed)
+        .or_else(|_| std::fs::copy(exe, &installed).map(drop))
+        .unwrap();
+    for target in ["alpha-os", "beta-os"] {
+        let dir = root.join("lib/rt").join(target);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("libmora_rt.a"), "").unwrap();
+    }
+    // A directory without the library is not an installed runtime.
+    std::fs::create_dir_all(root.join("lib/rt/gamma-os")).unwrap();
+
+    let run = |args: &[&str]| Command::new(&installed).args(args).output().unwrap();
+    let text = stdout(&run(&["version"]));
+    assert_eq!(
+        text.lines().nth(2),
+        Some("runtime targets: alpha-os, beta-os"),
+        "{text}"
+    );
+    let json = stdout(&run(&["version", "--message-format", "json"]));
+    assert!(
+        json.trim_end()
+            .ends_with(",\"runtime_targets\":[\"alpha-os\",\"beta-os\"]}"),
+        "{json}"
+    );
+}

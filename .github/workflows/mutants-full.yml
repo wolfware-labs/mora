@@ -1,0 +1,57 @@
+name: mutants-full
+
+# Mutation testing over the whole workspace (spec §20.5). Pull requests only
+# mutate the lines they change; this run catches tests that stopped checking
+# code nobody touched since. Weekly and on demand, not a required check.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  mutants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    name: mutants (shard ${{ matrix.shard }}/16)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: mutants
+      - uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # v2.87.32
+        with:
+          tool: cargo-mutants
+      # Same rules as the pull request job in ci.yml: status 3 means some
+      # mutants only timed out, which counts as caught.
+      - name: Mutate the workspace
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          status=0
+          cargo mutants --in-place --no-shuffle \
+            --shard "$SHARD/16" --output "$RUNNER_TEMP" || status=$?
+          if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then
+            exit "$status"
+          fi
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: mutants-full-${{ matrix.shard }}
+          path: ${{ runner.temp }}/mutants.out
+          retention-days: 30

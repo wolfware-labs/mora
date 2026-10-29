@@ -100,4 +100,12 @@ mod tests {
         let (key, _) = interner.ids.get_key_value("shared").unwrap();
         assert!(Arc::ptr_eq(key, &interner.strings[s.0 as usize]));
     }
+
+    #[test]
+    fn is_empty_until_the_first_intern() {
+        let mut interner = Interner::new();
+        assert!(interner.is_empty());
+        interner.intern("x");
+        assert!(!interner.is_empty());
+    }
 }

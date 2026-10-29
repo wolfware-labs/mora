@@ -1120,6 +1120,39 @@ mod tests {
     }
 
     #[test]
+    fn repeated_accessors_merge() {
+        let token = |kind: &str| Field::Token {
+            name: "op".into(),
+            kinds: vec![kind.into()],
+        };
+        let node = |many| Field::Node {
+            name: "x".into(),
+            ty: "Name".into(),
+            many,
+            nth: 0,
+            after: vec![],
+            before: vec![],
+        };
+        let fields = vec![
+            token("Plus"),
+            token("Minus"),
+            token("Plus"),
+            node(false),
+            node(true),
+        ];
+        assert_eq!(
+            dedupe(fields).unwrap(),
+            [
+                Field::Token {
+                    name: "op".into(),
+                    kinds: vec!["Plus".into(), "Minus".into()],
+                },
+                node(true),
+            ]
+        );
+    }
+
+    #[test]
     fn names() {
         assert_eq!(snake("QuestionQuestionEq"), "question_question_eq");
         assert_eq!(method("type"), "ty");
