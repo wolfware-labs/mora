@@ -10,3 +10,53 @@ exclude_globs = [
     "xtask/src/main.rs",
     "xtask/src/runtime.rs",
 ]
+
+# Mutants that cannot change behaviour, found by a full run. Each entry is
+# anchored on file:line:col, so an edit that moves the code brings the
+# mutant back for review instead of hiding a new one with the same name.
+exclude_re = [
+    # The overflow fallback: reached only after 584 years of uptime.
+    '^crates/mora-rt/src/pal\.rs:89:57: ',
+    # Only a linked Mora program calls `main`; no test links one yet.
+    '^crates/mora-rt/src/start\.rs:16:5: ',
+    # Not called yet: codegen emits it only when no token separates two
+    # children of one type, and the grammar has no such pair today.
+    '^crates/mora-syntax/src/ast\.rs:56:9: ',
+    # Lexer arithmetic that lands on the same result: index 0 of an
+    # identifier is always an identifier character, number errors always
+    # start at offset 0, quotes stepped one at a time reach the same place,
+    # and the raw-string indent scan only gains or loses blank lines.
+    '^crates/mora-syntax/src/lexer/mod\.rs:467:39: ',
+    '^crates/mora-syntax/src/lexer/mod\.rs:499:51: ',
+    '^crates/mora-syntax/src/lexer/mod\.rs:700:25: ',
+    '^crates/mora-syntax/src/lexer/mod\.rs:943:60: ',
+    '^crates/mora-syntax/src/lexer/mod\.rs:944:26: ',
+    '^crates/mora-syntax/src/lexer/mod\.rs:944:57: ',
+    '^crates/mora-syntax/src/lexer/number\.rs:235:37: ',
+    # Popping the last event and leaving a tombstone build the same tree.
+    '^crates/mora-syntax/src/parser/mod\.rs:175:21: ',
+    # The scan starting one token early sees the `?` itself, which it skips;
+    # scanning past the end reads the end-of-file kind.
+    '^crates/mora-syntax/src/parser/exprs\.rs:262:20: ',
+    '^crates/mora-syntax/src/parser/exprs\.rs:263:13: ',
+    # At the top level an item without attributes only gets this far when
+    # it starts a declaration, which the attributed-statement arms never take.
+    '^crates/mora-syntax/src/parser/items\.rs:180:30: ',
+    # The placeholder compiler has no backends either way.
+    '^crates/mora-testkit/src/compiler\.rs:38:9: ',
+    # Width of a separator line; any width reads the same.
+    '^crates/mora-testkit/src/diff\.rs:32:87: ',
+    # Codegen paths that produce the same text: the widened ranges only add
+    # nodes, which carry no token kind; equal fields merge to themselves; and
+    # `show` already brackets a nested sequence or alternative.
+    '^xtask/src/codegen\.rs:584:32: ',
+    '^xtask/src/codegen\.rs:590:40: ',
+    '^xtask/src/codegen\.rs:609:31: ',
+    '^xtask/src/codegen\.rs:663:9: ',
+    '^xtask/src/codegen\.rs:674:21: ',
+    # Windows hosts only; CI mutates on Linux.
+    '^xtask/src/sysroot\.rs:265:18: ',
+    '^xtask/src/sysroot\.rs:265:34: ',
+    # `ALLOW` is empty, so the comparison never runs.
+    '^xtask/src/target_names\.rs:325:62: ',
+]
