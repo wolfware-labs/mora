@@ -441,7 +441,7 @@ Done when:
 
 Spec: [§6.3](docs/design/mora.md#63-classes), [§6.9](docs/design/mora.md#69-members). Crates: `mora-hir`, `mora-mir`. Blocked by: M1.16.
 
-Class declarations, read-only and `mut` fields (D-15), auto-properties with `get`, `set` and `private set`, computed properties, constructors and primary constructors, definite initialization `MR0140`, memberwise creation (`MR0143`, `MR0144`), initializers after a constructor, and `new` producing a heap object (counting arrives in M2.3).
+Class declarations, read-only and `mut` fields (D-15), auto-properties with `get`, `set` and `private set`, computed properties, constructors with `: this(...)` chaining, definite initialization `MR0140`, memberwise creation (`MR0143`, `MR0144`), initializers after a constructor, and `new` producing a heap object (counting arrives in M2.3).
 
 Done when:
 
