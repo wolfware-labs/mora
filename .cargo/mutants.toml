@@ -28,9 +28,9 @@ exclude_re = [
     # blank lines.
     '^crates/mora-syntax/src/lexer/mod\.rs:560:39: replace > with >= in Lexer<.a>::code_token$',
     '^crates/mora-syntax/src/lexer/mod\.rs:592:51: replace \+ with - in Lexer<.a>::code_token$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:1119:60: replace \+ with \* in Lexer<.a>::check_raw$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:1120:26: replace < with <= in Lexer<.a>::check_raw$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:1120:57: replace \+ with \* in Lexer<.a>::check_raw$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:1132:60: replace \+ with \* in Lexer<.a>::check_raw$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:1133:26: replace < with <= in Lexer<.a>::check_raw$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:1133:57: replace \+ with \* in Lexer<.a>::check_raw$',
     '^crates/mora-syntax/src/lexer/number\.rs:235:37: replace \+ with \* in separators$',
     # Popping the last event and leaving a tombstone build the same tree.
     '^crates/mora-syntax/src/parser/mod\.rs:193:21: replace \+ with - in Marker::abandon$',

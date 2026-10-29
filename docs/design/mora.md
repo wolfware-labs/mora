@@ -372,7 +372,7 @@ let sql = `
 let json = $$`{"id": {{user.Id}}}`;
 ```
 
-- A raw string opens with a run of N ≥ 1 backticks and closes with the next run of exactly N backticks. A run of any other length is text, so a raw string that holds a run of k backticks is delimited by more than k: ``` ``a`b`` ``` holds `` a`b ``.
+- A raw string opens with a run of N ≥ 1 backticks and closes with the next run of exactly N backticks. A run of any other length is text, so N only has to differ from the length of every run inside: ``` ``a`b`` ``` holds `` a`b ``. One backtick more than the longest run inside always works.
 - When the opening run is followed by other text on its line, the string is on one line: the closing run is on the same line, and the value is everything between the two runs.
 - When the opening run is followed only by whitespace up to the end of its line, the string spans lines. The value starts on the next line and ends before the line of the closing run, which holds nothing but whitespace before the run. That whitespace is removed from the start of every content line, so the value can be indented with the code around it; a line that holds only whitespace may be shorter. Line breaks inside the value are kept as written.
 - `$` before a raw string makes it interpolated: every `{` opens a hole `{expr}`, and a `}` outside a hole is an error. Text with braces uses more `$`. With N `$`, a hole is N braces on each side and a shorter run of braces is text: in `` $$`{"id": {{id}}}` ``, `{{id}}` is a hole and the outer braces are text. A run of braces as long as two hole delimiters is ambiguous and an error. The hole syntax (alignment, format) is the same for every interpolated string.

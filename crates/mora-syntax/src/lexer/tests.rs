@@ -635,9 +635,8 @@ fn verbatim_string_takes_a_u8_suffix() {
 #[test]
 fn backslashes_are_text_in_verbatim_and_raw_interpolated_strings() {
     assert!(errors("$`\\q`").is_empty());
-    for text in ["$@\"\\q\"", "$\"\"\"\\q\"\"\""] {
-        assert!(errors(text).iter().all(|e| e.0 == codes::MR0018), "{text}");
-    }
+    assert_eq!(errors("$@\"\\q\""), [(codes::MR0018, "$@\"")]);
+    assert_eq!(errors("$\"\"\"\\q\"\"\""), [(codes::MR0018, "$\"\"\"")]);
     assert_eq!(errors("$\"\\q\""), [(codes::MR0013, "\\q")]);
 }
 
