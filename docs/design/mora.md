@@ -90,8 +90,8 @@ Two release lines follow from that:
 
 | Term | Meaning |
 |---|---|
-| **Value type** | `struct`, `record struct`, `union`, `enum`, primitive, tuple. Lives inline, copied or moved. |
-| **Shared class** | `class` or `record`. Heap object with a reference count; aliases allowed. |
+| **Value type** | `struct`, `union`, `enum`, primitive, tuple. A value with no identity: copied or moved, and stored where the compiler decides (§6.1). |
+| **Shared class** | `class`. Heap object with identity and a reference count; aliases allowed. |
 | **Unique class** | `unique class`. Heap object with exactly one owner; moved, never aliased. |
 | **Move-only type** | A unique class, or any value type that contains a move-only field or declares a destructor (§10.2). |
 | **View type** | `ref struct`, `Span<T>`, `ReadOnlySpan<T>` and non-escaping closures. Can only live on the stack, for at most the current function call (§10.6). |
@@ -132,10 +132,10 @@ kind = "app"
 namespace UsersApi;
 
 [Json]
-public record User(int Id, string Name, string? Email);
+public struct User(int Id, string Name, string? Email);
 
 [Json]
-public record NewUser(string Name, string? Email);
+public struct NewUser(string Name, string? Email);
 ```
 
 `src/UserStore.mr`:
@@ -210,7 +210,7 @@ What the program relies on, with the section that defines each:
 | Line | Feature | Section |
 |---|---|---|
 | `[Json]` | Standard-library macro that generates JSON serialization | §9.9, §16.3 |
-| `record User(...)` | Shared class with positional properties and structural equality | §6.5 |
+| `struct User(...)` | Value with public read-only fields, a positional constructor and generated equality | §6.2, §6.5 |
 | `string? Email` | `T?` is an option type; `none` is its empty value | §5.6 |
 | `private mut int _nextId` | Fields are read-only unless marked `mut` | §6.3 |
 | `let` / `var` | Immutable and mutable locals | §7.10 |
@@ -240,7 +240,7 @@ DELETE /users/1                     -> 404
 ### 2.3 Memory at a glance
 
 ```mora
-public record struct Point(float X, float Y); // value: copied, lives inline
+public struct Point(float X, float Y);       // value: copied, no identity
 
 public class Node                            // shared: reference counted
 {
@@ -325,6 +325,8 @@ ulong union unique unsafe ushort using var virtual void volatile weak where whil
 ```
 
 Contextual keywords (keywords only in the listed position): `get`, `set`, `init`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `record` (declarations); `required`, `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows ref struct`, §8.2); `_` (discards in patterns and deconstruction, §7.8).
+
+Of these, `record`, `required` and `init` exist only to be reported. `record` at the start of a type declaration is error `MR0133` (§6.5). `required` as a modifier and `init` as an accessor are error `MR0134` (§6.9). Each error comes with a fix. Elsewhere the three words are identifiers.
 
 Some C# keywords name features Mora leaves out. They are reserved, so code written from C# habit gets an error that says what Mora uses instead, rather than a confusing parse error:
 
@@ -468,8 +470,8 @@ Having both top-level statements and a `Main`, or more than one `Main`, is error
 
 | Kind | Declared as | Assignment and passing | Freed when | §|
 |---|---|---|---|---|
-| Value | `struct`, `record struct`, `union`, `enum`, primitives, tuples | Copy, or move if move-only | Its owner goes out of scope or is overwritten | 6.2, 6.6 |
-| Shared reference | `class`, `record` | Copies the reference and retains | The last strong reference is released | 6.3 |
+| Value | `struct`, `union`, `enum`, primitives, tuples | Copy, or move if move-only | Its owner goes out of scope or is overwritten | 6.2, 6.6 |
+| Shared reference | `class` | Copies the reference and retains | The last strong reference is released | 6.3 |
 | Unique reference | `unique class` | Moves the reference | Its single owner goes out of scope | 6.4 |
 | Weak reference | `weak T` where `T` is a shared class | Copies the weak reference | Never owns its target | 9.7 |
 | View | `ref struct`, `Span<T>`, `ReadOnlySpan<T>`, non-escaping closures | Copy; can never leave the current call | Never owns | 9.6 |
@@ -585,9 +587,9 @@ Checked conversions that can fail return options: `int.TryFrom(x)` gives `int?`.
 ### 6.1 Overview
 
 ```ebnf
-TypeDecl  = StructDecl | ClassDecl | RecordDecl | UnionDecl | EnumDecl | InterfaceDecl ;
+TypeDecl  = StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl ;
 Modifier  = "public" | "internal" | "private" | "file" | "static" | "mut" | "readonly"
-          | "unique" | "shared" | "ref" | "required" | "async" | "lazy" | "const" | "indirect"
+          | "unique" | "shared" | "ref" | "async" | "lazy" | "const" | "indirect"
           | "extern" ;
 FunctionDecl = Attribute* Modifier* Type Identifier TypeParams? "(" Params? ")" Constraints*
                ( Block | "=>" Expr ";" | ";" ) ;   (* ";" only with "extern", §13.9 *)
@@ -596,6 +598,13 @@ BaseList   = ":" Type ( "," Type )* ;                 (* interfaces only in the 
 ```
 
 A type may be generic (§8), may list interfaces it implements, and may nest other type declarations. Every type is sealed: there is no class inheritance in the MVP (OQ-4), and a base list may only name interfaces (`MR0108` otherwise).
+
+**Struct or class.** The choice between `struct` and `class` is about meaning, never about cost (D-56):
+
+- A `struct` is a value. It has no identity: assignment copies a copyable struct and moves a move-only one, and two structs are equal when their fields are (§6.2).
+- A `class` is an object with identity. Assignment copies a reference to the same object, which is shared and reference counted (§6.3). A `unique class` is an object with identity and one owner (§6.4).
+
+The compiler decides how a value is stored (inline in its owner, on the stack or in a heap cell), under the published rules of §10.13. The programmer does not choose it. A struct has no identity, so where it is stored cannot change what a program does.
 
 ### 6.2 Structs
 
@@ -612,10 +621,13 @@ public struct Vector3
 }
 ```
 
-- A struct is a value type. It is **copyable** when every field is copyable and it declares no destructor; otherwise it is **move-only** (§10.2).
+- A struct is a value type with no identity (§6.1). It is **copyable** when every field is copyable and it declares no destructor; otherwise it is **move-only** (§10.2).
+- Fields are read-only unless marked `mut`, as in classes (D-15, §6.3).
+- Every struct gets these members without writing them: `IEquatable<T>` with `==` and `!=` comparing fields in order, `IHashable`, and `IDisplay`, which prints `Vector3 { X = 1, Y = 2, Z = 3 }` (§9.6). Each one is generated only when every field supports it. A member the struct declares itself replaces the generated one. A generated member that the program never uses costs nothing: generics are monomorphized and unused functions are not compiled.
+- `v with { X = 0 }` creates a copy of `v` with the listed fields replaced. It may name read-only fields, because it creates a new value and does not change `v`. It may name only fields that are visible where it is written. It needs a copyable struct.
 - Struct methods receive `this` as an `in` borrow. A method marked `mut` receives `this` as a `ref` borrow and may assign fields; calling it requires a mutable place (`MR0141`). This replaces C#'s `readonly` members with the opposite default.
 - `ref struct` declares a view type (§10.6).
-- `new S()` with no constructor initializes every field to its initializer or, failing that, its default (§8.5); it is error `MR0143` when some field has neither.
+- A struct that declares no constructor is created memberwise, `new Vector3 { X = 1, Y = 2, Z = 3 }` (§6.9).
 
 ### 6.3 Classes
 
@@ -633,8 +645,9 @@ public class Counter
 }
 ```
 
-- A class is a shared reference type: heap-allocated with a reference count (§10.4, §13.3).
-- **Fields are read-only unless marked `mut`** (D-15). A read-only field is assigned only in its initializer or a constructor. `readonly` is accepted as a redundant modifier. `{ get; set; }` and `{ get; private set; }` auto-properties have a mutable backing field; `{ get; }` and `{ get; init; }` do not.
+- A class is a shared reference type with identity: heap-allocated with a reference count (§10.4, §13.3).
+- **Fields are read-only unless marked `mut`** (D-15). A read-only field is assigned only in its initializer, a constructor or a memberwise `new` (§6.9). `readonly` is accepted as a redundant modifier. `{ get; set; }` and `{ get; private set; }` auto-properties have a mutable backing field; `{ get; }` does not.
+- A class gets no generated equality, hashing, printing or `with`: two objects with the same fields are still two objects. `==` on a class is error `MR0233` unless the class implements `IEquatable<T>`, by hand or with `[Equatable]` (§9.9). `ReferenceEquals(a, b)` compares identity.
 - Mutating a `mut` field through any reference is allowed, as in C#. A `let` local of class type means the local cannot be reassigned; it does not freeze the object.
 - A class marked `shared` may be referenced from several threads (post-MVP, §12.6). In the MVP the modifier is parsed, checked for its field rules and otherwise has no effect.
 
@@ -652,23 +665,22 @@ public unique class FileLock
 }
 ```
 
-A unique class is a heap object with exactly one owner. Assigning it, passing it to a `move` parameter or returning it moves it. Using a moved-from variable is error `MR0300` (§10.5). A unique class has no reference count: the owner frees it when it goes out of scope.
+A unique class is a heap object with exactly one owner. Assigning it, passing it to a `move` parameter or returning it moves it. Using a moved-from variable is error `MR0300` (§10.5). A unique class has no reference count: the owner frees it when it goes out of scope. Like a class, it gets no generated equality, and one that declares no constructor is created memberwise (§6.9).
 
 Because a unique object is reached through one owner, it follows the mutation rules of structs, not of shared classes: its `mut` fields can be assigned only through a `ref` borrow, so methods that assign fields are marked `mut` (they take `ref this`) and calling them requires a mutable place (`MR0141`). An `in` borrow of a unique object is read-only. A method marked `move` consumes the object.
 
 In the standard library, `Future<T>`, `TaskHandle<T>` and `Subscription` are unique (D-18). I/O handles (`TcpStream`, `TcpListener`) are shared classes whose destructors close the handle, as `Socket` is a class in .NET, because async methods need to keep their receiver alive across `await` (§10.3).
 
-### 6.5 Records
+### 6.5 Positional structs
 
-`record` (a shared class) and `record struct` (a value type) declare data types whose positional parameters become public `{ get; init; }` properties, as in C#. A record gets, without writing them:
+`struct User(int Id, string Name, string? Email);` declares a struct whose positional parameters become public read-only fields. Besides the members every struct gets (§6.2), a positional struct gets:
 
-- a constructor from its positional parameters;
-- `with` expressions: `user with { Name = "Ada" }` creates a copy with some properties replaced;
-- structural `IEquatable<T>` and `IHashable` when every property supports them (§8.6);
-- `IDisplay`, printing `User { Id = 1, Name = Ada, Email = none }`, in the layout C# records use;
-- deconstruction: `let (id, name, email) = user;`.
+- a constructor from its positional parameters: `new User(1, "Ada", none)`;
+- deconstruction: `let (id, name, email) = user;`, which positional patterns also use (§7.8).
 
-A record may declare more members in a body. `record class` is accepted and means `record`.
+`user with { Name = "Grace" }` and printing as `User { Id = 1, Name = Ada, Email = none }` come from §6.2, as for every struct. A positional struct may declare more members in a body, `struct Point(int X, int Y) { public int Sum => X + Y; }`. Its positional parameters declare its constructor, so it is not created memberwise (§6.9).
+
+C# records are not part of Mora (D-56). `record`, `record struct` and `record class` are error `MR0133`, with a fix that rewrites each of them to `struct`: `record User(...)` becomes `struct User(...)`, and so does `record class User(...)`. A record's data has no identity, which is what a struct means.
 
 ### 6.6 Unions
 
@@ -710,7 +722,7 @@ public interface IShape
 ```
 
 - Interfaces declare methods, properties, indexers, operators and static abstract members, with or without default implementations. An interface may extend other interfaces.
-- A struct, class, record or union implements an interface by listing it in its base list and providing every member that has no default. Implementation is by name and signature, as in C#; explicit implementation (`float IShape.Area() => ...`) is allowed and makes the member callable only through the interface.
+- A struct, class or union implements an interface by listing it in its base list and providing every member that has no default. Implementation is by name and signature, as in C#; explicit implementation (`float IShape.Area() => ...`) is allowed and makes the member callable only through the interface.
 - Members of different interfaces are different members, even when they have the same name and signature. A type that implements `IReader` and `IWriter`, each with a default `Describe()`, uses `IReader`'s default through `IReader` and `IWriter`'s through `IWriter`. A default is not a member of the implementing type: `pipe.Describe()` compiles only if the type declares `Describe()`, and a public member the type declares implements every interface member it matches, as in C#.
 - A type's own implementation always replaces a default, whether the member is called through a generic parameter or through a dynamic interface value. Inside a default, `this` is the implementing type: generic code calls the default directly, specialized for that type, and a dynamic interface value calls it through the vtable (§13.6).
 - An interface may replace a default of an interface it extends (`string IShape.Name => "round";`), and the more derived default wins. When one member gets different defaults from two interfaces and neither of them extends the other, the implementing type MUST implement the member itself (`MR0235`); the error names both defaults. One default reached through two paths is not a conflict.
@@ -733,9 +745,30 @@ public interface IShape
 
 **Methods** follow C# syntax, including expression bodies (`=>`), optional parameters with constant defaults, named arguments, `params` arrays (`params ReadOnlySpan<T>`) and overloading by parameter types. Overload resolution follows the C# rules restricted to the conversions of §5.10. Parameter modes are in §10.3.
 
-**Properties and indexers** use C# accessor syntax: `get`, `set`, `init`, expression-bodied getters and `this[...]` indexers. A setter on a struct is a `mut` member.
+**Properties and indexers** use C# accessor syntax: `get`, `set`, expression-bodied getters and `this[...]` indexers. A setter on a struct is a `mut` member. There is no `init` accessor (below).
 
-**Constructors.** `public T(...) { ... }`, as in C#. A constructor may first run another constructor of the same type with `: this(...)`, as in `public Counter(string name) : this(name, 1) { }`; the fields that constructor assigns count as assigned. C# 12 primary constructors on classes and structs (`class Point(int x, int y) { ... }`) are error `MR0128`, with a fix that turns the parameters into fields and a constructor: their parameters would be fields that no declaration shows, and every field's mutability and ownership must be written down (D-51). Records keep their positional parameters (§6.5), which declare properties. Every field without an initializer MUST be assigned on every path before the constructor returns, and `this` MUST NOT be used except to assign fields until then (`MR0140`). Object initializers (`new Options { Port = 8080 }`) assign `set` and `init` members after the constructor runs. `required` members must be set by every object initializer (`MR0144`). Constructors cannot fail; use a static factory that returns `Result<T, E>` when construction can fail.
+**Constructors.** `public T(...) { ... }`, as in C#. A constructor may first run another constructor of the same type with `: this(...)`, as in `public Counter(string name) : this(name, 1) { }`; the fields that constructor assigns count as assigned. C# 12 primary constructors on classes (`class Point(int x, int y) { ... }`) are error `MR0128`, with a fix that turns the parameters into fields and a constructor: their parameters would be fields that no declaration shows, and every field's mutability and ownership must be written down (D-51). On a struct the same syntax declares a positional struct (§6.5), whose parameters are public read-only fields that the declaration shows. Every field without an initializer MUST be assigned on every path before the constructor returns, and `this` MUST NOT be used except to assign fields until then (`MR0140`). Constructors cannot fail; use a static factory that returns `Result<T, E>` when construction can fail.
+
+**Memberwise creation.** A struct, class or unique class that declares no constructor is created by naming its fields (D-57):
+
+```mora
+public class Options
+{
+    public string Host = "127.0.0.1";
+    public int Port;
+    public mut int Retries = 3;
+}
+
+let options = new Options { Port = 8080, Retries = 5 };
+```
+
+- `new T { F = v, ... }` MUST assign every field that has no initializer (`MR0143`). It may also assign a field that has one, and the value given replaces the initializer. An auto-property counts as a field and is assigned by its name.
+- Read-only fields may be assigned, because creating a value is not mutating it.
+- `new() { F = v, ... }` does the same where the target type is known. On such a type, `new T()` and `new()` name no fields.
+- Memberwise creation is available only where every field without an initializer is visible. Where one is not, `new T { ... }` is error `MR0144`. A library type that keeps such a field private is created only through what the library provides.
+- Declaring any constructor turns memberwise creation off. A type enforces its invariants with a constructor, or with a static factory that returns `Result<T, E>`. On such a type, `new T(args) { M = v }` runs the constructor and then assigns the listed members as ordinary assignments, so it may name only `mut` fields and properties with a `set` accessor.
+
+C#'s `required` members and `init` accessors are not needed: a field without an initializer is required, and a read-only field can be set only when the value is created. `required` as a modifier and `init` as an accessor are error `MR0134`. The fix removes `required`, and removes `init` from the accessor list, so `{ get; init; }` becomes `{ get; }`.
 
 **Destructors.** `~T() { ... }` declares the destructor (D-17). A class, unique class or struct may have one. It takes no parameters and no modifiers. It runs exactly once, when the value dies (§10.8). Inside it, `this` is a borrow that MUST NOT escape (`MR0142`). A method called from the destructor could still store `this`; the runtime checks after every class destructor that the strong count is still zero, and aborts with `object of type T was resurrected by its destructor` otherwise (D-46). A struct with a destructor is move-only.
 
@@ -855,7 +888,7 @@ The `switch` statement uses `case pattern [when guard]:` labels. Each section en
 | Relational | `< 0`, `>= 'a'` | Comparison with a constant |
 | Logical | `> 0 and < 10`, `none or ""`, `not 0` | Combination |
 | Case | `Circle(let r)`, `Shape.Rect(_, > 0)`, `None` | Union case, with nested patterns for its fields |
-| Positional | `(0, let y)` | Tuple, or record by deconstruction |
+| Positional | `(0, let y)` | Tuple, or positional struct by deconstruction (§6.5) |
 | Property | `{ Name: "Ada", Age: > 18 }`, `{ } x` | Members match nested patterns; `{ }` matches any value other than `none` |
 | List | `[1, 2, .. let rest]`, `[_, _]` | Arrays, lists and spans by length and elements |
 
@@ -897,7 +930,7 @@ Reassigning a `let` local is error `MR0182`. Lint `prefer-let` (warn by default)
 - `default` and `default(T)` require `T : IDefault` (§8.5). A class has no default value, so `default(User)` is error `MR0190`.
 - `nameof(x)` gives the identifier as a `string` constant.
 - `sizeof(T)` gives the size in bytes of a value type at compile time.
-- `x with { P = v }` on records and record structs (§6.5).
+- `x with { F = v }` on structs (§6.2).
 - `^i` is an index from the end and `a..b` a range, for arrays, spans, lists and strings.
 - String interpolation (§3.5) formats each hole through `IDisplay` (§8.6). When the target is a `ref Formatter` parameter the parts are written directly into it; otherwise the expression allocates one `string`.
 
@@ -915,7 +948,7 @@ Generics are **monomorphized** (D-11): each distinct instantiation is compiled s
 |---|---|
 | `where T : IFoo, IBar<T>` | `T` implements the interfaces |
 | `where T : struct` | `T` is a value type |
-| `where T : class` | `T` is a shared class (or record) |
+| `where T : class` | `T` is a shared class |
 | `where T : unique` | `T` is a unique class |
 | `where T : move` | `T` may be move-only. Without it, `T` must be copyable (D-23) |
 | `where T : new()` | Same as `where T : IDefault` |
@@ -932,7 +965,7 @@ A call through a constrained type parameter (`item.CompareTo(other)` with `T : I
 An interface used as a type (`IShape s`, `List<IShape>`) is a **dynamic interface value**: a pair of a data pointer and a vtable pointer (§13.6).
 
 - Converting a shared class to an interface value retains it; copying the value retains; it is copyable.
-- Converting a copyable struct, union or record struct **boxes** it: the value moves into a heap cell with a reference count, as in C#. Boxing is the only implicit allocation in the language. The LSP shows an inlay hint at every boxing site, and lint `boxing` (allow by default) reports them.
+- Converting a copyable struct or union **boxes** it: the value moves into a heap cell with a reference count, as in C#. Boxing is the only implicit allocation in the language. The LSP shows an inlay hint at every boxing site, and lint `boxing` (allow by default) reports them.
 - Converting a move-only value to an interface value is error `MR0230` in the MVP (OQ-10).
 - An interface can be used as a type only if it has no static abstract members and no generic methods (`MR0231`). An associated type constrained to an interface `J` is erased to the dynamic interface value `J`: through an `IEnumerable<T>` value, `GetEnumerator()` returns a boxed `IEnumerator<T>`. This keeps `IEnumerable<User> GetUsers()` working as an interface return type, at the cost of one box per enumeration.
 - `is C c`, `as C` and `(C)i` test the concrete type through the type identifier in the vtable (§13.6). There is no other run-time type information.
@@ -952,11 +985,11 @@ An interface used as a type (`IShape s`, `List<IShape>`) is a **dynamic interfac
 | `IParse<T>` | `static abstract Result<T, ParseError> Parse(ReadOnlySpan<byte> text)` | `int.Parse`, `RouteValue<T>`, query values |
 | `INumber<T>` | Arithmetic and comparison operators, `Zero`, `One`, `MinValue`, `MaxValue` as static abstract members | Generic math over primitives |
 
-A type that implements `IDisplay` MUST override at least one of `Format` and `ToString` (`MR0232`); most types override `ToString()`. Because there is no `object`, a type has no `ToString()`, `Equals` or `GetHashCode` unless it implements these interfaces, generates them with a macro or is a record (§8.6). Using `==` on a type without `IEquatable<T>` is error `MR0233`, whose hint suggests `[Equatable]` or `ReferenceEquals(a, b)` for identity of shared classes.
+A type that implements `IDisplay` MUST override at least one of `Format` and `ToString` (`MR0232`); most types override `ToString()`. Because there is no `object`, a type has no `ToString()`, `Equals` or `GetHashCode` unless it implements these interfaces, generates them with a macro or is a type that gets them generated, such as a struct (§8.6). Using `==` on a type without `IEquatable<T>` is error `MR0233`, whose hint suggests `[Equatable]` or `ReferenceEquals(a, b)` for identity of shared classes.
 
 ### 8.6 Generated implementations
 
-`==`, hashing, ordering, printing, defaults, cloning and JSON are generated by standard-library macros such as `[Equatable]` and `[Json]` (§9.9). Records, record structs, tuples, enums and unions get `Equatable`, `Hashable` and `Display` automatically (§9.6).
+`==`, hashing, ordering, printing, defaults, cloning and JSON are generated by standard-library macros such as `[Equatable]` and `[Json]` (§9.9). Structs, tuples, enums and unions get `Equatable`, `Hashable` and `Display` automatically (§9.6). Classes do not, because they have identity (§6.1).
 
 ### 8.7 Associated types
 
@@ -1007,7 +1040,7 @@ There are two kinds, told apart by the first parameter:
 
 | Kind | First parameter | Used as | Returns |
 |---|---|---|---|
-| **Attribute macro** | `Type t` (a struct, class, record, union or enum) or `Member m` (a field, property or method) | `[Name]` or `[Name(args)]` on the declaration | `code { ... }`: members added to the type |
+| **Attribute macro** | `Type t` (a struct, class, union or enum) or `Member m` (a field, property or method) | `[Name]` or `[Name(args)]` on the declaration | `code { ... }`: members added to the type |
 | **Expression macro** | anything else | `#Name(args)` in an expression | `code(...)`: one expression that replaces the call |
 
 - Further parameters of an attribute macro are its attribute arguments, which must be compile-time constants and may be named and optional: `[Json(NameCase = NameCase.Snake)]` calls `macro Json(Type t, NameCase nameCase = NameCase.Camel)`.
@@ -1054,7 +1087,7 @@ Macros read a read-only view of the declarations they are attached to. They neve
 
 | Type | Members |
 |---|---|
-| `Type` | `Name`, `FullName`, `Kind` (`Struct`, `Class`, `UniqueClass`, `Record`, `RecordStruct`, `Union`, `Enum`), `TypeParameters`, `Fields`, `Properties`, `Methods`, `Cases`, `Attributes`, `Implements(Type)`, `IsCopyable`, `IsPlain`, `IsOptional`, `Underlying` (for `T?`, `T[]`, `List<T>`, `Dictionary<K, V>`), `TypeArguments`, `Location`, `Doc` |
+| `Type` | `Name`, `FullName`, `Kind` (`Struct`, `Class`, `UniqueClass`, `Union`, `Enum`), `IsPositional`, `TypeParameters`, `Fields`, `Properties`, `Methods`, `Cases`, `Attributes`, `Implements(Type)`, `IsCopyable`, `IsPlain`, `IsOptional`, `Underlying` (for `T?`, `T[]`, `List<T>`, `Dictionary<K, V>`), `TypeArguments`, `Location`, `Doc` |
 | `Field`, `Property` | `Name`, `Type`, `IsMut`, `IsWeak`, `IsPublic`, `HasInitializer`, `Attributes`, `Location`, `Doc` |
 | `Method` | `Name`, `Parameters` (`Name`, `Type`, `Mode`, `HasDefault`), `ReturnType`, `IsAsync`, `IsStatic`, `Attributes`, `Location` |
 | `Case` | `Name`, `Fields`, `Index` |
@@ -1067,7 +1100,7 @@ Macros read a read-only view of the declarations they are attached to. They neve
 
 Every attribute macro on a type sees the type **as written in source**, plus the interfaces that every macro on any type `adds` (§9.2). It does not see the members other macros generate. This makes expansion independent of order, cacheable per macro and type, and free of cycles: the compiler can run all macros of a build in any order or in parallel and get the same result.
 
-Records keep their automatic `Equatable`, `Hashable` and `Display` (§6.5): the compiler applies the standard-library macros of §9.9 to every record, record struct, tuple, enum and union that does not already declare those members.
+Structs get their `Equatable`, `Hashable` and `Display` automatically (§6.2): the compiler applies the standard-library macros of §9.9 to every struct, tuple, enum and union that does not already declare those members, when every field meets the macro's requirement. Classes are left alone; a class gets these members only from macros written on it.
 
 ### 9.7 Running macros
 
@@ -1094,7 +1127,7 @@ These macros replace a fixed derive list; the compiler has no special knowledge 
 | `[Equatable]` | `IEquatable<T>`, `==`, `!=` comparing fields in order; for unions, the case and then its fields | `IEquatable` |
 | `[Hashable]` | `IHashable`, consistent with `Equatable` | `IHashable` |
 | `[Comparable]` | `IComparable<T>` and the four relational operators, lexicographic by field order; unions order by case declaration order first | `IComparable` |
-| `[Display]` | `IDisplay` in the record format `Point { X = 1, Y = 2 }`; unions print `Circle(1.5)` | `IDisplay` |
+| `[Display]` | `IDisplay` in the struct format `Point { X = 1, Y = 2 }`; unions print `Circle(1.5)` | `IDisplay` |
 | `[Default]` | `IDefault` from field initializers or field defaults; for unions, the case marked `[Default]` | `IDefault` |
 | `[Clone]` | `IClone<T>`, cloning fields that implement `IClone` and copying the rest | copyable or `IClone` |
 | `[Json]` | `IJsonSerialize` and `IJsonDeserialize` (§16.3) | `IJsonSerialize` / `IJsonDeserialize` |
@@ -1129,7 +1162,7 @@ When an owner dies (§10.8) it drops the value it holds: for a shared reference,
 | Category | Types | `b = a` does |
 |---|---|---|
 | Copyable, plain | Primitives, enums, and structs, tuples and unions whose fields are all plain | Bitwise copy |
-| Copyable, counted | `string`, arrays, shared classes and records, `weak T`, dynamic interface values, escaping closures, and structs, tuples and unions that contain any of these and no move-only field | Copy, retaining every reference in it |
+| Copyable, counted | `string`, arrays, shared classes, `weak T`, dynamic interface values, escaping closures, and structs, tuples and unions that contain any of these and no move-only field | Copy, retaining every reference in it |
 | Move-only | Unique classes, `Future<T>`, every struct or union that declares a destructor or contains a move-only field | Move: `a` is no longer usable |
 | View | `Span<T>`, `ReadOnlySpan<T>`, `ref struct`, non-escaping closures | Bitwise copy, subject to §10.6 |
 
@@ -1285,6 +1318,8 @@ Programmers can rely on these cases having no reference-count operations in opti
 
 Debug builds keep these guarantees too, except item 2 for values that have no destructor.
 
+Where a struct is stored is not observable, because a struct has no identity (§6.1). The rules the compiler follows to choose will be published in this section (OQ-21).
+
 ### 10.14 Soundness summary
 
 The rules above keep these invariants, which §20.3's test suite checks:
@@ -1306,7 +1341,7 @@ There are no exceptions, and `try`, `catch`, `finally` and `throw` are reserved 
 
 ### 11.2 Error types
 
-Any type can be an error type. The standard library's errors are unions or records that implement `IError`:
+Any type can be an error type. The standard library's errors are unions or structs that implement `IError`:
 
 ```mora
 public interface IError : IDisplay
@@ -1817,7 +1852,7 @@ public union HttpError : IError
 
 **Values.** `JsonValue` is the union shown in §6.6 (named `JsonValue` in the library). `Json.Parse(string)` and `Json.Parse(ReadOnlySpan<byte>)` return `Result<JsonValue, JsonError>`; `JsonValue.ToString()` writes compact JSON and `ToString("indented")` indented JSON.
 
-**Typed serialization.** The `[Json]` macro (§9.9) generates `IJsonSerialize` and `IJsonDeserialize` for records, classes, structs, unions and enums. `Json.Serialize<T>(in T value)` returns a `string`; `Json.Deserialize<T>(text)` returns `Result<T, JsonError>`. The generated code writes and reads tokens directly, with no intermediate `JsonValue` and no reflection.
+**Typed serialization.** The `[Json]` macro (§9.9) generates `IJsonSerialize` and `IJsonDeserialize` for structs, classes, unions and enums. `Json.Serialize<T>(in T value)` returns a `string`; `Json.Deserialize<T>(text)` returns `Result<T, JsonError>`. The generated code writes and reads tokens directly, with no intermediate `JsonValue` and no reflection.
 
 | Mora | JSON |
 |---|---|
@@ -1969,7 +2004,7 @@ The MVP server supports: diagnostics on change (debounced, 100 ms), hover with t
 
 ### 17.9 VS Code extension
 
-Published as `wolfware.mora` on the Visual Studio Marketplace and on Open VSX. It contains a TextMate grammar for `.mr` files, language configuration (brackets, comments, auto-closing), snippets for common C# shapes (`class`, `record`, `union`, `switch`, `[Test]`), and an LSP client that starts `mora lsp` from the `mora` executable on `PATH` or a configured path. The extension shows the toolchain version in the status bar and offers to install the toolchain when it is missing.
+Published as `wolfware.mora` on the Visual Studio Marketplace and on Open VSX. It contains a TextMate grammar for `.mr` files, language configuration (brackets, comments, auto-closing), snippets for common shapes (`class`, `struct`, `union`, `switch`, `[Test]`), and an LSP client that starts `mora lsp` from the `mora` executable on `PATH` or a configured path. The extension shows the toolchain version in the status bar and offers to install the toolchain when it is missing.
 
 ## 18. Libraries, WebAssembly and packages (post-MVP)
 
@@ -2191,9 +2226,9 @@ Mora is built in thin vertical slices: each milestone runs real programs end to 
 |---|---|---|
 | **M0: Foundations** | Repository, CI on Linux, macOS and Windows, workspace crates and layering check, spans and diagnostics, error-code registry, test harnesses (UI, run, spec examples), `mora-rt` skeleton built for every Tier 1 target | CI green on all three OSes; harnesses run an empty suite; `cargo xtask layers` enforces §14.2 |
 | **M1: Hello, native** | Lexer and full parser with a lossless tree, name resolution and type checking for namespaces, functions, structs, primitives, strings, locals and control flow, MIR lowering, Cranelift code generation, linking on every Tier 1 target, `Console.WriteLine` with interpolation, `mora build`, `run` and `check` | §2.1 builds and runs on every Tier 1 target in CI; the M1 run tests pass through JIT and AOT |
-| **M2: Memory model** | Classes, records, unique classes, parameter modes, move checking, drop elaboration, destructors, aliased-place borrows, views and spans, weak references, closures, ARC insertion and optimization, debug runtime leak tracking | The suite of §20.3 passes; the §10.13 snapshots pass |
+| **M2: Memory model** | Classes, structs, unique classes, parameter modes, move checking, drop elaboration, destructors, aliased-place borrows, views and spans, weak references, closures, ARC insertion and optimization, debug runtime leak tracking | The suite of §20.3 passes; the §10.13 snapshots pass |
 | **M3: Expressive core** | Unions, enums, patterns and exhaustiveness, options and `none` with flow narrowing, `Result` and `?`, operators and conversions, generics and monomorphization, interfaces with static and dynamic dispatch, associated types, properties, indexers, extension methods, tuples, collection expressions | Run and UI tests for every construct of §§5 to 8; every §2.4 example runs |
-| **M4: Macros** | `macro` declarations, `code` quoting and splices, hygiene, the `Std.Meta` model, the sandboxed JIT runner and its cache, `mora expand`, `MacroTest`, and the standard-library macros of §9.9 except `[Json]` | Every §9 example runs; `[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` pass their `MacroTest` suites; records get their automatic implementations from these macros |
+| **M4: Macros** | `macro` declarations, `code` quoting and splices, hygiene, the `Std.Meta` model, the sandboxed JIT runner and its cache, `mora expand`, `MacroTest`, and the standard-library macros of §9.9 except `[Json]` | Every §9 example runs; `[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` pass their `MacroTest` suites; structs get their automatic implementations from these macros |
 | **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `[Json]` macro, `Std.Testing` and `mora test` | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; LINQ chains meet §15.5 with no allocation |
 | **M6: Async and HTTP** | Async lowering, futures, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server, routing, results, `HttpError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
 | **M7: Developer experience and v0.1** | Language server, VS Code extension, formatter, REPL, `mora new` templates, `mora explain` and error pages, documentation site with the language tour and the C# migration guide, installers, release workflow, budgets | v0.1.0 published on every channel of §19.3; §1.5 holds; budgets of §20.6 measured and either met or revised in this document |
@@ -2260,10 +2295,12 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-49 | Ownership, move, borrow, view and escape violations are compile errors that cannot be silenced; the remaining run-time checks panic or abort | user, author | 10 |
 | D-50 | Targets are data; layouts are computed from the target; the runtime splits into a `no_std` core and platform layers behind one platform interface; the standard library is layered by capability; CI guards portability from M0 | user, author | 19.4 |
 | D-47 | Unique objects follow struct mutation rules: `mut` methods take `ref this`, and `in` borrows are read-only | author | 6.4, 10.4 |
-| D-51 | No primary constructors on classes and structs: constructors are written out, and `: this(...)` chains them; records keep positional parameters | user | 6.9 |
+| D-51 | No primary constructors on classes: constructors are written out, and `: this(...)` chains them. Amended by D-56 (positional parameters now belong to positional structs, which replace records) and D-57 (a type without a constructor is created memberwise) | user | 6.9 |
 | D-52 | Interfaces keep default implementations, as in C#: members of different interfaces stay separate, and when two interfaces give different defaults for one inherited member, the implementing type must write its own | user | 6.8 |
 | D-53 | Mora is inspired by C#, not a copy of it: it takes C#'s syntax, names and idioms where they fit its own model, and its audience is application developers in general. Supersedes the C#-developer audience of D-33 | user | 1.1, 1.2, 1.4 |
 | D-54 | The empty option is written `none`; `null` is reserved and reported with a fix. Supersedes D-7 | user | 3.4, 5.6 |
+| D-56 | Type declarations are struct (a value with generated equality and with) and class (identity); record is removed | user | 5.1, 6.1, 6.2, 6.5 |
+| D-57 | A type without a constructor is created memberwise with new T { ... }; required and init are removed. Amends D-51 | user | 6.2, 6.3, 6.9 |
 
 ## 24. Open questions
 
@@ -2272,7 +2309,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | OQ-1 | Should a panic in a server task end only that task (unwinding or task-level abort with cleanup) instead of the process? | The process aborts (D-26) | M10 |
 | OQ-2 | How do Windows builds get debug info (CodeView/PDB) for debuggers and backtraces? | Symbol names only | M13 |
 | OQ-3 | Generic variance: rules and implementation | Not supported (D-25 fixes the spelling) | M11 |
-| OQ-4 | Class inheritance: `abstract`/`open` classes, `virtual`, `override`, `protected`, `base`, and how it interacts with ARC and records | Not supported (D-30) | M11 |
+| OQ-4 | Class inheritance: `abstract`/`open` classes, `virtual`, `override`, `protected`, `base`, and how it interacts with ARC | Not supported (D-30) | M11 |
 | OQ-5 | Retroactive interface implementations and the coherence rules they need | Not supported | M11 |
 | OQ-6 | Threads: executor model (one per core or work stealing), `static mut` access, `Task.Run` | Single-threaded (D-36) | M10 |
 | OQ-7 | Are string and array reference counts always atomic once threads exist, or atomic only after their first send? | | M10 |
@@ -2287,6 +2324,8 @@ Source: **user** means decided by the project owner in the design discussion; **
 | OQ-17 | Does user code need an on-disk incremental cache in the MVP? | No, unless §20.6 budgets fail | M7 |
 | OQ-18 | Project domain (`mora-lang.dev` or `moralang.dev`, both unregistered at the time of writing) | `mora-lang.dev` in this document | before M7 |
 | OQ-19 | Which big-endian target, if any, gets a CI guard (s390x under QEMU is the candidate)? | None | M13 |
+| OQ-20 | Do structs also get generated ordering (`IComparable<T>`, by field order)? | No; `[Comparable]` adds it (§9.9) | M4 |
+| OQ-21 | The rules by which the compiler stores a value inline, on the stack or in a heap cell (§6.1, §10.13) | A struct lives inline in its owner and is boxed only as §8.4 says; a class lives on the heap | M2 |
 
 ## 25. References
 
