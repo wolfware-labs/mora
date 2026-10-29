@@ -2,7 +2,7 @@
 
 Version 0.1 (draft). Status: under review.
 
-Mora is a programming language that reads and writes like modern C#, manages memory without a garbage collector, and compiles to a single native executable. This document is the design the MVP is built against. It defines the language, its memory model, the runtime, the standard library surface the MVP ships, the compiler architecture and the toolchain. Work that comes after the MVP is specified at the level needed to keep MVP decisions compatible with it.
+Mora is a programming language with the syntax and feel of modern C#, memory managed by reference counting and single ownership instead of a garbage collector, and compilation to a single native executable. This document is the design the MVP is built against. It defines the language, its memory model, the runtime, the standard library surface the MVP ships, the compiler architecture and the toolchain. Work that comes after the MVP is specified at the level needed to keep MVP decisions compatible with it.
 
 In linguistics a *mora* is the unit of timing that decides a syllable's weight, written μ. In Spanish, *mora* is a blackberry.
 
@@ -38,11 +38,11 @@ In linguistics a *mora* is the unit of timing that decides a syllable's weight, 
 
 ### 1.1 Who it is for
 
-Mora is for C# developers who want native binaries with predictable memory use and no collector pauses, and who are not going to learn Rust to get them. The design is judged by one question: can a working C# developer read any Mora program on the first day and write idiomatic Mora within a week?
+Mora is for application developers who want native binaries with predictable memory use and no collector pauses, without learning Rust's lifetimes to get them. Its syntax and idioms come from C#, so a developer who knows C#, Java or TypeScript reads Mora on the first day. Mora is not C#: where its model differs (ownership, errors as values, interfaces instead of inheritance), it follows its own model rather than imitating C# (D-53).
 
 ### 1.2 Goals
 
-- **G1. Familiar.** C# syntax, names and idioms. A construct that exists in C# either means the same thing in Mora or produces an error that names the Mora equivalent.
+- **G1. Familiar, not a copy.** Syntax, names and idioms come from C# wherever they fit Mora's model. Mora does not aim for compatibility: it leaves out C# features that conflict with deterministic memory or safety, such as exceptions, inheritance, reflection and `null` references. Where a C# habit would mislead, the compiler says what to write in Mora.
 - **G2. Deterministic memory.** No garbage collector, no finalizer thread, no pauses. Values are freed at a point the reader can see in the source. Allocation and reference-count costs are visible.
 - **G3. Safe by default.** No null references, no use-after-free, no data races, no unchecked casts. Programs cannot reach undefined behaviour without an `unsafe` block (post-MVP) or an FFI call.
 - **G4. One native binary.** `mora build` produces one executable with no runtime to install, no JIT and no framework.
@@ -54,20 +54,21 @@ Mora is for C# developers who want native binaries with predictable memory use a
 
 - Source or binary compatibility with .NET, NuGet or existing C# code. There is no bridge to .NET libraries (D-9).
 - Runtime reflection, `dynamic`, `System.Object` or loading code by name at runtime.
-- Lifetime annotations. Borrowing uses the `in`, `ref` and `out` conventions C# developers already know, and a borrow never outlives the call that created it (§10).
+- Lifetime annotations. Borrowing uses the familiar `in`, `ref` and `out` parameter conventions, and a borrow never outlives the call that created it (§10).
 - A virtual machine. The REPL and `mora run` compile to machine code too.
 
 ### 1.4 Anti-goals
 
 These would make Mora a failure even if every test passed:
 
-- **Rust in C# clothing.** A C# developer writing their first REST endpoint must not meet lifetime errors, borrow-checker puzzles or ownership vocabulary they have to look up. Every memory-model error says what happened in C# terms and offers a concrete fix (§17.6).
+- **Rust with different syntax.** A developer writing their first REST endpoint must not meet lifetime errors, borrow-checker puzzles or ownership vocabulary they have to look up. Every memory-model error says what would go wrong in plain terms and offers a concrete fix (§17.6).
+- **A C# clone.** Adding a feature because C# has it, or keeping a C# quirk for the sake of familiarity.
 - **Hidden costs.** An allocation, a boxing conversion or an atomic operation that the reader cannot predict from the source.
-- **A second-class platform.** Windows is a first-class target from the first milestone, because many C# developers work on it.
+- **A second-class platform.** Windows is a first-class target from the first milestone, because many application developers work on it.
 
 ### 1.5 What the MVP is
 
-The MVP is done when the program in §2.2, a REST API with JSON request and response bodies, builds with `mora build` into a native executable on Linux, macOS and Windows (x86_64 and aarch64 where §19.1 lists them), passes its integration tests in CI on all three, and a C# developer can install the toolchain with one command, open the project in VS Code and get diagnostics, hover types and go-to-definition.
+The MVP is done when the program in §2.2, a REST API with JSON request and response bodies, builds with `mora build` into a native executable on Linux, macOS and Windows (x86_64 and aarch64 where §19.1 lists them), passes its integration tests in CI on all three, and a developer new to Mora can install the toolchain with one command, open the project in VS Code and get diagnostics, hover types and go-to-definition.
 
 Two release lines follow from that:
 
@@ -325,7 +326,7 @@ ulong union unique unsafe ushort using var virtual void volatile weak where whil
 
 Contextual keywords (keywords only in the listed position): `get`, `set`, `init`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `record` (declarations); `required`, `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows ref struct`, §8.2); `_` (discards in patterns and deconstruction, §7.8).
 
-Keywords from C# with no meaning in Mora are reserved so that C# habits produce a targeted error instead of a confusing parse error:
+Some C# keywords name features Mora leaves out. They are reserved, so code written from C# habit gets an error that says what Mora uses instead, rather than a confusing parse error:
 
 | Keyword | Error | Message hint |
 |---|---|---|
@@ -932,7 +933,7 @@ An interface used as a type (`IShape s`, `List<IShape>`) is a **dynamic interfac
 - Converting a shared class to an interface value retains it; copying the value retains; it is copyable.
 - Converting a copyable struct, union or record struct **boxes** it: the value moves into a heap cell with a reference count, as in C#. Boxing is the only implicit allocation in the language. The LSP shows an inlay hint at every boxing site, and lint `boxing` (allow by default) reports them.
 - Converting a move-only value to an interface value is error `MR0230` in the MVP (OQ-10).
-- An interface can be used as a type only if it has no static abstract members and no generic methods (`MR0231`). An associated type constrained to an interface `J` is erased to the dynamic interface value `J`: through an `IEnumerable<T>` value, `GetEnumerator()` returns a boxed `IEnumerator<T>`. This keeps `IEnumerable<User> GetUsers()` working as C# developers expect, at the cost of one box per enumeration.
+- An interface can be used as a type only if it has no static abstract members and no generic methods (`MR0231`). An associated type constrained to an interface `J` is erased to the dynamic interface value `J`: through an `IEnumerable<T>` value, `GetEnumerator()` returns a boxed `IEnumerator<T>`. This keeps `IEnumerable<User> GetUsers()` working as an interface return type, at the cost of one box per enumeration.
 - `is C c`, `as C` and `(C)i` test the concrete type through the type identifier in the vtable (§13.6). There is no other run-time type information.
 
 ### 8.5 Built-in interfaces
@@ -950,7 +951,7 @@ An interface used as a type (`IShape s`, `List<IShape>`) is a **dynamic interfac
 | `IParse<T>` | `static abstract Result<T, ParseError> Parse(ReadOnlySpan<byte> text)` | `int.Parse`, `RouteValue<T>`, query values |
 | `INumber<T>` | Arithmetic and comparison operators, `Zero`, `One`, `MinValue`, `MaxValue` as static abstract members | Generic math over primitives |
 
-A type that implements `IDisplay` MUST override at least one of `Format` and `ToString` (`MR0232`); C# developers usually write `ToString()`. Because there is no `object`, a type has no `ToString()`, `Equals` or `GetHashCode` unless it implements these interfaces, generates them with a macro or is a record (§8.6). Using `==` on a type without `IEquatable<T>` is error `MR0233`, whose hint suggests `[Equatable]` or `ReferenceEquals(a, b)` for identity of shared classes.
+A type that implements `IDisplay` MUST override at least one of `Format` and `ToString` (`MR0232`); most types override `ToString()`. Because there is no `object`, a type has no `ToString()`, `Equals` or `GetHashCode` unless it implements these interfaces, generates them with a macro or is a record (§8.6). Using `==` on a type without `IEquatable<T>` is error `MR0233`, whose hint suggests `[Equatable]` or `ReferenceEquals(a, b)` for identity of shared classes.
 
 ### 8.6 Generated implementations
 
@@ -1254,7 +1255,7 @@ Inside a callee, an `in` parameter of function type is itself a view: it can be 
 
 - Creating a view of the collection's storage (`list.AsSpan()`) increments the count. The compiler inserts a hidden guard value that decrements it, and the guard lives exactly as long as the span is live (§10.6).
 - An operation that changes the collection's structure (`Add`, `Insert`, `Remove`, `Clear`, `EnsureCapacity`, `TrimExcess`, assigning a new key in a dictionary) checks the count first and panics if it is not zero: `collection was modified while a view of it was in use`.
-- **Enumerators do not use the count** (D-42). As in .NET, a collection keeps a version number that every structural change increments. An enumerator holds a strong reference to the collection, the version it started with and a position; each `Next()` compares versions and panics with `collection was modified during enumeration` when they differ, and bounds-checks the position. Enumerators are therefore copyable and have no destructor, so they can be boxed (§8.4) and stored inside LINQ iterator structs. C# throws `InvalidOperationException` in both situations, so the behaviour matches what C# developers expect.
+- **Enumerators do not use the count** (D-42). As in .NET, a collection keeps a version number that every structural change increments. An enumerator holds a strong reference to the collection, the version it started with and a position; each `Next()` compares versions and panics with `collection was modified during enumeration` when they differ, and bounds-checks the position. Enumerators are therefore copyable and have no destructor, so they can be boxed (§8.4) and stored inside LINQ iterator structs. C# throws `InvalidOperationException` in both situations, so code ported from C# keeps its behaviour.
 - Writing an element (`list[i] = x`) is not a structural change and is allowed while a view is live; §10.4 already makes it safe.
 
 ### 10.11 Leak and misuse detection
@@ -1683,7 +1684,7 @@ The MVP compiles the standard library from source together with the program, and
 
 ## 15. Standard library (MVP surface)
 
-The standard library keeps the .NET names a C# developer reaches for first, and drops what depends on reflection, exceptions or a collector. The API reference generated from `std/` doc comments is the full contract; a name listed here and missing there is a bug in one of the two.
+The standard library takes its names from .NET where they fit, and drops what depends on reflection, exceptions or a collector. The API reference generated from `std/` doc comments is the full contract; a name listed here and missing there is a bug in one of the two.
 
 ### 15.1 Prelude (`Std`)
 
@@ -1714,7 +1715,7 @@ Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`. `i
 | `Span<T>`, `ReadOnlySpan<T>` | `Length`, indexing, slicing with ranges, `CopyTo`, `SequenceEqual`, `IndexOf`, `ToArray` |
 | `Memory<T>`, `ReadOnlyMemory<T>` | `Length`, `Span`, `Slice`, `ToArray`; created with `array.AsMemory()` and `text.AsMemory()` |
 
-`Dictionary` iterates in insertion order (D-29), unlike .NET's unspecified order. This makes program output reproducible and is what C# developers usually assume anyway.
+`Dictionary` iterates in insertion order (D-29), unlike .NET's unspecified order. This makes program output reproducible.
 
 ### 15.4 Lookups never throw
 
@@ -1767,7 +1768,7 @@ Threads and synchronization (`Thread`, `Mutex`, `Atomic`, `Channel` across threa
 
 ### 16.1 HTTP server (`Std.Net.Http`)
 
-The server follows the shape of ASP.NET Core minimal APIs, so the program in §2.2 reads as a C# developer expects.
+The server follows the shape of ASP.NET Core minimal APIs, so the program in §2.2 reads familiar to anyone who has written a web API.
 
 ```mora
 let app = WebApp.Create(args);                    // reads --urls and MORA_URLS like ASP.NET reads ASPNETCORE_URLS
@@ -1927,7 +1928,7 @@ Every diagnostic has a code (`MR` plus four digits), a severity, a primary span,
 | `MR2000`-`MR2999` | Warnings and lints |
 | `MR9000`-`MR9999` | Internal compiler errors |
 
-Every code is listed once, with its summary, in the registry in `mora-diag`, and the compiler refers to codes only through it, writing each one out as `codes::MR0310`. The spec assigns codes, so a code is registered when the spec first names it. Once a code is used (a crate reports it, a UI test expects it, or an example names it in its first line) it needs a page in `docs/errors/` explaining it in C# terms, with a failing example and a fixed one; `docs/errors/README.md` holds the template. The repository's test suite compiles both examples of every page (§20.4), so explanations cannot go stale. `cargo xtask error-codes` checks that the registry matches the range table above and the codes this document names, that every code is in its range, that every used code has a page, that every page belongs to a registered code, and that no crate outside `mora-diag` names a code in a way the check cannot follow (`Code::new`, or a braced or glob import of `codes`). Diagnostics never use the words "lifetime" or "borrow checker"; they say what would go wrong ("`span` would point at memory that `buffer` no longer owns").
+Every code is listed once, with its summary, in the registry in `mora-diag`, and the compiler refers to codes only through it, writing each one out as `codes::MR0310`. The spec assigns codes, so a code is registered when the spec first names it. Once a code is used (a crate reports it, a UI test expects it, or an example names it in its first line) it needs a page in `docs/errors/` explaining it in plain terms, with a failing example and a fixed one; `docs/errors/README.md` holds the template. The repository's test suite compiles both examples of every page (§20.4), so explanations cannot go stale. `cargo xtask error-codes` checks that the registry matches the range table above and the codes this document names, that every code is in its range, that every used code has a page, that every page belongs to a registered code, and that no crate outside `mora-diag` names a code in a way the check cannot follow (`Code::new`, or a braced or glob import of `codes`). Diagnostics never use the words "lifetime" or "borrow checker"; they say what would go wrong ("`span` would point at memory that `buffer` no longer owns").
 
 Rendering in the terminal:
 
@@ -2260,6 +2261,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-47 | Unique objects follow struct mutation rules: `mut` methods take `ref this`, and `in` borrows are read-only | author | 6.4, 10.4 |
 | D-51 | No primary constructors on classes and structs: constructors are written out, and `: this(...)` chains them; records keep positional parameters | user | 6.9 |
 | D-52 | Interfaces keep default implementations, as in C#: members of different interfaces stay separate, and when two interfaces give different defaults for one inherited member, the implementing type must write its own | user | 6.8 |
+| D-53 | Mora is inspired by C#, not a copy of it: it takes C#'s syntax, names and idioms where they fit its own model, and its audience is application developers in general. Supersedes the C#-developer audience of D-33 | user | 1.1, 1.2, 1.4 |
 
 ## 24. Open questions
 

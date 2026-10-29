@@ -113,7 +113,7 @@ Done when:
 
 Spec: [§17.6](docs/design/mora.md#176-diagnostics), [§20.4](docs/design/mora.md#204-executable-examples). Crates: `mora-diag`, `xtask`. Blocked by: M0.6.
 
-A single registry of every `MR` code with its range from §17.6, a `docs/errors/MRnnnn.md` page template (explanation in C# terms, failing example, fixed example), and `cargo xtask error-codes`, which fails when a code is used without a page, a page has no code, or a code sits outside its range.
+A single registry of every `MR` code with its range from §17.6, a `docs/errors/MRnnnn.md` page template (explanation, failing example, fixed example), and `cargo xtask error-codes`, which fails when a code is used without a page, a page has no code, or a code sits outside its range.
 
 Done when:
 
@@ -1198,7 +1198,7 @@ Done when:
 
 ## M7: Developer experience and v0.1
 
-**Goal.** The editor, formatter, REPL, documentation and installers a C# developer expects, and the first public release.
+**Goal.** The editor, formatter, REPL, documentation and installers a developer expects, and the first public release.
 
 **Exit criteria.** v0.1.0 is published on every channel of §19.3; §1.5 holds; the budgets of §20.6 are measured and either met or revised in the spec.
 
@@ -1296,7 +1296,7 @@ Done when:
 
 Spec: [§17.6](docs/design/mora.md#176-diagnostics). Crates: `docs/errors`. Blocked by: M6.8.
 
-A page for every code in use, written in C# terms, without the words §17.6 bans, with both examples executable.
+A page for every code in use, written in plain terms, without the words §17.6 bans, with both examples executable.
 
 Done when:
 
@@ -1354,7 +1354,7 @@ Checks §1.5 end to end on fresh machines, revises the §20.6 budgets with measu
 
 Done when:
 
-- A C# developer who has not seen Mora installs it, opens §2.2 in VS Code and gets diagnostics, hover and go-to-definition (recorded in the issue).
+- A developer who has not seen Mora installs it, opens §2.2 in VS Code and gets diagnostics, hover and go-to-definition (recorded in the issue).
 - Every channel of §19.3 serves v0.1.0.
 
 ## Post-MVP milestones

@@ -306,7 +306,7 @@ fn examples(path: &str, text: &str) -> Vec<Use> {
 }
 
 /// The template sections of `docs/errors/README.md`, in order.
-const SECTIONS: &[&str] = &["Coming from C#", "Failing example", "Fixed example"];
+const SECTIONS: &[&str] = &["Failing example", "Fixed example"];
 
 /// A page has a title naming its code, the sections of [`SECTIONS`] in
 /// order, and an executable example in each example section.
@@ -331,7 +331,7 @@ fn check_page(code: Code, text: &str) -> Result<(), String> {
         let block = body.split("```mora\n").nth(1)?;
         block.lines().next().map(str::to_owned)
     };
-    let failing = first_line(&sections[1].1);
+    let failing = first_line(&sections[0].1);
     if !matches!(
         failing.as_deref().and_then(spec_examples::expects),
         Some(Expects::Diagnostic(_, found)) if found == code
@@ -340,7 +340,7 @@ fn check_page(code: Code, text: &str) -> Result<(), String> {
             "the failing example must be a `mora` block whose first line is `// error: {code}` or `// warning: {code}`"
         ));
     }
-    if !first_line(&sections[2].1).is_some_and(|line| line.starts_with("// expect:")) {
+    if !first_line(&sections[1].1).is_some_and(|line| line.starts_with("// expect:")) {
         return Err(
             "the fixed example must be a `mora` block whose first line is `// expect:`".into(),
         );
@@ -716,7 +716,7 @@ A file that is not UTF-8 is error `MR0001`.
     fn malformed_pages_are_reported() {
         let cases = [
             (PAGE.replace("# MR0001:", "# MR0002:"), "first line"),
-            (PAGE.replace("## Coming from C#", "## In C#"), "sections"),
+            (PAGE.replace("## Failing example", "## Example"), "sections"),
             (
                 PAGE.replace("// error: MR0001", "// note: MR0001"),
                 "failing example",
