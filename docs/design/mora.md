@@ -601,7 +601,7 @@ A type may be generic (§8), may list interfaces it implements, and may nest oth
 
 **Struct or class.** The choice between `struct` and `class` is about meaning, never about cost (D-56):
 
-- A `struct` is a value. It has no identity: assignment copies it, and two structs are equal when their fields are (§6.2).
+- A `struct` is a value. It has no identity: assignment copies a copyable struct and moves a move-only one, and two structs are equal when their fields are (§6.2).
 - A `class` is an object with identity. Assignment copies a reference to the same object, which is shared and reference counted (§6.3). A `unique class` is an object with identity and one owner (§6.4).
 
 The compiler decides how a value is stored (inline in its owner, on the stack or in a heap cell), under the published rules of §10.13. The programmer does not choose it. A struct has no identity, so where it is stored cannot change what a program does.

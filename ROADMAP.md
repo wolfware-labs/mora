@@ -452,7 +452,7 @@ Done when:
 
 Spec: [§6.2](docs/design/mora.md#62-structs), [§6.5](docs/design/mora.md#65-positional-structs). Crates: `mora-hir`. Blocked by: M2.1.
 
-Positional structs with their generated constructor, public read-only fields and deconstruction, and `with` expressions on every struct. Equality, hashing and printing come from macros in M4.9.
+Positional structs with their generated constructor, public read-only fields and deconstruction, and `with` expressions on copyable structs. Equality, hashing and printing come from macros in M4.9.
 
 Done when:
 
