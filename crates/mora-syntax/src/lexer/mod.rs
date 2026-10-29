@@ -18,6 +18,7 @@
 //! expressions with [`Lexed::is_joined`].
 
 mod escape;
+mod legacy;
 pub mod literal;
 pub mod number;
 
@@ -198,17 +199,22 @@ const DIRECTIVES: &[&str] = &[
 struct Interp {
     /// Where its prefix starts.
     start: usize,
-    /// The length of `$"`, `$@"`, `$$"""` and so on.
+    /// The length of `$"`, `$@"`, `` $$` `` and so on.
     prefix: usize,
     /// Whether it is `$@"..."`, where `""` is a quote and there are no escapes.
     verbatim: bool,
-    /// The number of quotes around a raw string, zero otherwise.
+    /// What a raw string is delimited with: a backtick, or a quote in the
+    /// `$"""` form that is an error.
+    delim: u8,
+    /// The number of delimiters around a raw string, zero otherwise.
     quotes: usize,
     /// How many braces open or close a hole: the number of `$` of a raw
     /// string, one otherwise.
     dollars: usize,
     /// The index in `Lexer::holes` of its first hole.
     first_hole: usize,
+    /// The index in `Lexed::errors` of the first error found inside it.
+    first_error: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -649,7 +655,8 @@ impl<'a> Lexer<'a> {
     /// one starts there.
     fn string_or_char(&mut self) -> bool {
         let rest = self.rest();
-        // `$"`, `$@"`, `@$"`, `$"""`, `$$"""` and so on.
+        // `` $` ``, `` $$` ``, `$"`, and the `$@"`, `@$"`, `$"""` and
+        // `$$"""` forms that are errors.
         let (dollars, verbatim, quotes_at) = if let Some(after_at) = rest.strip_prefix('@') {
             let dollars = run(after_at, b'$');
             (dollars, true, 1 + dollars)
@@ -658,24 +665,35 @@ impl<'a> Lexer<'a> {
             let verbatim = rest[dollars..].starts_with('@');
             (dollars, verbatim, dollars + usize::from(verbatim))
         };
+        let ticks = run(&rest[quotes_at..], b'`');
         let quotes = run(&rest[quotes_at..], b'"');
-        if dollars > 0 && quotes > 0 {
-            let raw = quotes >= 3 && !verbatim;
-            let prefix = quotes_at + if raw { quotes } else { 1 };
+        if dollars > 0 && (quotes > 0 || (ticks > 0 && !verbatim)) {
+            let first_error = self.out.errors.len();
+            let (delim, raw_quotes) = if ticks > 0 {
+                (b'`', ticks)
+            } else if quotes >= 3 && !verbatim {
+                (b'"', quotes)
+            } else {
+                (b'"', 0)
+            };
+            let raw = raw_quotes > 0;
+            let prefix = quotes_at + if raw { raw_quotes } else { 1 };
             if dollars > 1 && !raw {
                 self.error(
                     codes::MR0016,
                     self.pos..self.pos + prefix,
-                    "more than one `$` needs a raw string: `$$\"\"\"...\"\"\"`",
+                    "more than one `$` needs a raw string, written with backticks",
                 );
             }
             let s = Interp {
                 start: self.pos,
                 prefix,
                 verbatim,
-                quotes: if raw { quotes } else { 0 },
+                delim,
+                quotes: raw_quotes,
                 dollars: if raw { dollars } else { 1 },
                 first_hole: self.holes.len(),
+                first_error,
             };
             self.push(SyntaxKind::InterpStart, prefix);
             self.stack.push(Frame::Text(s));
@@ -685,9 +703,13 @@ impl<'a> Lexer<'a> {
             self.verbatim_string();
             return true;
         }
+        if rest.starts_with('`') {
+            self.raw_string(b'`');
+            return true;
+        }
         if rest.starts_with('"') {
             if run(rest, b'"') >= 3 {
-                self.raw_string();
+                self.raw_string(b'"');
             } else {
                 self.regular_string();
             }
@@ -748,12 +770,21 @@ impl<'a> Lexer<'a> {
     }
 
     fn verbatim_string(&mut self) {
+        let first_error = self.out.errors.len();
         let mut i = 2;
         loop {
             let rest = &self.text[self.pos + i..];
             if rest.starts_with("\"\"") {
                 i += 2;
             } else if rest.starts_with('"') {
+                let legacy = legacy::Legacy {
+                    open: self.pos..self.pos + 2,
+                    close: self.pos + i..self.pos + i + 1,
+                    raw: false,
+                    verbatim: true,
+                    dollars: 0,
+                };
+                self.report_legacy(&legacy, &[], first_error);
                 i += 1;
                 break;
             } else if let Some(c) = rest.chars().next() {
@@ -767,21 +798,27 @@ impl<'a> Lexer<'a> {
         self.push(SyntaxKind::VerbatimString, len);
     }
 
-    fn raw_string(&mut self) {
-        let quotes = run(self.rest(), b'"');
+    /// Lexes a raw string delimited by `delim`: backticks, or the three or
+    /// more quotes that are an error.
+    fn raw_string(&mut self, delim: u8) {
+        let first_error = self.out.errors.len();
+        let quotes = run(self.rest(), delim);
         let mut i = quotes;
         loop {
             let rest = &self.text[self.pos + i..];
-            let n = run(rest, b'"');
-            if n >= quotes {
-                if n > quotes {
-                    self.error(
-                        codes::MR0016,
-                        self.pos + i..self.pos + i + n,
-                        format!("this raw string opened with {quotes} quotes but closes with {n}"),
-                    );
-                }
+            let n = run(rest, delim);
+            if self.closes_raw(delim, quotes, self.pos + i, n) {
                 self.check_raw(self.pos, quotes, self.pos + i, &[]);
+                if delim == b'"' {
+                    let legacy = legacy::Legacy {
+                        open: self.pos..self.pos + quotes,
+                        close: self.pos + i..self.pos + i + n,
+                        raw: true,
+                        verbatim: false,
+                        dollars: 0,
+                    };
+                    self.report_legacy(&legacy, &[], first_error);
+                }
                 i += n;
                 break;
             } else if n > 0 {
@@ -795,6 +832,58 @@ impl<'a> Lexer<'a> {
         }
         let len = i + self.u8_suffix(i);
         self.push(SyntaxKind::RawString, len);
+    }
+
+    /// Whether a run of `n` delimiters at `at` closes a raw string that
+    /// opened with `quotes` of them. Backticks close on a run of the same
+    /// length, and any other run is text. Quotes close on a run at least as
+    /// long, and a longer one is an error.
+    fn closes_raw(&mut self, delim: u8, quotes: usize, at: usize, n: usize) -> bool {
+        if delim == b'`' {
+            return n == quotes;
+        }
+        if n > quotes {
+            self.error(
+                codes::MR0016,
+                at..at + n,
+                format!("this raw string opened with {quotes} quotes but closes with {n}"),
+            );
+        }
+        n >= quotes
+    }
+
+    /// Reports a `"""` raw string or a verbatim string that has closed
+    /// (`MR0018`), with a fix that writes it with backticks when it has no
+    /// other error since `first_error`. `holes` are the holes of an
+    /// interpolated one, as in `Lexer::holes`.
+    fn report_legacy(
+        &mut self,
+        legacy: &legacy::Legacy,
+        holes: &[(usize, usize)],
+        first_error: usize,
+    ) {
+        let prefix = &self.text[legacy.open.clone()];
+        let message = if legacy.verbatim {
+            format!("`{prefix}...\"` strings are written with backticks in Mora")
+        } else {
+            format!("`{prefix}` strings are written with backticks in Mora")
+        };
+        let mut error = SyntaxError::new(
+            codes::MR0018,
+            TextRange::new(size(legacy.open.start), size(legacy.open.end)),
+            message,
+        )
+        .with_note(
+            "A raw string goes between backticks and has no escapes; text that holds \
+             backticks goes between more of them than the longest run inside.",
+        );
+        let clean = self.out.errors[first_error..]
+            .iter()
+            .all(|e| e.code == codes::MR0018);
+        if clean && let Some(fix) = legacy.fix(self.text, holes) {
+            error = error.with_fix(fix);
+        }
+        self.out.errors.push(error);
     }
 
     fn char_literal(&mut self) {
@@ -870,7 +959,7 @@ impl<'a> Lexer<'a> {
         let start = self.pos;
         let mut i = 0;
         let raw = s.quotes > 0;
-        // What ends the text: a hole, the closing quotes, or a problem.
+        // What ends the text: a hole, the closing delimiter, or a problem.
         enum Stop {
             Hole(usize),
             End(usize),
@@ -882,25 +971,15 @@ impl<'a> Lexer<'a> {
                 break Stop::Unterminated;
             };
             match c {
-                '"' if raw => {
-                    let n = run(rest, b'"');
-                    if n >= s.quotes {
-                        if n > s.quotes {
-                            self.error(
-                                codes::MR0016,
-                                start + i..start + i + n,
-                                format!(
-                                    "this raw string opened with {} quotes but closes with {n}",
-                                    s.quotes
-                                ),
-                            );
-                        }
+                c if raw && c == char::from(s.delim) => {
+                    let n = run(rest, s.delim);
+                    if self.closes_raw(s.delim, s.quotes, start + i, n) {
                         break Stop::End(n);
                     }
                     i += n;
                 }
                 '"' if s.verbatim && rest.starts_with("\"\"") => i += 2,
-                '"' => break Stop::End(1),
+                '"' if !raw => break Stop::End(1),
                 '\\' if !s.verbatim && !raw => {
                     let at = start + i;
                     match escape::escape(&self.text[at..]) {
@@ -974,9 +1053,19 @@ impl<'a> Lexer<'a> {
                 self.replace_top(Frame::Hole(s, 0, self.holes.len() - 1));
             }
             Stop::End(n) => {
+                let holes = self.holes[s.first_hole..].to_vec();
                 if raw {
-                    let holes = self.holes[s.first_hole..].to_vec();
                     self.check_raw(s.start + s.prefix - s.quotes, s.quotes, self.pos, &holes);
+                }
+                if s.verbatim || (raw && s.delim == b'"') {
+                    let legacy = legacy::Legacy {
+                        open: s.start..s.start + s.prefix,
+                        close: self.pos..self.pos + n,
+                        raw,
+                        verbatim: s.verbatim,
+                        dollars: s.dollars,
+                    };
+                    self.report_legacy(&legacy, &holes, s.first_error);
                 }
                 self.push(SyntaxKind::InterpEnd, n);
                 self.stack.pop();
@@ -998,8 +1087,8 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    /// Checks the line rules of a raw string (§3.5, C# 11): `open` is where
-    /// its opening quotes start and `close` where its closing quotes start.
+    /// Checks the line rules of a raw string (§3.5): `open` is where its
+    /// opening delimiter starts and `close` where its closing one starts.
     /// Lines that start inside a hole are not checked.
     fn check_raw(&mut self, open: usize, quotes: usize, close: usize, holes: &[(usize, usize)]) {
         let content_start = open + quotes;
@@ -1013,7 +1102,7 @@ impl<'a> Lexer<'a> {
             self.error(
                 codes::MR0016,
                 open..content_start,
-                "a multi-line raw string starts its content on the line after the opening quotes",
+                "a multi-line raw string starts its content on the line after the opening delimiter",
             );
             return;
         }
@@ -1023,7 +1112,7 @@ impl<'a> Lexer<'a> {
             self.error(
                 codes::MR0016,
                 close..close + quotes,
-                "the closing quotes of a multi-line raw string go on their own line",
+                "the closing delimiter of a multi-line raw string goes on its own line",
             );
             return;
         }
@@ -1040,7 +1129,7 @@ impl<'a> Lexer<'a> {
                 self.error(
                     codes::MR0016,
                     line_start..line_start + (line.len() - line.trim_start().len()).max(1),
-                    "this line does not start with the indentation of the closing quotes",
+                    "this line does not start with the indentation of the closing delimiter",
                 );
             }
             line_start = line_end + 1;

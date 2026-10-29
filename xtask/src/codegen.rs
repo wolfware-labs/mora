@@ -81,19 +81,19 @@ const OTHER_TOKENS: &[(&str, &str, &str, bool)] = &[
     (
         "VerbatimString",
         "verbatim_string",
-        "A verbatim string literal, such as `@\"C:\\temp\"`.",
+        "A verbatim string literal, such as `@\"C:\\temp\"`: an error (`MR0018`), lexed for recovery.",
         false,
     ),
     (
         "RawString",
         "raw_string",
-        "A raw string literal, delimited by three or more quotes.",
+        "A raw string literal, delimited by backticks, or by three or more quotes as an error.",
         false,
     ),
     (
         "InterpStart",
         "interp_start",
-        "The start of an interpolated string, such as `$\"`, `$@\"` or `$$\"\"\"`.",
+        "The start of an interpolated string, such as `$\"`, `` $` `` or `` $$` ``.",
         false,
     ),
     (

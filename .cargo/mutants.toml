@@ -24,22 +24,21 @@ exclude_re = [
     '^crates/mora-syntax/src/ast\.rs:56:9: replace support::nth_child -> Option<N> with None$',
     # Lexer arithmetic that lands on the same result: index 0 of an
     # identifier is always an identifier character, number errors always
-    # start at offset 0, quotes stepped one at a time reach the same place,
-    # and the raw-string indent scan only gains or loses blank lines.
-    '^crates/mora-syntax/src/lexer/mod\.rs:554:39: replace > with >= in Lexer<.a>::code_token$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:586:51: replace \+ with - in Lexer<.a>::code_token$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:787:25: replace > with < in Lexer<.a>::raw_string$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:1030:60: replace \+ with \* in Lexer<.a>::check_raw$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:1031:26: replace < with <= in Lexer<.a>::check_raw$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:1031:57: replace \+ with \* in Lexer<.a>::check_raw$',
+    # start at offset 0, and the raw-string indent scan only gains or loses
+    # blank lines.
+    '^crates/mora-syntax/src/lexer/mod\.rs:560:39: replace > with >= in Lexer<.a>::code_token$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:592:51: replace \+ with - in Lexer<.a>::code_token$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:1119:60: replace \+ with \* in Lexer<.a>::check_raw$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:1120:26: replace < with <= in Lexer<.a>::check_raw$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:1120:57: replace \+ with \* in Lexer<.a>::check_raw$',
     '^crates/mora-syntax/src/lexer/number\.rs:235:37: replace \+ with \* in separators$',
     # Popping the last event and leaving a tombstone build the same tree.
     '^crates/mora-syntax/src/parser/mod\.rs:193:21: replace \+ with - in Marker::abandon$',
     '^crates/mora-syntax/src/parser/mod\.rs:193:21: replace \+ with \* in Marker::abandon$',
     # The scan starting one token early sees the `?` itself, which it skips;
     # scanning past the end reads the end-of-file kind.
-    '^crates/mora-syntax/src/parser/exprs\.rs:268:20: replace \+ with \* in conditional_follows$',
-    '^crates/mora-syntax/src/parser/exprs\.rs:269:13: replace < with <= in conditional_follows$',
+    '^crates/mora-syntax/src/parser/exprs\.rs:269:20: replace \+ with \* in conditional_follows$',
+    '^crates/mora-syntax/src/parser/exprs\.rs:270:13: replace < with <= in conditional_follows$',
     # At the top level an item without attributes only gets this far when
     # it starts a declaration, which the attributed-statement arms never take.
     '^crates/mora-syntax/src/parser/items\.rs:231:30: replace > with >= in declaration$',
