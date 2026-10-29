@@ -165,6 +165,11 @@ fn a_bad_file_names_its_path() {
         err.to_string().starts_with("no/such/target.toml: "),
         "{err}"
     );
+    let source = std::error::Error::source(&err)
+        .and_then(|source| source.downcast_ref::<std::io::Error>())
+        .expect("a read error keeps its I/O error as the source");
+    assert_eq!(source.kind(), std::io::ErrorKind::NotFound);
+    assert!(std::error::Error::source(&Target::resolve("x86_64-freebsd").unwrap_err()).is_none());
 
     let dir = std::env::temp_dir().join(format!("mora-target-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

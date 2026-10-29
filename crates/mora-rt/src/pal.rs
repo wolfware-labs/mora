@@ -143,4 +143,11 @@ mod tests {
         pal::wait(Some(1_000_000));
         assert!(pal::now().unwrap() > first);
     }
+
+    #[test]
+    fn a_timed_wait_sleeps_for_the_timeout() {
+        let start = std::time::Instant::now();
+        pal::wait(Some(20_000_000));
+        assert!(start.elapsed() >= std::time::Duration::from_millis(20));
+    }
 }

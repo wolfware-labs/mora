@@ -572,6 +572,7 @@ A file that is not UTF-8 is error `MR0001`.
             uses,
             [
                 "crates/demo/src/lib.rs:2 MR0001",
+                "crates/demo/src/lib.rs:7 MR0001",
                 "tests/ui/encoding.mr:1 MR0001",
                 "tests/ui/encoding.mr:2 MR0001",
                 "tests/ui/encoding.mr:2 MR2002",
@@ -733,6 +734,17 @@ A file that is not UTF-8 is error `MR0001`.
             };
             assert!(reason.contains(expected), "{reason}");
         }
+    }
+
+    #[test]
+    fn the_page_template_is_not_a_use() {
+        let template = "# MRnnnn: title\n\n```mora\n// error: MR0002\n```\n";
+        let repo = repo(
+            SPEC_TEXT,
+            &[("MR0001.md", PAGE), ("README.md", template)],
+            &[],
+        );
+        assert_eq!(check(&repo, LEXICAL, &[MR0001]), []);
     }
 
     #[test]

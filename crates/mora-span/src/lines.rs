@@ -328,4 +328,14 @@ mod tests {
         assert_eq!(index.to_utf8(u16(1, u32::MAX)), None);
         assert_eq!(index.offset(lc(0, u32::MAX)), None);
     }
+
+    #[test]
+    fn len_and_is_empty_follow_the_text() {
+        let empty = LineIndex::new("");
+        assert_eq!(empty.len(), TextSize::new(0));
+        assert!(empty.is_empty());
+        let text = LineIndex::new("ab\nc");
+        assert_eq!(text.len(), TextSize::new(4));
+        assert!(!text.is_empty());
+    }
 }

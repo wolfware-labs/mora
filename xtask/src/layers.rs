@@ -365,6 +365,22 @@ mod tests {
     }
 
     #[test]
+    fn edge_to_a_crate_outside_the_workspace_is_not_checked() {
+        let mut meta = workspace_json();
+        let id = package(&mut meta, "mora-hir")["id"].clone();
+        meta["packages"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|p| p["name"] != "mora-hir");
+        meta["workspace_members"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|member| *member != id);
+        add_dep(&mut meta, "mora-syntax", "mora-hir", None);
+        assert_eq!(run(meta), vec![]);
+    }
+
+    #[test]
     fn unknown_crate_fails() {
         let mut meta = workspace_json();
         let mut extra = package(&mut meta, "mora-span").clone();

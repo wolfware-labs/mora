@@ -154,6 +154,8 @@ mod tests {
         assert_eq!(code(r"\q"), Err((codes::MR0013, 2)));
         assert_eq!(code(r"\uD800"), Err((codes::MR0013, 6)));
         assert_eq!(code(r"\u12"), Err((codes::MR0013, 4)));
+        assert_eq!(code(r"\u1"), Err((codes::MR0013, 3)));
+        assert_eq!(code(r"\u"), Err((codes::MR0013, 2)));
         assert_eq!(code(r"\u{110000}"), Err((codes::MR0013, 10)));
         assert_eq!(code(r"\u{1234567}"), Err((codes::MR0013, 11)));
         assert_eq!(code(r"\u{}"), Err((codes::MR0013, 4)));
@@ -161,5 +163,17 @@ mod tests {
         assert_eq!(code("\\é"), Err((codes::MR0013, 3)));
         assert_eq!(code("\\\n"), Err((codes::MR0013, 1)));
         assert_eq!(code("\\\r\n"), Err((codes::MR0013, 1)));
+    }
+
+    #[test]
+    fn braced_escape_digit_count_message() {
+        for text in [r"\u{}", r"\u{1234567}"] {
+            let err = escape(text).unwrap_err();
+            assert!(
+                err.message.contains("one to six"),
+                "{text}: {}",
+                err.message
+            );
+        }
     }
 }

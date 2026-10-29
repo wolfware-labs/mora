@@ -486,6 +486,122 @@ mod tests {
     }
 
     #[test]
+    fn raw_strings_end_at_their_own_hashes() {
+        let text = concat!(
+            "let a = r\"a\" \"linux\";\n",
+            "let b = r##\"a\"## \"macos\";\n",
+            "let c = r\"windows\"; let d = r#\"\\x6cinux\"#;\n",
+            "let e = r\"two\nlines\"; let f = \"riscv64\";\n",
+            "#[cfg(feature = r\"linux\")] fn g() {}\n",
+            "let h = 1r\"\\x6cinux\";\n",
+        );
+        assert_eq!(
+            scan(text, &words()),
+            [
+                (1, "linux".to_owned()),
+                (2, "macos".to_owned()),
+                (3, "windows".to_owned()),
+                (5, "riscv64".to_owned()),
+                (7, "linux".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn escaped_quotes_do_not_end_strings_or_characters() {
+        let text = concat!(
+            "let a = \"\\\"\"; let b = \"linux\";\n",
+            "let c = '\\\"'; let d = \"macos\";\n",
+            "let e = ['\\x41','\\\"', \"windows\"];\n",
+        );
+        assert_eq!(
+            scan(text, &words()),
+            [
+                (1, "linux".to_owned()),
+                (2, "macos".to_owned()),
+                (3, "windows".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn nested_parentheses_stay_inside_cfg() {
+        let text = concat!(
+            "#[cfg_attr(all(unix), doc = \"linux\")] fn f() {}\n",
+            "#[doc(alias = \"macos\")] fn g() {}\n",
+        );
+        assert_eq!(scan(text, &words()), [(2, "macos".to_owned())]);
+    }
+
+    #[test]
+    fn unterminated_text_at_the_end_is_not_read_past() {
+        for text in [
+            "let a = r\"abc",
+            "let a = \"abc",
+            "let a = '\\",
+            "let a = 1; // end",
+            "let a = 1; /* end",
+        ] {
+            assert_eq!(scan(text, &words()), [], "{text}");
+        }
+        assert_eq!(
+            scan("let a = \"linux\"; a", &words()),
+            [(1, "linux".to_owned())]
+        );
+    }
+
+    #[test]
+    fn line_breaks_and_unknown_escapes_decode() {
+        let chars = |s: &str| s.chars().collect::<Vec<_>>();
+        assert_eq!(unescape(&chars(r"a\nb\r")), "a\nb\r");
+        assert_eq!(unescape(&chars("x\\\n  ")), "x");
+        assert_eq!(unescape(&chars(r"\x4")), r"\x4");
+        assert_eq!(unescape(&chars(r"\a{41}")), r"\a{41}");
+    }
+
+    #[test]
+    fn hits_name_their_place() {
+        let hit = Hit {
+            path: "crates/mora-cli/src/main.rs".to_owned(),
+            line: 7,
+            word: "linux".to_owned(),
+        };
+        assert_eq!(
+            hit.to_string(),
+            "crates/mora-cli/src/main.rs:7: \"linux\" names a target; only mora-target, mora-link and mora-codegen may match on targets (§19.4)"
+        );
+    }
+
+    #[test]
+    fn check_reads_every_crate_but_the_owners() {
+        let root =
+            std::env::temp_dir().join(format!("mora-xtask-target-names-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        for (file, text) in [
+            (
+                "crates/mora-cli/src/main.rs",
+                "fn f() {}\nlet t = \"linux\";\n",
+            ),
+            ("crates/mora-cli/src/notes.txt", "\"linux\"\n"),
+            ("crates/mora-target/src/lib.rs", "let t = \"linux\";\n"),
+        ] {
+            let path = root.join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        }
+        let hits = check(&root).unwrap();
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(
+            hits,
+            [Hit {
+                path: "crates/mora-cli/src/main.rs".to_owned(),
+                line: 2,
+                word: "linux".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
     fn allowed_files_exist() {
         let root = crate::root();
         for (path, reason) in ALLOW {

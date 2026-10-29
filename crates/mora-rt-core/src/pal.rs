@@ -104,3 +104,90 @@ pub fn wait(timeout_ns: Option<u64>) {
     // SAFETY: the platform's wait has no preconditions.
     unsafe { mora_pal_wait(timeout_ns.unwrap_or(FOREVER)) }
 }
+
+/// The core's unit tests link against this fake platform instead of
+/// `mora-rt`. Each test thread has its own clock and records its own calls.
+#[cfg(test)]
+mod tests {
+    extern crate std;
+
+    use std::cell::{Cell, RefCell};
+    use std::vec::Vec;
+
+    use super::*;
+
+    std::thread_local! {
+        static CLOCK: Cell<u64> = const { Cell::new(0) };
+        static WAITED: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
+        static WRITTEN: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn mora_pal_alloc(_: usize, _: usize) -> *mut u8 {
+        core::ptr::null_mut()
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn mora_pal_realloc(_: *mut u8, _: usize, _: usize, _: usize) -> *mut u8 {
+        core::ptr::null_mut()
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn mora_pal_free(_: *mut u8, _: usize, _: usize) {}
+
+    #[unsafe(no_mangle)]
+    extern "C" fn mora_pal_abort() -> ! {
+        std::process::abort()
+    }
+
+    /// # Safety
+    ///
+    /// `ptr` and `len` describe readable memory.
+    #[unsafe(no_mangle)]
+    unsafe extern "C" fn mora_pal_write_diagnostic(ptr: *const u8, len: usize) {
+        // SAFETY: the caller guarantees the bytes are readable.
+        let text = unsafe { core::slice::from_raw_parts(ptr, len) };
+        WRITTEN.with_borrow_mut(|written| written.extend_from_slice(text));
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn mora_pal_now() -> u64 {
+        CLOCK.get()
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn mora_pal_wait(timeout_ns: u64) {
+        WAITED.with_borrow_mut(|waited| waited.push(timeout_ns));
+    }
+
+    #[test]
+    fn write_diagnostic_passes_the_bytes_through() {
+        write_diagnostic(b"panicked: ");
+        write_diagnostic(b"boom\n");
+        assert_eq!(WRITTEN.take(), b"panicked: boom\n");
+    }
+
+    #[test]
+    fn now_reads_the_platform_clock() {
+        CLOCK.set(0);
+        assert_eq!(now(), Some(0));
+        CLOCK.set(1_234_567);
+        assert_eq!(now(), Some(1_234_567));
+        CLOCK.set(NO_CLOCK - 1);
+        assert_eq!(now(), Some(NO_CLOCK - 1));
+    }
+
+    #[test]
+    fn now_is_none_without_a_clock() {
+        CLOCK.set(NO_CLOCK);
+        assert_eq!(now(), None);
+    }
+
+    #[test]
+    fn wait_passes_the_timeout_or_forever() {
+        wait(Some(1_000));
+        wait(None);
+        wait(Some(0));
+        assert_eq!(WAITED.take(), [1_000, FOREVER, 0]);
+    }
+}

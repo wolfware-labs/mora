@@ -664,6 +664,224 @@ mod tests {
     }
 
     #[test]
+    fn each_host_gets_its_own_archives() {
+        let files: Vec<_> = archives("x86_64", "linux")
+            .unwrap()
+            .into_iter()
+            .map(|archive| archive.file)
+            .collect();
+        assert_eq!(
+            files,
+            [
+                format!("llvm-mingw-{LLVM_MINGW}-ucrt-ubuntu-22.04-x86_64.tar.xz"),
+                format!("rust-std-{RUST_VERSION}-x86_64-unknown-linux-musl.tar.gz"),
+                format!("rust-std-{RUST_VERSION}-aarch64-unknown-linux-musl.tar.gz"),
+            ]
+        );
+        assert_eq!(
+            llvm_mingw("aarch64", "windows").unwrap().file,
+            format!("llvm-mingw-{LLVM_MINGW}-ucrt-aarch64.zip")
+        );
+    }
+
+    #[test]
+    fn an_archive_without_a_top_directory_is_refused() {
+        let dir = scratch("flat");
+        fs::write(dir.join("only.txt"), "flat").unwrap();
+        let tarball = dir.join("flat.tar.gz");
+        let status = Command::new(tar())
+            .arg("-czf")
+            .arg(&tarball)
+            .arg("-C")
+            .arg(&dir)
+            .arg("only.txt")
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let error = unpack(&tarball, &dir.join("work")).unwrap_err();
+        assert!(error.contains("does not hold one directory"), "{error}");
+    }
+
+    /// Writes `files` under `dir`, creating their directories.
+    fn write_files(dir: &Path, files: &[&str]) {
+        for file in files {
+            let path = dir.join(file);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, *file).unwrap();
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn llvm_mingw_supplies_lld_and_the_mingw_sysroot() {
+        let dir = scratch("llvm-mingw");
+        let root = dir.join("llvm-mingw");
+        write_files(
+            &root,
+            &[
+                "bin/lld",
+                "bin/clang",
+                "lib/libLLVM-21.so",
+                "lib/libc++.so",
+                "x86_64-w64-mingw32/lib/crt2.o",
+                "x86_64-w64-mingw32/lib/gcrt2.o",
+                "x86_64-w64-mingw32/lib/libmingwex.a",
+                "x86_64-w64-mingw32/lib/libmingwex.la",
+                "aarch64-w64-mingw32/lib/crt2.o",
+                "lib/clang/21/lib/windows/libclang_rt.builtins-x86_64.a",
+                "lib/clang/21/lib/windows/libclang_rt.builtins-aarch64.a",
+                "lib/clang/21/lib/windows/libclang_rt.profile-x86_64.a",
+            ],
+        );
+        std::os::unix::fs::symlink(
+            "libmingwex.a",
+            root.join("x86_64-w64-mingw32/lib/libmingw32.a"),
+        )
+        .unwrap();
+        let out = dir.join("out");
+        install_llvm_mingw(&root, &out).unwrap();
+        assert_eq!(
+            manifest(&out),
+            [
+                "ld/bin/ld.lld",
+                "ld/bin/lld",
+                "ld/bin/lld-link",
+                "ld/lib/libLLVM-21.so",
+                "sysroot/aarch64-windows/crt2.o",
+                "sysroot/aarch64-windows/libclang_rt.builtins-aarch64.a",
+                "sysroot/x86_64-windows/crt2.o",
+                "sysroot/x86_64-windows/libclang_rt.builtins-x86_64.a",
+                "sysroot/x86_64-windows/libmingwex.a",
+            ]
+        );
+        for name in ["ld.lld", "lld-link"] {
+            assert_eq!(
+                fs::read_link(out.join("ld/bin").join(name)).unwrap(),
+                Path::new("lld")
+            );
+        }
+
+        fs::remove_file(root.join("lib/clang/21/lib/windows/libclang_rt.builtins-aarch64.a"))
+            .unwrap();
+        let error = install_llvm_mingw(&root, &dir.join("out2")).unwrap_err();
+        assert!(
+            error.contains("expected one libclang_rt.builtins-aarch64.a"),
+            "{error}"
+        );
+    }
+
+    /// A repository's `LICENSES/` with one text, and Mora's own license.
+    fn licenses(dir: &Path) -> PathBuf {
+        write_files(
+            dir,
+            &[
+                "repo/LICENSES/MIT.txt",
+                "repo/LICENSE-MIT",
+                "repo/README.md",
+            ],
+        );
+        dir.join("repo/LICENSES")
+    }
+
+    #[test]
+    fn licenses_replace_the_old_ones() {
+        let dir = scratch("licenses");
+        let out = dir.join("out");
+        write_files(&out, &["LICENSES/old.txt"]);
+        copy_licenses(&licenses(&dir), &out).unwrap();
+        let mut names: Vec<_> = fs::read_dir(out.join("LICENSES"))
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["LICENSE-MIT", "MIT.txt"]);
+    }
+
+    /// Writes a stamp for no archives that lists only `ld.lld`.
+    fn stamp_lld(out: &Path) -> String {
+        let lld = format!("ld/bin/ld.lld{}", std::env::consts::EXE_SUFFIX);
+        fs::write(
+            out.join("stamp"),
+            format!("layout {LAYOUT}\nfiles\n{lld}\n"),
+        )
+        .unwrap();
+        lld
+    }
+
+    #[test]
+    fn a_stamped_install_whose_lld_fails_is_redone() {
+        let dir = scratch("broken-lld");
+        let licenses = licenses(&dir);
+        let out = dir.join("out");
+        fs::create_dir_all(&out).unwrap();
+        let lld = stamp_lld(&out);
+        write_files(&out, &[&lld]);
+        let error = install(&[], &licenses, &out).unwrap_err();
+        assert!(error.contains("cannot run"), "{error}");
+        assert!(!out.join("stamp").exists());
+    }
+
+    /// Runs `f` again while running the fake `ld.lld` fails with "Text file
+    /// busy": a process another test thread starts at that moment can still
+    /// hold the just-written script open for writing.
+    #[cfg(unix)]
+    fn retry_busy<T, E: std::fmt::Display>(f: impl Fn() -> Result<T, E>) -> Result<T, E> {
+        for _ in 0..10 {
+            match f() {
+                Err(err) if err.to_string().contains("Text file busy") => {
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+                other => return other,
+            }
+        }
+        f()
+    }
+
+    /// Installs a shell script as `ld.lld`.
+    #[cfg(unix)]
+    fn fake_lld(out: &Path, script: &str) {
+        use std::os::unix::fs::PermissionsExt;
+        fs::create_dir_all(out.join("ld/bin")).unwrap();
+        let lld = out.join(stamp_lld(out));
+        fs::write(&lld, format!("#!/bin/sh\n{script}\n")).unwrap();
+        fs::set_permissions(&lld, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn lld_version_is_its_first_line() {
+        let dir = scratch("lld-version");
+        fake_lld(
+            &dir,
+            "echo 'LLD 21.1.0 (compatible with GNU linkers)'; echo more",
+        );
+        assert_eq!(
+            retry_busy(|| lld_version(&dir)).unwrap(),
+            "LLD 21.1.0 (compatible with GNU linkers)"
+        );
+        fake_lld(&dir, "echo 'libLLVM missing' >&2; exit 1");
+        let error = retry_busy(|| lld_version(&dir)).unwrap_err();
+        assert!(
+            error.contains("--version failed") && error.contains("libLLVM missing"),
+            "{error}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_stamped_install_whose_lld_runs_is_up_to_date() {
+        let dir = scratch("up-to-date");
+        let licenses = licenses(&dir);
+        let out = dir.join("out");
+        fake_lld(&out, "echo LLD");
+        assert_eq!(
+            retry_busy(|| install(&[], &licenses, &out)),
+            Ok(Installed::UpToDate)
+        );
+        assert!(out.join("LICENSES/MIT.txt").is_file());
+    }
+
+    #[test]
     fn the_license_readme_lists_every_text() {
         let licenses = Path::new(env!("CARGO_MANIFEST_DIR")).join("../LICENSES");
         let readme = fs::read_to_string(licenses.join("README.md")).unwrap();

@@ -158,9 +158,8 @@ fn expr_bp(p: &mut Parser<'_>, min: u8) -> Option<CompletedMarker> {
         // `..y` and `..`.
         let m = p.start();
         p.bump(K::DotDot);
-        if at_range_end(p) {
-            expr_bp(p, RANGE + 1);
-        }
+        // The end is optional: without one, this takes nothing.
+        expr_bp(p, RANGE + 1);
         m.complete(p, K::RangeExpr)
     } else {
         unary(p)?
@@ -170,9 +169,7 @@ fn expr_bp(p: &mut Parser<'_>, min: u8) -> Option<CompletedMarker> {
         if p.at(K::DotDot) && min <= RANGE && !is_range {
             let m = lhs.precede(p);
             p.bump(K::DotDot);
-            if at_range_end(p) {
-                expr_bp(p, RANGE + 1);
-            }
+            expr_bp(p, RANGE + 1);
             lhs = m.complete(p, K::RangeExpr);
             is_range = true;
             continue;
@@ -248,12 +245,6 @@ fn expr_bp(p: &mut Parser<'_>, min: u8) -> Option<CompletedMarker> {
         }
         return Some(lhs);
     }
-}
-
-/// Whether a range end follows `..`: an expression, but not the `]` or `)`
-/// that closes `a[..]` or the `,` of the next argument.
-fn at_range_end(p: &Parser<'_>) -> bool {
-    at_expr_start(p) && !p.at(K::DotDot)
 }
 
 /// §7.4: after an operand, `?` begins a conditional expression when a `:`
@@ -341,7 +332,7 @@ fn at_cast(p: &Parser<'_>) -> bool {
     let Some(end) = scan_type(input, at + 1) else {
         return false;
     };
-    if input.kind(end) != K::RParen || end == at + 1 {
+    if input.kind(end) != K::RParen {
         return false;
     }
     let next = input.kind(end + 1);
@@ -637,7 +628,7 @@ fn postfix(p: &mut Parser<'_>, mut lhs: CompletedMarker, propagate: bool) -> Com
             } else {
                 types::name_ref(p);
             }
-            if p.at(K::Lt) && types::generic_args_follow(p.input(), p.pos()) {
+            if types::generic_args_follow(p.input(), p.pos()) {
                 types::generic_arg_list(p);
             }
             m.complete(p, K::MemberExpr)

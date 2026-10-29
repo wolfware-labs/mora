@@ -244,6 +244,8 @@ mod tests {
     #[test]
     fn json_strings_escape_quotes_backslashes_and_controls() {
         assert_eq!(json_string("a\"b\\c\n"), "\"a\\\"b\\\\c\\u000a\"");
+        assert_eq!(json_string("\u{1f}"), "\"\\u001f\"");
+        assert_eq!(json_string(" ~"), "\" ~\"");
     }
 
     #[test]

@@ -526,3 +526,132 @@ fn random_inputs_are_lossless() {
         }
     }
 }
+
+// Behavior found untested by cargo mutants (§20.5).
+
+#[test]
+fn hole_format_stops_at_newline_only_in_plain_strings() {
+    assert_eq!(
+        tokens("$\"{x:F2\n"),
+        [
+            (K::InterpStart, "$\""),
+            (K::HoleOpen, "{"),
+            (K::Ident, "x"),
+            (K::HoleFormat, ":F2"),
+            (K::Newline, "\n"),
+        ]
+    );
+    assert_eq!(
+        tokens("$@\"{x:a\nb}\""),
+        [
+            (K::InterpStart, "$@\""),
+            (K::HoleOpen, "{"),
+            (K::Ident, "x"),
+            (K::HoleFormat, ":a\nb"),
+            (K::HoleClose, "}"),
+            (K::InterpEnd, "\""),
+        ]
+    );
+    assert_eq!(
+        tokens("$\"\"\"{x:a\nb}\"\"\""),
+        [
+            (K::InterpStart, "$\"\"\""),
+            (K::HoleOpen, "{"),
+            (K::Ident, "x"),
+            (K::HoleFormat, ":a\nb"),
+            (K::HoleClose, "}"),
+            (K::InterpEnd, "\"\"\""),
+        ]
+    );
+}
+
+#[test]
+fn hole_format_stops_at_a_quote_except_in_raw_strings() {
+    assert_eq!(
+        tokens("$\"{x:F2\""),
+        [
+            (K::InterpStart, "$\""),
+            (K::HoleOpen, "{"),
+            (K::Ident, "x"),
+            (K::HoleFormat, ":F2"),
+            (K::String, "\""),
+        ]
+    );
+    assert_eq!(
+        tokens("$\"\"\"{x:a\"b}\"\"\""),
+        [
+            (K::InterpStart, "$\"\"\""),
+            (K::HoleOpen, "{"),
+            (K::Ident, "x"),
+            (K::HoleFormat, ":a\"b"),
+            (K::HoleClose, "}"),
+            (K::InterpEnd, "\"\"\""),
+        ]
+    );
+}
+
+#[test]
+fn a_string_ends_before_a_crlf_but_not_at_a_lone_cr() {
+    assert_eq!(
+        tokens("\"ab\r\nc"),
+        [(K::String, "\"ab"), (K::Newline, "\r\n"), (K::Ident, "c")]
+    );
+    assert_eq!(errors("\"ab\r\nc"), [(codes::MR0012, "\"ab")]);
+    assert_eq!(tokens("\"a\rb\""), [(K::String, "\"a\rb\"")]);
+    assert!(errors("\"a\rb\"").is_empty());
+}
+
+#[test]
+fn verbatim_string_takes_a_u8_suffix() {
+    assert_eq!(
+        tokens("@\"a\"u8;"),
+        [(K::VerbatimString, "@\"a\"u8"), (K::Semicolon, ";")]
+    );
+}
+
+#[test]
+fn backslashes_are_text_in_verbatim_and_raw_interpolated_strings() {
+    for text in ["$@\"\\q\"", "$\"\"\"\\q\"\"\""] {
+        assert!(errors(text).is_empty(), "{text}");
+    }
+    assert_eq!(errors("$\"\\q\""), [(codes::MR0013, "\\q")]);
+}
+
+#[test]
+fn a_newline_ends_a_plain_interpolated_string() {
+    assert_eq!(
+        tokens("$\"a\nb"),
+        [
+            (K::InterpStart, "$\""),
+            (K::InterpText, "a"),
+            (K::Newline, "\n"),
+            (K::Ident, "b"),
+        ]
+    );
+    assert_eq!(errors("$\"a\nb"), [(codes::MR0012, "$\"")]);
+}
+
+#[test]
+fn raw_interpolated_string_error_ranges() {
+    assert_eq!(
+        errors("x = $\"\"\"ab\"\"\"\""),
+        [(codes::MR0016, "\"\"\"\"")]
+    );
+    assert_eq!(errors("x = $\"\"\"ab{{x}\"\"\""), [(codes::MR0016, "{{")]);
+}
+
+#[test]
+fn raw_string_lines_after_a_hole_are_checked() {
+    let text = "$\"\"\"\n    {x}\n  bad\n    \"\"\"";
+    assert_eq!(errors(text), [(codes::MR0016, "  ")]);
+}
+
+#[test]
+fn raw_string_opening_line_may_end_in_whitespace() {
+    assert!(errors("x = \"\"\"   \n  a\n  \"\"\"").is_empty());
+}
+
+#[test]
+fn raw_string_checks_a_short_last_line() {
+    assert_eq!(errors("\"\"\"\n  a\nb\n  \"\"\""), [(codes::MR0016, "b")]);
+}

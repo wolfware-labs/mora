@@ -74,4 +74,24 @@ mod tests {
         assert_eq!(diff("a\n", ""), "- a\n");
         assert_eq!(diff("", ""), "");
     }
+
+    #[test]
+    fn keeps_the_longest_run_of_common_lines() {
+        assert_eq!(diff("a\n", "b\n"), "- a\n+ b\n");
+        assert_eq!(diff("a\na\n", "b\na\n"), "- a\n+ b\n  a\n");
+        assert_eq!(diff("a\na\n", "b\na\na\n"), "+ b\n  a\n  a\n");
+        assert_eq!(diff("a\nb\na\n", "c\na\n"), "- a\n- b\n+ c\n  a\n");
+        assert_eq!(
+            diff("x\na\nb\nc\n", "a\nb\nc\ny\n"),
+            "- x\n  a\n  b\n  c\n+ y\n"
+        );
+        assert_eq!(
+            diff("a\nb\nc\nd\n", "b\nc\na\nd\n"),
+            "- a\n  b\n  c\n+ a\n  d\n"
+        );
+        assert_eq!(
+            diff("p\nq\nr\ns\n", "q\np\ns\nr\n"),
+            "- p\n  q\n- r\n+ p\n  s\n+ r\n"
+        );
+    }
 }

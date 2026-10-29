@@ -94,4 +94,19 @@ mod tests {
     fn five_digits_panic() {
         let _ = Code::new(10_000);
     }
+
+    #[test]
+    fn number_returns_the_digits() {
+        assert_eq!(Code::new(310).number(), 310);
+        assert_eq!("MR9001".parse::<Code>().map(Code::number), Ok(9001));
+    }
+
+    #[test]
+    fn parse_error_names_the_bad_text() {
+        let error = "MR31".parse::<Code>().unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "`MR31` is not a diagnostic code like `MR0310`"
+        );
+    }
 }
