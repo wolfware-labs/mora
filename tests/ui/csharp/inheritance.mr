@@ -1,0 +1,13 @@
+abstract class Shape //~ ERROR MR0108
+{
+    protected int sides; //~ ERROR MR0108
+    public virtual double Area() => 0; //~ ERROR MR0108
+}
+sealed class Square //~ ERROR MR0108
+{
+    public override string ToString() => base.ToString(); //~ ERROR MR0108 //~ ERROR MR0108
+}
+interface IUnit
+{
+    static abstract IUnit Unit { get; }
+}

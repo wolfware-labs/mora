@@ -536,6 +536,7 @@ version = "0.0.0"
 dependencies = [
  "mora-diag",
  "mora-span",
+ "mora-syntax",
 ]
 
 [[package]]

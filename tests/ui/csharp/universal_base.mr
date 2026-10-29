@@ -1,0 +1,2 @@
+object box = 1; //~ ERROR MR0102
+void Show(dynamic value) { } //~ ERROR MR0102

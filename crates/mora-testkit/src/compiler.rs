@@ -19,19 +19,48 @@ pub trait Compiler: Sync {
 }
 
 /// The compiler the suites and `cargo xtask spec-examples` use. It is
-/// [`Unbuilt`] until the driver can compile a file (M1).
+/// [`SyntaxOnly`] until the driver can compile a file (M1.16).
 pub fn compiler() -> &'static dyn Compiler {
-    &Unbuilt
+    &SyntaxOnly
 }
 
-/// Stands in for the driver until it can compile. It has no backend, so run
-/// cases fail without calling it, and checking a file panics, which fails
-/// only that case.
+/// A compiler that can do nothing: it has no backend, so run cases fail
+/// without calling it, and checking a file panics, which fails only that
+/// case. The self-tests use it.
 pub struct Unbuilt;
 
 impl Compiler for Unbuilt {
     fn check(&self, _: &str, _: &str) -> Checked {
         unimplemented!("the driver cannot compile yet");
+    }
+
+    fn backends(&self) -> &[Backend] {
+        &[]
+    }
+
+    fn run(&self, _: &str, _: &str, _: Backend) -> Result<Output, Checked> {
+        unimplemented!("the driver cannot run programs yet");
+    }
+}
+
+/// Stands in for the driver until it can compile: checking a file reports
+/// its lexical and syntax errors only. It has no backend.
+pub struct SyntaxOnly;
+
+impl Compiler for SyntaxOnly {
+    fn check(&self, path: &str, text: &str) -> Checked {
+        let mut files = Files::new();
+        let file = files.add(path, text);
+        let diagnostics = mora_syntax::parse(text)
+            .errors()
+            .iter()
+            .map(|error| error.to_diagnostic(file))
+            .collect();
+        Checked {
+            files,
+            file,
+            diagnostics,
+        }
     }
 
     fn backends(&self) -> &[Backend] {

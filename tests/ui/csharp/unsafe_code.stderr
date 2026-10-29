@@ -1,0 +1,15 @@
+error[MR0107]: `unsafe`: Mora has no unsafe code yet
+ --> tests/ui/csharp/unsafe_code.mr:1:1
+  |
+1 | unsafe void Copy() { } //~ ERROR MR0107
+  | ^^^^^^
+  |
+  = note: Unsafe code is planned after the first release.
+
+error[MR0107]: `unsafe`: Mora has no unsafe code yet
+ --> tests/ui/csharp/unsafe_code.mr:2:1
+  |
+2 | unsafe //~ ERROR MR0107
+  | ^^^^^^
+  |
+  = note: Unsafe code is planned after the first release.

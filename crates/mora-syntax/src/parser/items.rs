@@ -1,9 +1,12 @@
 //! Compilation units, declarations and members (§4, §6, §8.2, §9.2).
 
+use super::csharp::{self, OpenNamespace};
 use super::exprs;
 use super::types::{self, name, name_ref, scan_type};
 use super::{Marker, Parser, stmts};
-use crate::SyntaxKind;
+use crate::{SyntaxError, SyntaxKind};
+use mora_diag::codes;
+use mora_span::TextRange;
 
 use SyntaxKind as K;
 
@@ -63,9 +66,21 @@ enum Phase {
 pub(crate) fn source_file(p: &mut Parser<'_>) {
     let m = p.start();
     let mut phase = Phase::Imports;
+    let mut namespaces = Namespaces::default();
     while !p.at_end() {
         let before = p.pos();
-        phase = top_level(p, phase);
+        if p.at(K::RBrace)
+            && let Some(open) = namespaces.open.pop()
+        {
+            // The end of a block namespace, reported with its start.
+            let close = p.range(0);
+            let e = p.start();
+            p.bump(K::RBrace);
+            e.complete(p, K::Error);
+            open.report(p, Some(close));
+            continue;
+        }
+        phase = top_level(p, phase, &mut namespaces);
         if p.pos() == before {
             // Nothing could use the token: take it, so the loop moves on.
             let e = p.start();
@@ -74,13 +89,26 @@ pub(crate) fn source_file(p: &mut Parser<'_>) {
             e.complete(p, K::Error);
         }
     }
+    for open in namespaces.open.drain(..).rev() {
+        open.report(p, None);
+    }
     m.complete(p, K::SourceFile);
+}
+
+/// The namespace declarations seen so far.
+#[derive(Default)]
+struct Namespaces {
+    /// Whether the file had one before.
+    seen: bool,
+    /// Block namespaces whose `}` is still to come, innermost last.
+    open: Vec<OpenNamespace>,
 }
 
 /// Parses one top-level element and returns the phase after it. A header
 /// element out of order is still parsed, with an error.
-fn top_level(p: &mut Parser<'_>, phase: Phase) -> Phase {
-    let is_using = p.at(K::UsingKw) || (p.at_contextual("global") && p.nth(1) == K::UsingKw);
+fn top_level(p: &mut Parser<'_>, phase: Phase, namespaces: &mut Namespaces) -> Phase {
+    let is_using = (p.at(K::UsingKw) && !csharp::at_using_statement(p))
+        || (p.at_contextual("global") && p.nth(1) == K::UsingKw);
     let (element, latest, message) = if p.at(K::ImportKw) {
         (
             Phase::Imports,
@@ -111,7 +139,7 @@ fn top_level(p: &mut Parser<'_>, phase: Phase) -> Phase {
     match element {
         Phase::Imports => import_decl(p),
         Phase::Usings => using_directive(p),
-        _ => file_namespace(p),
+        _ => file_namespace(p, namespaces),
     }
     phase.max(element)
 }
@@ -148,12 +176,35 @@ fn using_directive(p: &mut Parser<'_>) {
     m.complete(p, K::UsingDirective);
 }
 
-/// `namespace Users.Api;` (§4.2).
-fn file_namespace(p: &mut Parser<'_>) {
+/// `namespace Users.Api;` (§4.2), or the C# block form `namespace X {`,
+/// whose `}` [`source_file`] takes.
+fn file_namespace(p: &mut Parser<'_>, namespaces: &mut Namespaces) {
     let m = p.start();
+    let start = p.range(0).start();
     p.bump(K::NamespaceKw);
     types::path(p, true);
-    p.expect(K::Semicolon);
+    if p.at(K::LBrace) {
+        let name_end = p.prev_end();
+        let open = p.range(0);
+        let e = p.start();
+        p.bump(K::LBrace);
+        e.complete(p, K::Error);
+        // Only the first namespace of a file, with nothing nested in it,
+        // can become the file-scoped one.
+        let fixable = !namespaces.seen;
+        for outer in &mut namespaces.open {
+            outer.forbid_fix();
+        }
+        namespaces.open.push(OpenNamespace::new(
+            TextRange::new(start, name_end),
+            name_end,
+            open,
+            fixable && namespaces.open.is_empty(),
+        ));
+    } else {
+        p.expect(K::Semicolon);
+    }
+    namespaces.seen = true;
     m.complete(p, K::FileNamespace);
 }
 
@@ -242,7 +293,11 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
 /// attributes, a modifier, a declaration keyword, or a type followed by a
 /// name and `(` (a function).
 fn at_declaration_start(p: &Parser<'_>) -> bool {
-    if at_attribute(p) || (p.at_any(MODIFIERS) && !p.at(K::ThisKw)) || at_contextual_modifier(p) {
+    if at_attribute(p)
+        || (p.at_any(MODIFIERS) && !p.at(K::ThisKw))
+        || at_contextual_modifier(p)
+        || (p.at_any(csharp::RESERVED_MODIFIERS) && !(p.at(K::UnsafeKw) && p.nth(1) == K::LBrace))
+    {
         return true;
     }
     if p.at_any(&[
@@ -327,6 +382,7 @@ fn at_contextual_modifier(p: &Parser<'_>) -> bool {
 /// an expression or an indexer.
 fn modifiers(p: &mut Parser<'_>, params: bool) -> Vec<SyntaxKind> {
     let mut kinds = Vec::new();
+    let mut ranges = Vec::new();
     loop {
         let m = p.start();
         if at_contextual_modifier(p) {
@@ -339,9 +395,13 @@ fn modifiers(p: &mut Parser<'_>, params: bool) -> Vec<SyntaxKind> {
             kinds.push(kind);
         } else if p.at_any(MODIFIERS) && (params || !p.at(K::ThisKw)) {
             kinds.push(p.current());
+            ranges.push((p.current(), p.range(0)));
             p.bump_any();
+        } else if csharp::modifier(p) {
+            // `virtual`, `event` and the like: reported, then skipped.
         } else {
             m.abandon(p);
+            csharp::check_abstract(p, &ranges);
             return kinds;
         }
         m.complete(p, K::Modifier);
@@ -404,12 +464,20 @@ fn struct_or_class(p: &mut Parser<'_>, m: Marker, keyword: SyntaxKind, kind: Syn
     p.bump(keyword);
     type_head(p);
     if p.at(K::LParen) {
-        // C# 12 primary constructors are not Mora (§6.9); M1.5 gives the
-        // targeted error and the fix.
+        // C# 12 primary constructors are not Mora (§6.9).
+        let start = p.range(0).start();
         let e = p.start();
-        p.error("a class or struct has no parameter list; declare fields and a constructor");
         param_list(p);
         e.complete(p, K::Error);
+        let range = TextRange::new(start, p.prev_end().max(start));
+        p.report(
+            SyntaxError::new(
+                codes::MR0128,
+                range,
+                "a class or struct has no parameter list",
+            )
+            .with_note("Declare fields and a constructor."),
+        );
     }
     type_tail(p);
     if !p.eat(K::Semicolon) {
@@ -544,7 +612,7 @@ fn members(p: &mut Parser<'_>) {
             exprs::splice(p);
             p.eat(K::Semicolon);
             m.complete(p, K::SpliceMember);
-        } else {
+        } else if !(p.at(K::DelegateKw) && csharp::statement(p)) {
             declaration(p, Context::Member);
         }
         if p.pos() == before {

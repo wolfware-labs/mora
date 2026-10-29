@@ -441,8 +441,8 @@ fn unknown_characters() {
 }
 
 /// Every `mora` example in the spec and the error pages, and every `.mr`
-/// file under `tests/`, lexes losslessly; examples that expect output lex
-/// without errors.
+/// file under `tests/`, lexes losslessly; those that expect no error (no
+/// `// error:` first line, no `//~ ERROR` annotation) lex without errors.
 #[test]
 fn repository_sources_lex_losslessly() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -487,7 +487,7 @@ fn repository_sources_lex_losslessly() {
     for (origin, text) in &sources {
         let lexed = lex(text);
         assert_lossless(text, &lexed);
-        let expects_errors = text.starts_with("// error:");
+        let expects_errors = text.starts_with("// error:") || text.contains("//~ ERROR");
         if !expects_errors {
             let problems: Vec<_> = lexed
                 .errors

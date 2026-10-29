@@ -1,0 +1,15 @@
+error[MR0160]: `x!`: Mora has no null-forgiving operator
+ --> tests/ui/csharp/null_forgiving.mr:2:18
+  |
+2 | let length = name!.Length; //~ ERROR MR0160
+  |                  ^
+  |
+  = note: Use `.Value`, or `.Expect("why it is set")` to say why it cannot be `null`.
+
+error[MR0160]: `x!`: Mora has no null-forgiving operator
+ --> tests/ui/csharp/null_forgiving.mr:3:23
+  |
+3 | Console.WriteLine(name!); //~ ERROR MR0160
+  |                       ^
+  |
+  = note: Use `.Value`, or `.Expect("why it is set")` to say why it cannot be `null`.

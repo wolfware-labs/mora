@@ -1,0 +1,7 @@
+#nullable enable
+#region Types
+namespace Shop.Orders
+{
+    class Order { }
+}
+#endregion

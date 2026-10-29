@@ -2,7 +2,7 @@
 
 use super::exprs::{self, at_expr_start};
 use super::types::{self, scan_type};
-use super::{Parser, items, patterns};
+use super::{Parser, csharp, items, patterns};
 use crate::SyntaxKind;
 
 use SyntaxKind as K;
@@ -43,6 +43,9 @@ pub(crate) fn statement(p: &mut Parser<'_>) {
 }
 
 fn statement_inner(p: &mut Parser<'_>) {
+    if csharp::statement(p) {
+        return;
+    }
     match p.current() {
         K::LBrace => block(p),
         K::Semicolon => {

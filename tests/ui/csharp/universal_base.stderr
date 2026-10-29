@@ -1,0 +1,15 @@
+error[MR0102]: `object`: there is no universal base type
+ --> tests/ui/csharp/universal_base.mr:1:1
+  |
+1 | object box = 1; //~ ERROR MR0102
+  | ^^^^^^
+  |
+  = note: Use a generic parameter or an interface.
+
+error[MR0102]: `dynamic`: there is no universal base type
+ --> tests/ui/csharp/universal_base.mr:2:11
+  |
+2 | void Show(dynamic value) { } //~ ERROR MR0102
+  |           ^^^^^^^
+  |
+  = note: Use a generic parameter or an interface.

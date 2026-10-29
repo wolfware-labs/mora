@@ -1,0 +1,13 @@
+delegate void Handler(int x);
+abstract class Shape { }
+sealed class Circle
+{
+    public virtual double Area() => 0;
+    protected int sides;
+    volatile int ticks;
+    event Action Changed;
+    public override string ToString() => "circle";
+    object tag;
+    unsafe void Raw() { }
+}
+interface IUnit { static abstract IUnit Unit { get; } }

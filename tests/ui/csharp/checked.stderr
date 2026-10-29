@@ -1,0 +1,23 @@
+error[MR0109]: `checked`: Mora sets overflow checking per build profile
+ --> tests/ui/csharp/checked.mr:2:9
+  |
+2 | let b = checked(a + 1); //~ ERROR MR0109
+  |         ^^^^^^^
+  |
+  = note: Set `overflow-checks` in the profile, or use the wrapping operators `+%`, `-%` and `*%`.
+
+error[MR0109]: `unchecked`: Mora sets overflow checking per build profile
+ --> tests/ui/csharp/checked.mr:3:9
+  |
+3 | let c = unchecked(a + 1); //~ ERROR MR0109
+  |         ^^^^^^^^^
+  |
+  = note: Set `overflow-checks` in the profile, or use the wrapping operators `+%`, `-%` and `*%`.
+
+error[MR0109]: `checked`: Mora sets overflow checking per build profile
+ --> tests/ui/csharp/checked.mr:4:1
+  |
+4 | checked //~ ERROR MR0109
+  | ^^^^^^^
+  |
+  = note: Set `overflow-checks` in the profile, or use the wrapping operators `+%`, `-%` and `*%`.

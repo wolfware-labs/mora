@@ -1,0 +1,16 @@
+int Parse(string text)
+{
+    try //~ ERROR MR0101
+    {
+        return int.Parse(text);
+    }
+    catch (FormatException e) when (e.Message != "")
+    {
+        throw; //~ ERROR MR0101
+    }
+    finally
+    {
+        Console.WriteLine("done");
+    }
+}
+int Fallback(int? x) => x ?? throw new ArgumentException(); //~ ERROR MR0101

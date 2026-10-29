@@ -1,0 +1,5 @@
+unsafe void Copy() { } //~ ERROR MR0107
+unsafe //~ ERROR MR0107
+{
+    Copy();
+}

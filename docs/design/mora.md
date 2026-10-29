@@ -335,9 +335,9 @@ Some C# keywords name features Mora leaves out. They are reserved, so code writt
 | `typeof` | `MR0103` | There is no runtime reflection. Use `nameof`, a generic constraint or a macro (§9). |
 | `lock`, `volatile` | `MR0104` | Use `Mutex<T>` or `Atomic<T>` (post-MVP, §12.6). |
 | `delegate`, `event` | `MR0105` | Use function types (`Func<A, R>`, `Action<A>`) and `Signal<T>` (§15.8). |
-| `goto` | `MR0106` | Not supported. |
+| `goto` | `MR0106` | Not supported, and neither are statement labels such as `done:`. |
 | `fixed`, `unsafe` | `MR0107` | Unsafe code is post-MVP (OQ-11). |
-| `abstract`, `virtual`, `override`, `sealed`, `protected`, `base` | `MR0108` | Class inheritance is post-MVP (OQ-4). Use an interface with default methods. |
+| `abstract`, `virtual`, `override`, `sealed`, `protected`, `base` | `MR0108` | Class inheritance is post-MVP (OQ-4). Use an interface with default methods. `abstract` stays a modifier of `static abstract` interface members (§6.8). |
 
 ### 3.5 Literals
 

@@ -26,25 +26,26 @@ exclude_re = [
     # identifier is always an identifier character, number errors always
     # start at offset 0, quotes stepped one at a time reach the same place,
     # and the raw-string indent scan only gains or loses blank lines.
-    '^crates/mora-syntax/src/lexer/mod\.rs:467:39: replace > with >= in Lexer<.a>::code_token$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:499:51: replace \+ with - in Lexer<.a>::code_token$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:700:25: replace > with < in Lexer<.a>::raw_string$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:943:60: replace \+ with \* in Lexer<.a>::check_raw$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:944:26: replace < with <= in Lexer<.a>::check_raw$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:944:57: replace \+ with \* in Lexer<.a>::check_raw$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:554:39: replace > with >= in Lexer<.a>::code_token$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:586:51: replace \+ with - in Lexer<.a>::code_token$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:787:25: replace > with < in Lexer<.a>::raw_string$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:1030:60: replace \+ with \* in Lexer<.a>::check_raw$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:1031:26: replace < with <= in Lexer<.a>::check_raw$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:1031:57: replace \+ with \* in Lexer<.a>::check_raw$',
     '^crates/mora-syntax/src/lexer/number\.rs:235:37: replace \+ with \* in separators$',
     # Popping the last event and leaving a tombstone build the same tree.
-    '^crates/mora-syntax/src/parser/mod\.rs:175:21: replace \+ with - in Marker::abandon$',
-    '^crates/mora-syntax/src/parser/mod\.rs:175:21: replace \+ with \* in Marker::abandon$',
+    '^crates/mora-syntax/src/parser/mod\.rs:193:21: replace \+ with - in Marker::abandon$',
+    '^crates/mora-syntax/src/parser/mod\.rs:193:21: replace \+ with \* in Marker::abandon$',
     # The scan starting one token early sees the `?` itself, which it skips;
     # scanning past the end reads the end-of-file kind.
-    '^crates/mora-syntax/src/parser/exprs\.rs:262:20: replace \+ with \* in conditional_follows$',
-    '^crates/mora-syntax/src/parser/exprs\.rs:263:13: replace < with <= in conditional_follows$',
+    '^crates/mora-syntax/src/parser/exprs\.rs:268:20: replace \+ with \* in conditional_follows$',
+    '^crates/mora-syntax/src/parser/exprs\.rs:269:13: replace < with <= in conditional_follows$',
     # At the top level an item without attributes only gets this far when
     # it starts a declaration, which the attributed-statement arms never take.
-    '^crates/mora-syntax/src/parser/items\.rs:180:30: replace > with >= in declaration$',
+    '^crates/mora-syntax/src/parser/items\.rs:231:30: replace > with >= in declaration$',
     # The placeholder compiler has no backends either way.
     '^crates/mora-testkit/src/compiler\.rs:38:9: replace <impl Compiler for Unbuilt>::backends -> &\[Backend\] with Vec::leak\(Vec::new\(\)\)$',
+    '^crates/mora-testkit/src/compiler\.rs:67:9: replace <impl Compiler for SyntaxOnly>::backends -> &\[Backend\] with Vec::leak\(Vec::new\(\)\)$',
     # Width of a separator line; any width reads the same.
     '^crates/mora-testkit/src/diff\.rs:32:87: replace \+ with \* in diff$',
     # Codegen paths that produce the same text: the widened ranges only add

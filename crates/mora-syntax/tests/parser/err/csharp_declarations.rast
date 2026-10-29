@@ -1,0 +1,207 @@
+SourceFile@0..342
+  Error@0..29
+    DelegateKw@0..8 "delegate"
+    Whitespace@8..9 " "
+    VoidKw@9..13 "void"
+    Whitespace@13..14 " "
+    Ident@14..21 "Handler"
+    LParen@21..22 "("
+    IntKw@22..25 "int"
+    Whitespace@25..26 " "
+    Ident@26..27 "x"
+    RParen@27..28 ")"
+    Semicolon@28..29 ";"
+  Newline@29..30 "\n"
+  ClassDecl@30..54
+    Modifier@30..38
+      AbstractKw@30..38 "abstract"
+    Whitespace@38..39 " "
+    ClassKw@39..44 "class"
+    Whitespace@44..45 " "
+    Name@45..50
+      Ident@45..50 "Shape"
+    Whitespace@50..51 " "
+    MemberList@51..54
+      LBrace@51..52 "{"
+      Whitespace@52..53 " "
+      RBrace@53..54 "}"
+  Newline@54..55 "\n"
+  ClassDecl@55..285
+    Modifier@55..61
+      SealedKw@55..61 "sealed"
+    Whitespace@61..62 " "
+    ClassKw@62..67 "class"
+    Whitespace@67..68 " "
+    Name@68..74
+      Ident@68..74 "Circle"
+    Newline@74..75 "\n"
+    MemberList@75..285
+      LBrace@75..76 "{"
+      Newline@76..77 "\n"
+      Whitespace@77..81 "    "
+      FunctionDecl@81..115
+        Modifier@81..87
+          PublicKw@81..87 "public"
+        Whitespace@87..88 " "
+        Modifier@88..95
+          VirtualKw@88..95 "virtual"
+        Whitespace@95..96 " "
+        PredefinedType@96..102
+          DoubleKw@96..102 "double"
+        Whitespace@102..103 " "
+        Name@103..107
+          Ident@103..107 "Area"
+        ParamList@107..109
+          LParen@107..108 "("
+          RParen@108..109 ")"
+        Whitespace@109..110 " "
+        ExprBody@110..114
+          FatArrow@110..112 "=>"
+          Whitespace@112..113 " "
+          LiteralExpr@113..114
+            IntNumber@113..114 "0"
+        Semicolon@114..115 ";"
+      Newline@115..116 "\n"
+      Whitespace@116..120 "    "
+      FieldDecl@120..140
+        Modifier@120..129
+          ProtectedKw@120..129 "protected"
+        Whitespace@129..130 " "
+        PredefinedType@130..133
+          IntKw@130..133 "int"
+        Whitespace@133..134 " "
+        VariableDeclarator@134..139
+          Name@134..139
+            Ident@134..139 "sides"
+        Semicolon@139..140 ";"
+      Newline@140..141 "\n"
+      Whitespace@141..145 "    "
+      FieldDecl@145..164
+        Modifier@145..153
+          VolatileKw@145..153 "volatile"
+        Whitespace@153..154 " "
+        PredefinedType@154..157
+          IntKw@154..157 "int"
+        Whitespace@157..158 " "
+        VariableDeclarator@158..163
+          Name@158..163
+            Ident@158..163 "ticks"
+        Semicolon@163..164 ";"
+      Newline@164..165 "\n"
+      Whitespace@165..169 "    "
+      FieldDecl@169..190
+        Modifier@169..174
+          EventKw@169..174 "event"
+        Whitespace@174..175 " "
+        PathType@175..181
+          Path@175..181
+            PathSegment@175..181
+              NameRef@175..181
+                Ident@175..181 "Action"
+        Whitespace@181..182 " "
+        VariableDeclarator@182..189
+          Name@182..189
+            Ident@182..189 "Changed"
+        Semicolon@189..190 ";"
+      Newline@190..191 "\n"
+      Whitespace@191..195 "    "
+      FunctionDecl@195..241
+        Modifier@195..201
+          PublicKw@195..201 "public"
+        Whitespace@201..202 " "
+        Modifier@202..210
+          OverrideKw@202..210 "override"
+        Whitespace@210..211 " "
+        PredefinedType@211..217
+          StringKw@211..217 "string"
+        Whitespace@217..218 " "
+        Name@218..226
+          Ident@218..226 "ToString"
+        ParamList@226..228
+          LParen@226..227 "("
+          RParen@227..228 ")"
+        Whitespace@228..229 " "
+        ExprBody@229..240
+          FatArrow@229..231 "=>"
+          Whitespace@231..232 " "
+          LiteralExpr@232..240
+            String@232..240 "\"circle\""
+        Semicolon@240..241 ";"
+      Newline@241..242 "\n"
+      Whitespace@242..246 "    "
+      FieldDecl@246..257
+        Error@246..252
+          ObjectKw@246..252 "object"
+        Whitespace@252..253 " "
+        VariableDeclarator@253..256
+          Name@253..256
+            Ident@253..256 "tag"
+        Semicolon@256..257 ";"
+      Newline@257..258 "\n"
+      Whitespace@258..262 "    "
+      FunctionDecl@262..283
+        Modifier@262..268
+          UnsafeKw@262..268 "unsafe"
+        Whitespace@268..269 " "
+        PredefinedType@269..273
+          VoidKw@269..273 "void"
+        Whitespace@273..274 " "
+        Name@274..277
+          Ident@274..277 "Raw"
+        ParamList@277..279
+          LParen@277..278 "("
+          RParen@278..279 ")"
+        Whitespace@279..280 " "
+        Block@280..283
+          LBrace@280..281 "{"
+          Whitespace@281..282 " "
+          RBrace@282..283 "}"
+      Newline@283..284 "\n"
+      RBrace@284..285 "}"
+  Newline@285..286 "\n"
+  InterfaceDecl@286..341
+    InterfaceKw@286..295 "interface"
+    Whitespace@295..296 " "
+    Name@296..301
+      Ident@296..301 "IUnit"
+    Whitespace@301..302 " "
+    MemberList@302..341
+      LBrace@302..303 "{"
+      Whitespace@303..304 " "
+      PropertyDecl@304..339
+        Modifier@304..310
+          StaticKw@304..310 "static"
+        Whitespace@310..311 " "
+        Modifier@311..319
+          AbstractKw@311..319 "abstract"
+        Whitespace@319..320 " "
+        PathType@320..325
+          Path@320..325
+            PathSegment@320..325
+              NameRef@320..325
+                Ident@320..325 "IUnit"
+        Whitespace@325..326 " "
+        Name@326..330
+          Ident@326..330 "Unit"
+        Whitespace@330..331 " "
+        AccessorList@331..339
+          LBrace@331..332 "{"
+          Whitespace@332..333 " "
+          Accessor@333..337
+            GetKw@333..336 "get"
+            Semicolon@336..337 ";"
+          Whitespace@337..338 " "
+          RBrace@338..339 "}"
+      Whitespace@339..340 " "
+      RBrace@340..341 "}"
+  Newline@341..342 "\n"
+error MR0105 0..8: `delegate`: Mora has no delegates or events
+error MR0108 30..38: `abstract`: Mora has no class inheritance
+error MR0108 55..61: `sealed`: Mora has no class inheritance
+error MR0108 88..95: `virtual`: Mora has no class inheritance
+error MR0108 120..129: `protected`: Mora has no class inheritance
+error MR0104 145..153: `volatile`: Mora has no `lock` or `volatile`
+error MR0105 169..174: `event`: Mora has no delegates or events
+error MR0108 202..210: `override`: Mora has no class inheritance
+error MR0102 246..252: `object`: there is no universal base type
+error MR0107 262..268: `unsafe`: Mora has no unsafe code yet

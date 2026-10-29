@@ -1,6 +1,6 @@
 //! Types (§5), and a lookahead that recognizes a type without parsing it.
 
-use super::{Input, Parser, describe, exprs};
+use super::{Input, Parser, csharp, describe, exprs};
 use crate::SyntaxKind;
 
 use SyntaxKind as K;
@@ -48,6 +48,7 @@ fn ty_with(p: &mut Parser<'_>, arrays: bool) {
             m.complete(p, K::PredefinedType)
         }
         K::LParen => tuple_type(p),
+        K::ObjectKw | K::DynamicKw => csharp::reserved_type(p),
         K::WeakKw => {
             let m = p.start();
             p.bump(K::WeakKw);
@@ -84,7 +85,11 @@ fn ty_with(p: &mut Parser<'_>, arrays: bool) {
 
 pub(crate) fn at_type_start(p: &Parser<'_>) -> bool {
     let kind = p.current();
-    PREDEFINED.contains(&kind) || matches!(kind, K::Ident | K::LParen | K::WeakKw | K::Dollar)
+    PREDEFINED.contains(&kind)
+        || matches!(
+            kind,
+            K::Ident | K::LParen | K::WeakKw | K::Dollar | K::ObjectKw | K::DynamicKw
+        )
 }
 
 fn tuple_type(p: &mut Parser<'_>) -> super::CompletedMarker {
@@ -218,6 +223,8 @@ pub(crate) fn scan_generic_args(input: &Input<'_>, at: usize) -> Option<usize> {
 pub(crate) fn scan_type(input: &Input<'_>, at: usize) -> Option<usize> {
     let mut i = match input.kind(at) {
         kind if PREDEFINED.contains(&kind) => at + 1,
+        // `object` and `dynamic` are C# types, reported where they are parsed.
+        K::ObjectKw | K::DynamicKw => at + 1,
         K::WeakKw => return scan_type(input, at + 1),
         // `$t`, `$..ts`, `$(expr)` (§9.3).
         K::Dollar => {
