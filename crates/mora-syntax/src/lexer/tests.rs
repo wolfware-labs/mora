@@ -46,7 +46,7 @@ fn every_keyword_and_punctuation_lexes_as_itself() {
         assert_eq!(tokens(text), [(kind, text)], "{text}");
         assert!(errors(text).is_empty(), "{text}");
     }
-    assert_eq!(SyntaxKind::KEYWORDS.len(), 93);
+    assert_eq!(SyntaxKind::KEYWORDS.len(), 94);
 }
 
 #[test]

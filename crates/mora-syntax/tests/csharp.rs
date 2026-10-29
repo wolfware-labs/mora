@@ -154,6 +154,15 @@ fn each_construct_reports_one_error_and_recovers() {
             "class C { delegate void D(); int x; }",
             &[("MR0105", "delegate")],
         ),
+        // `null` is read as `none`, in expressions, patterns and casts.
+        ("User? u = null;", &[("MR0129", "null")]),
+        ("let found = u is null;", &[("MR0129", "null")]),
+        (
+            "let v = u switch { null => 0, _ => 1 };",
+            &[("MR0129", "null")],
+        ),
+        ("let w = (User?)null;", &[("MR0129", "null")]),
+        ("User? x = none;", &[]),
         // `using` for disposal, against `using` directives.
         ("using File g = Open();", &[("MR0121", "using")]),
         ("using A = B.C;\nusing System.Text;", &[]),
@@ -172,4 +181,11 @@ fn unsafe_functions_stay_declarations() {
         assert!(tree.contains("FunctionDecl"), "{text}:\n{tree}");
         assert!(!tree.contains("LocalFunctionStmt"), "{text}:\n{tree}");
     }
+}
+
+#[test]
+fn null_fixes_to_none() {
+    assert_eq!(fixed("User? u = null;\n"), "User? u = none;\n");
+    let tree = parse("let found = u is null;").syntax().debug_tree();
+    assert!(tree.contains("NoneKw"), "{tree}");
 }

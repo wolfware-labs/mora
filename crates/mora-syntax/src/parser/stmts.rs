@@ -101,7 +101,7 @@ fn at_local_function(p: &Parser<'_>) -> bool {
     input.kind(end) == K::Ident && matches!(input.kind(end + 1), K::LParen | K::Lt)
 }
 
-/// `int x = 1;`, `List<int> xs;`, `User? u = null, v;`.
+/// `int x = 1;`, `List<int> xs;`, `User? u = none, v;`.
 fn at_typed_local(p: &Parser<'_>) -> bool {
     let input = p.input();
     scan_type(input, p.pos()).is_some_and(|end| {

@@ -1,10 +1,10 @@
 let constant = x is 0 || x is "GET" || x is Color.Red;
-let nulls = x is null || x is not null;
+let nulls = x is none || x is not none;
 let typed = shape is Circle c;
 let binding = shape switch { let s => s };
 let discard = shape switch { _ => 0 };
 let relational = n is < 0 or >= 100;
-let logical = n is > 0 and < 10 || s is null or "";
+let logical = n is > 0 and < 10 || s is none or "";
 let cases = shape switch { Circle(let r) => r, Shape.Rect(_, > 0) => 1, None => 0 };
 let positional = point is (0, let y) or (X: 0, Y: _);
 let property = user is { Name: "Ada", Age: > 18 } || user is { } u || user is User { Name: "Ada" } v;

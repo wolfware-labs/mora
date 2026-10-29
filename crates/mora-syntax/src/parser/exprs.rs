@@ -22,7 +22,7 @@ const LITERALS: &[SyntaxKind] = &[
     K::RawString,
     K::TrueKw,
     K::FalseKw,
-    K::NullKw,
+    K::NoneKw,
 ];
 
 /// Binding powers, loosest first (§7.1).
@@ -139,6 +139,7 @@ pub(crate) fn at_expr_start(p: &Parser<'_>) -> bool {
                 | K::DelegateKw
                 | K::ObjectKw
                 | K::DynamicKw
+                | K::NullKw
         )
 }
 
@@ -351,6 +352,7 @@ fn at_cast(p: &Parser<'_>) -> bool {
         || matches!(
             next,
             K::Ident
+                | K::NullKw
                 | K::LParen
                 | K::Tilde
                 | K::Bang
@@ -476,7 +478,7 @@ fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     if at_lambda(p) {
         return Some(lambda(p));
     }
-    if let Some(done) = csharp::primary(p) {
+    if let Some(done) = csharp::null_literal(p).or_else(|| csharp::primary(p)) {
         return Some(done);
     }
     let kind = p.current();

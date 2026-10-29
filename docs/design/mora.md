@@ -181,7 +181,7 @@ app.MapGet("/users/{id}", async (Request req) =>
     return store.Find(id) switch
     {
         User u => Results.Json(u),
-        null => Results.NotFound(),
+        none => Results.NotFound(),
     };
 });
 
@@ -211,7 +211,7 @@ What the program relies on, with the section that defines each:
 |---|---|---|
 | `[Json]` | Standard-library macro that generates JSON serialization | §9.9, §16.3 |
 | `record User(...)` | Shared class with positional properties and structural equality | §6.5 |
-| `string? Email` | `T?` is an option type; `null` is its empty value | §5.6 |
+| `string? Email` | `T?` is an option type; `none` is its empty value | §5.6 |
 | `private mut int _nextId` | Fields are read-only unless marked `mut` | §6.3 |
 | `let` / `var` | Immutable and mutable locals | §7.10 |
 | `_users.Get(id)` | Lookup returning `V?` instead of throwing | §15.4 |
@@ -220,7 +220,7 @@ What the program relies on, with the section that defines each:
 | `req.RouteValue<int>("id")?` | `Result` propagation; `HttpError` becomes a 400 response | §11.2, §16.2 |
 | `await ...ReadJsonAsync<NewUser>()?` | `?` applies to the awaited value | §7.4 |
 | `return Results.NotFound();` in a lambda that returns `Result<Response, HttpError>` | Implicit `Ok` wrapping through a user-defined conversion | §11.3 |
-| `switch { User u => ..., null => ... }` | Exhaustive pattern match over `User?` | §7.8 |
+| `switch { User u => ..., none => ... }` | Exhaustive pattern match over `User?` | §7.8 |
 | `await app.RunAsync(...)?` at top level | Async entry point whose error ends the process with exit code 1 | §4.6 |
 
 Expected behaviour, which the integration test checks byte for byte:
@@ -318,7 +318,7 @@ Reserved keywords (cannot be identifiers without `@`):
 abstract as async await base bool break byte case catch char class const continue
 default delegate do double dynamic else enum event explicit extern false finally
 fixed float for foreach goto if implicit import in indirect int interface internal
-is lazy let lock long macro move mut namespace new nint nuint null object operator out
+is lazy let lock long macro move mut namespace new nint none nuint null object operator out
 override params private protected public readonly ref return sbyte sealed shared
 short sizeof stackalloc static string struct switch this throw true try typeof uint
 ulong union unique unsafe ushort using var virtual void volatile weak where while yield
@@ -336,6 +336,7 @@ Some C# keywords name features Mora leaves out. They are reserved, so code writt
 | `lock`, `volatile` | `MR0104` | Use `Mutex<T>` or `Atomic<T>` (post-MVP, §12.6). |
 | `delegate`, `event` | `MR0105` | Use function types (`Func<A, R>`, `Action<A>`) and `Signal<T>` (§15.8). |
 | `goto` | `MR0106` | Not supported, and neither are statement labels such as `done:`. |
+| `null` | `MR0129` | Mora has no null references. The empty value of an option `T?` is written `none` (§5.6). |
 | `fixed`, `unsafe` | `MR0107` | Unsafe code is post-MVP (OQ-11). |
 | `abstract`, `virtual`, `override`, `sealed`, `protected`, `base` | `MR0108` | Class inheritance is post-MVP (OQ-4). Use an interface with default methods. `abstract` stays a modifier of `static abstract` interface members (§6.8). |
 
@@ -363,7 +364,7 @@ As in C#, a `:` at the top level of a hole starts its format, so a conditional e
 
 A string, character literal or interpolated string that is not closed is error `MR0012`; a regular string ends at the end of its line. Error `MR0016` covers the rules of the other forms: a lone `}` in the text of an interpolated string (write `}}`), more than one `$` before a string that is not raw, a run of braces in a raw interpolated string that is as long as two hole delimiters, a raw string closed with more quotes than it opened with, and a multi-line raw string whose opening line holds content, whose closing quotes do not stand on their own line, or whose content lines do not start with the closing quotes' indentation.
 
-**Other literals.** `true`, `false`, `null` (the empty value of any `T?`, §5.6), `default` (§7.13).
+**Other literals.** `true`, `false`, `none` (the empty value of any `T?`, §5.6), `default` (§7.13).
 
 ### 3.6 Operators and punctuation
 
@@ -511,7 +512,7 @@ Multi-dimensional (`T[,]`) and jagged arrays work as `T[][]`; `T[,]` is post-MVP
 
 `(int, string)` and named `(int Id, string Name)` are value types, as `ValueTuple` is in C#. Tuples support deconstruction (`let (id, name) = pair;`), structural equality and hashing when their elements do, and an `IDisplay` implementation. `()` is the empty tuple and the unit type.
 
-### 5.6 Option types and `null`
+### 5.6 Option types and `none`
 
 `T?` is `Option<T>` for every type `T`, value or reference (D-6). `Option<T>` is the standard-library union:
 
@@ -523,14 +524,14 @@ public union Option<T>
 }
 ```
 
-- `null` is a literal that converts to any `T?` and means `None` (D-7). It has no type of its own: `let x = null;` is error `MR0131`. A non-optional type can never hold `null`.
+- `none` is a literal that converts to any `T?` and means `None` (D-54). It has no type of its own: `let x = none;` is error `MR0131`. A non-optional type can never hold `none`. Mora has no `null`: the word is reserved, and writing it is error `MR0129` with a fix to `none` (§3.4).
 - `T` converts implicitly to `T?`.
-- The C# operators work on options: `a ?? b`, `a ??= b`, `a?.Member`, `a?[i]`, and the patterns `null`, `not null`, `T x` and `{ } x` (§7.8).
-- Members: `HasValue`, `Value` (panics on `None`, with the message `called Value on a null T?`), `GetValueOrDefault(T fallback)`, `Expect(string message)`, `Map`, `AndThen`.
+- The C# operators work on options: `a ?? b`, `a ??= b`, `a?.Member`, `a?[i]`, and the patterns `none`, `not none`, `T x` and `{ } x` (§7.8).
+- Members: `HasValue`, `Value` (panics on `None`, with the message `called Value on none: T?`), `GetValueOrDefault(T fallback)`, `Expect(string message)`, `Map`, `AndThen`.
 - `T??` is legal and distinct from `T?`. The compiler warns (`MR2001`) when it appears in source.
 - **Layout.** `T?` of a type that holds a non-null pointer has the same size as `T` and no tag: a null pointer means `None`. For shared and unique classes, `string`, arrays and escaping closures that is one pointer; for a dynamic interface value it stays two words, with a null data pointer as `None`. Other `T?` use a tag byte plus `T` (§13.5).
 
-Flow typing narrows an option after a check, as the C# nullable analysis does, but here it is a real type change: after `if (user is null) return;` the variable `user` has type `User`, not `User?`.
+Flow typing narrows an option after a check, as the C# nullable analysis does, but here it is a real type change: after `if (user is none) return;` the variable `user` has type `User`, not `User?`.
 
 ### 5.7 Result types
 
@@ -664,7 +665,7 @@ In the standard library, `Future<T>`, `TaskHandle<T>` and `Subscription` are uni
 - a constructor from its positional parameters;
 - `with` expressions: `user with { Name = "Ada" }` creates a copy with some properties replaced;
 - structural `IEquatable<T>` and `IHashable` when every property supports them (§8.6);
-- `IDisplay`, printing `User { Id = 1, Name = Ada, Email = null }` as C# records do;
+- `IDisplay`, printing `User { Id = 1, Name = Ada, Email = none }`, in the layout C# records use;
 - deconstruction: `let (id, name, email) = user;`.
 
 A record may declare more members in a body. `record class` is accepted and means `record`.
@@ -789,7 +790,7 @@ From highest to lowest:
 | Equality | `==`, `!=` | left |
 | Bitwise | `&`, then `^`, then `\|` | left |
 | Logical | `&&`, then `\|\|` | left |
-| Null coalescing | `??` | right |
+| Coalescing | `??` | right |
 | Conditional | `c ? a : b` | right |
 | Assignment, lambda | `=`, compound assignments, `??=`, `=>` | right |
 
@@ -809,17 +810,17 @@ The C# null-forgiving operator `x!` is error `MR0160` with a hint to use `.Value
 
 `e?` evaluates `e`, which MUST be a `Result<T, E>` or a `T?`:
 
-- `Ok(v)` or a non-null `v` produces `v`;
+- `Ok(v)`, or a `v` that is not `none`, produces `v`;
 - `Err(err)` returns `Err(err')` from the enclosing function, where `err'` is `err` converted to the function's error type by identity or by a user-defined implicit conversion (§11.3); with no such conversion, error `MR0201`;
-- `null` returns `null` from the enclosing function, which must return an option type (`MR0202`).
+- `none` returns `none` from the enclosing function, which must return an option type (`MR0202`).
 
 The enclosing function is the innermost function, lambda or async block. Inside a lambda, `?` returns from the lambda.
 
 **With `await`.** In `await e?` the `?` applies to the awaited value: it parses as `(await e)?`. A `Future` is never a valid operand of `?`, so the rule only removes the need for parentheses (D-19).
 
-**With the conditional operator.** After a primary expression, `?` begins a conditional expression when a `:` at the same nesting depth follows before the end of the expression (`;`, `)`, `]`, `}` or `,` at depth zero); otherwise it is propagation. `x?.y` is always null-conditional access, and so is `x?[i]` written without a space between `?` and `[`; with a space, `flag ? [1] : []` is a conditional with a collection expression. A `?` directly followed by `:` is propagation, so `c ? r? : d` propagates in the first arm. After propagation, member access needs parentheses: `(r?).Name`. Writing `r?.Name` on a `Result` is error `MR0161` with that fix.
+**With the conditional operator.** After a primary expression, `?` begins a conditional expression when a `:` at the same nesting depth follows before the end of the expression (`;`, `)`, `]`, `}` or `,` at depth zero); otherwise it is propagation. `x?.y` is always conditional access on an option, and so is `x?[i]` written without a space between `?` and `[`; with a space, `flag ? [1] : []` is a conditional with a collection expression. A `?` directly followed by `:` is propagation, so `c ? r? : d` propagates in the first arm. After propagation, member access needs parentheses: `(r?).Name`. Writing `r?.Name` on a `Result` is error `MR0161` with that fix.
 
-### 7.5 Null operators
+### 7.5 Option operators
 
 `a ?? b`, `a ??= b`, `a?.m`, `a?[i]` work on `T?` as in C#. `a?.m` has type `U?` when `m` has type `U`, and `U?` (not `U??`) when `m` already has type `U?`.
 
@@ -847,15 +848,15 @@ The `switch` statement uses `case pattern [when guard]:` labels. Each section en
 | Pattern | Example | Matches |
 |---|---|---|
 | Constant | `0`, `"GET"`, `Color.Red` | Equal value |
-| `null`, `not null` | `null` | Option is `None` / `Some` |
+| `none`, `not none` | `none` | Option is `None` / `Some` |
 | Type | `User u`, `Circle c` on an interface value | Option is `Some` and binds the value; or interface value holds that concrete type |
 | Binding | `let x`, `var x` | Anything; binds immutable (`let`) or mutable (`var`) |
 | Discard | `_` | Anything |
 | Relational | `< 0`, `>= 'a'` | Comparison with a constant |
-| Logical | `> 0 and < 10`, `null or ""`, `not 0` | Combination |
+| Logical | `> 0 and < 10`, `none or ""`, `not 0` | Combination |
 | Case | `Circle(let r)`, `Shape.Rect(_, > 0)`, `None` | Union case, with nested patterns for its fields |
 | Positional | `(0, let y)` | Tuple, or record by deconstruction |
-| Property | `{ Name: "Ada", Age: > 18 }`, `{ } x` | Members match nested patterns; `{ }` matches any non-null value |
+| Property | `{ Name: "Ada", Age: > 18 }`, `{ } x` | Members match nested patterns; `{ }` matches any value other than `none` |
 | List | `[1, 2, .. let rest]`, `[_, _]` | Arrays, lists and spans by length and elements |
 
 `e is pattern` is a `bool` expression; bindings in it are definitely assigned where the expression is known to be true, as in C#.
@@ -1212,7 +1213,7 @@ Views of growable collections need one more rule, §10.10.
 ### 10.7 Weak references
 
 - `weak T` is allowed for shared classes only (`MR0350` otherwise): as a field, a local or a capture (`[weak this]`).
-- Reading a weak reference gives `T?`: a new strong reference if the object is alive, `null` if it has died. Assigning a `T` stores a weak reference; assigning `null` clears it.
+- Reading a weak reference gives `T?`: a new strong reference if the object is alive, `none` if it has died. Assigning a `T` stores a weak reference; assigning `none` clears it.
 - An object's destructor runs when its strong count reaches zero, even with weak references outstanding. Its memory is freed when the weak count also reaches zero (§13.3).
 - **Lint `strong-cycle`** (warn by default, `MR2020`) reports pairs of distinct class types that hold strong references to each other through fields, options or standard collections. The message names the two fields and suggests making the back-reference `weak`. A type referring to itself (a tree of `Node`) is not reported.
 
@@ -1299,7 +1300,7 @@ The rules above keep these invariants, which §20.3's test suite checks:
 ### 11.1 Two kinds of failure
 
 - **Recoverable errors** (a file is missing, input does not parse, a peer closed the connection) are values of type `Result<T, E>`, returned and handled like any other value.
-- **Bugs** (an index out of range, `Value` on `null`, a broken invariant) are **panics**, which end the process.
+- **Bugs** (an index out of range, `Value` on `none`, a broken invariant) are **panics**, which end the process.
 
 There are no exceptions, and `try`, `catch`, `finally` and `throw` are reserved to produce error `MR0101` (D-8).
 
@@ -1310,7 +1311,7 @@ Any type can be an error type. The standard library's errors are unions or recor
 ```mora
 public interface IError : IDisplay
 {
-    IError? Source => null;     // the underlying error, if any
+    IError? Source => none;     // the underlying error, if any
 }
 ```
 
@@ -1347,7 +1348,7 @@ A panic happens on:
 | Cause | Message |
 |---|---|
 | `panic("...")` | the message |
-| `Value` on `null` or on `Err` | `called Value on a null User?` / `called Value on Err: <error>` |
+| `Value` on `none` or on `Err` | `called Value on none: User?` / `called Value on Err: <error>` |
 | `Expect("msg")` failing | `msg: <error>` |
 | Index or slice out of range | `index 5 out of range for length 3` |
 | Integer overflow (debug builds) | `arithmetic overflow: 2147483647 + 1` |
@@ -1460,7 +1461,7 @@ Every shared class object, array, string, box and escaping closure environment s
 - **Retain** is `if strong & IMMORTAL == 0 { strong += 1 }`, emitted inline. A count that would reach 2^31 aborts with `reference count overflow`.
 - **Release** is `if strong & IMMORTAL == 0 { strong -= 1; if strong == 0 { mora_rt_drop(obj) } }`.
 - `mora_rt_drop` runs the destructor, drops the fields (pushing shared children whose count falls to zero onto a thread-local work list instead of recursing), then decrements `weak` and frees the memory if it reaches zero.
-- **Weak load** returns `null` if `strong == 0`, otherwise retains and returns the object.
+- **Weak load** returns a null pointer (`none`) if `strong == 0`, otherwise retains and returns the object.
 - String literals, `static readonly` objects and the empty array are immortal objects in read-only data.
 - In `shared` classes (post-MVP), `strong` and `weak` are updated with atomic operations: relaxed increments, release decrements and an acquire fence before the drop, as `Arc` does in Rust.
 
@@ -1590,7 +1591,7 @@ Inputs are file contents, the project graph and the target configuration. Every 
 
 ### 14.5 Name resolution and types
 
-Name lookup follows C#: locals and parameters, then members of enclosing types, then the enclosing namespaces from innermost to outermost, then `using` directives, then the prelude. Type checking is bidirectional: types flow inward from targets (lambdas, `new()`, collection expressions, `null`, union case names, integer literals) and outward from expressions. Method type inference follows the C# phases. There is no whole-function type inference: `let` and `var` locals take the type of their initializer.
+Name lookup follows C#: locals and parameters, then members of enclosing types, then the enclosing namespaces from innermost to outermost, then `using` directives, then the prelude. Type checking is bidirectional: types flow inward from targets (lambdas, `new()`, collection expressions, `none`, union case names, integer literals) and outward from expressions. Method type inference follows the C# phases. There is no whole-function type inference: `let` and `var` locals take the type of their initializer.
 
 Macro expansion (§9) sits between signature resolution and body checking. `mora-hir` asks for expansions through a `MacroRunner` interface that `mora-macro` implements, so the HIR layer does not depend on code generation. Expanded members become ordinary HIR items, so later phases do not know they were generated.
 
@@ -2143,7 +2144,7 @@ A Rust test in `mora-testkit` builds `examples/users-api` with `mora build --rel
 - **No leaks:** every run test executes under the debug runtime with the leak report on; any object alive at exit fails the test.
 - **No use-after-free:** the debug runtime poisons freed memory and traps on releases of dead objects; adversarial tests exercise every row of the table in §10.4, each closure rule of §10.9 and each view rule of §10.6.
 - **Drop order:** programs whose destructors print, checked against the order §10.8 defines, including early returns, `?`, `break`, moves in branches and drop flags.
-- **Weak references and cycles:** expected `null` reads after the target dies; the leak report naming the fields of a deliberate cycle.
+- **Weak references and cycles:** expected `none` reads after the target dies; the leak report naming the fields of a deliberate cycle.
 - **Collections:** structural changes during `foreach` and while a span is live panic with the §10.10 message.
 - **Optimizer guarantees:** MIR snapshots for each item of §10.13.
 
@@ -2191,7 +2192,7 @@ Mora is built in thin vertical slices: each milestone runs real programs end to 
 | **M0: Foundations** | Repository, CI on Linux, macOS and Windows, workspace crates and layering check, spans and diagnostics, error-code registry, test harnesses (UI, run, spec examples), `mora-rt` skeleton built for every Tier 1 target | CI green on all three OSes; harnesses run an empty suite; `cargo xtask layers` enforces §14.2 |
 | **M1: Hello, native** | Lexer and full parser with a lossless tree, name resolution and type checking for namespaces, functions, structs, primitives, strings, locals and control flow, MIR lowering, Cranelift code generation, linking on every Tier 1 target, `Console.WriteLine` with interpolation, `mora build`, `run` and `check` | §2.1 builds and runs on every Tier 1 target in CI; the M1 run tests pass through JIT and AOT |
 | **M2: Memory model** | Classes, records, unique classes, parameter modes, move checking, drop elaboration, destructors, aliased-place borrows, views and spans, weak references, closures, ARC insertion and optimization, debug runtime leak tracking | The suite of §20.3 passes; the §10.13 snapshots pass |
-| **M3: Expressive core** | Unions, enums, patterns and exhaustiveness, options and `null` with flow narrowing, `Result` and `?`, operators and conversions, generics and monomorphization, interfaces with static and dynamic dispatch, associated types, properties, indexers, extension methods, tuples, collection expressions | Run and UI tests for every construct of §§5 to 8; every §2.4 example runs |
+| **M3: Expressive core** | Unions, enums, patterns and exhaustiveness, options and `none` with flow narrowing, `Result` and `?`, operators and conversions, generics and monomorphization, interfaces with static and dynamic dispatch, associated types, properties, indexers, extension methods, tuples, collection expressions | Run and UI tests for every construct of §§5 to 8; every §2.4 example runs |
 | **M4: Macros** | `macro` declarations, `code` quoting and splices, hygiene, the `Std.Meta` model, the sandboxed JIT runner and its cache, `mora expand`, `MacroTest`, and the standard-library macros of §9.9 except `[Json]` | Every §9 example runs; `[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` pass their `MacroTest` suites; records get their automatic implementations from these macros |
 | **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `[Json]` macro, `Std.Testing` and `mora test` | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; LINQ chains meet §15.5 with no allocation |
 | **M6: Async and HTTP** | Async lowering, futures, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server, routing, results, `HttpError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
@@ -2215,7 +2216,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-4 | One built-in executor in the MVP; a pluggable executor interface is post-MVP | author | 12.1 |
 | D-5 | Thread-shared classes need an explicit `shared` marker; nothing is inferred from `spawn` sites | author | 12.6 |
 | D-6 | `T?` is `Option<T>` for every type | draft | 5.6 |
-| D-7 | `null` is kept as the literal for the empty option | author | 5.6 |
+| D-7 | `null` is kept as the literal for the empty option (superseded by D-54) | author | 5.6 |
 | D-8 | No exceptions and no `try`/`catch` syntax; the keywords are reserved for targeted errors | user | 11 |
 | D-9 | No bridge to .NET libraries | author | 1.3 |
 | D-10 | Attributes are compile-time only | draft | 6.11 |
@@ -2262,6 +2263,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-51 | No primary constructors on classes and structs: constructors are written out, and `: this(...)` chains them; records keep positional parameters | user | 6.9 |
 | D-52 | Interfaces keep default implementations, as in C#: members of different interfaces stay separate, and when two interfaces give different defaults for one inherited member, the implementing type must write its own | user | 6.8 |
 | D-53 | Mora is inspired by C#, not a copy of it: it takes C#'s syntax, names and idioms where they fit its own model, and its audience is application developers in general. Supersedes the C#-developer audience of D-33 | user | 1.1, 1.2, 1.4 |
+| D-54 | The empty option is written `none`; `null` is reserved and reported with a fix. Supersedes D-7 | user | 3.4, 5.6 |
 
 ## 24. Open questions
 

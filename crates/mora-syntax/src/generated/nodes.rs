@@ -4568,7 +4568,7 @@ impl AstNode for WhenClause {
 }
 
 /// ```text
-/// LiteralExpr = value:('int_number' | 'real_number' | 'char_literal' | 'string_literal' | 'verbatim_string' | 'raw_string' | 'true' | 'false' | 'null')
+/// LiteralExpr = value:('int_number' | 'real_number' | 'char_literal' | 'string_literal' | 'verbatim_string' | 'raw_string' | 'true' | 'false' | 'none')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LiteralExpr {
@@ -4588,7 +4588,7 @@ impl LiteralExpr {
                 SyntaxKind::RawString,
                 SyntaxKind::TrueKw,
                 SyntaxKind::FalseKw,
-                SyntaxKind::NullKw,
+                SyntaxKind::NoneKw,
             ],
         )
     }
