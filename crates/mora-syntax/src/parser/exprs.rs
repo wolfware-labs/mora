@@ -6,6 +6,7 @@
 //! `await` through [`unary`]; member access, calls, indexing, `++`/`--` and
 //! propagation through [`postfix`].
 
+use super::csharp::TypeFirst;
 use super::types::{self, PREDEFINED, scan_type};
 use super::{CompletedMarker, Input, Parser, csharp, items, patterns, stmts};
 use crate::SyntaxKind;
@@ -400,7 +401,7 @@ fn at_lambda(p: &Parser<'_>) -> bool {
     }
 }
 
-/// `x => x * 2`, `(int x, int y) => x + y`, `async (Request req) => ...`,
+/// `x => x * 2`, `(x: int, y: int) => x + y`, `async (req: Request) => ...`,
 /// `[weak this] () => this?.Refresh()` (§7.6).
 fn lambda(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();
@@ -455,7 +456,7 @@ fn lambda(p: &mut Parser<'_>) -> CompletedMarker {
     m.complete(p, K::LambdaExpr)
 }
 
-/// `int x`, `x`, `ref int x`, `int x = 0`.
+/// `x: int`, `x`, `ref x: int`, `x: int = 0`.
 fn lambda_param(p: &mut Parser<'_>) {
     let m = p.start();
     while p.at_any(&[K::RefKw, K::InKw, K::OutKw, K::MoveKw, K::ParamsKw]) {
@@ -463,11 +464,16 @@ fn lambda_param(p: &mut Parser<'_>) {
         p.bump_any();
         modifier.complete(p, K::Modifier);
     }
-    let typed = scan_type(p.input(), p.pos()).is_some_and(|end| p.input().kind(end) == K::Ident);
-    if typed {
-        types::ty(p);
+    if types::at_type_first(p) {
+        let first = TypeFirst::parse(p);
+        types::name(p);
+        first.report(p, "");
+    } else {
+        types::name(p);
+        if p.at(K::Colon) {
+            types::annotation(p, false);
+        }
     }
-    types::name(p);
     if p.eat(K::Eq) {
         expr(p);
     }
@@ -580,7 +586,7 @@ fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
 fn quote(p: &mut Parser<'_>) {
     p.bump_remap(K::CodeKw);
     if p.at(K::LBrace) {
-        items::member_list(p);
+        items::member_list(p, None);
         return;
     }
     p.bump(K::LParen);
@@ -770,8 +776,8 @@ fn arg_inner(p: &mut Parser<'_>) {
     m.complete(p, K::Arg);
 }
 
-/// After `out` or `ref`: `var y`, `let y`, `let int y` or `int y`, a
-/// variable declared by the call (§7.2, §10.3).
+/// After `out` or `ref`: `var y`, `let y` or `let y: int`, a variable
+/// declared by the call (§7.2, §10.3), or `int y` in the C# order.
 fn at_decl_expr(p: &Parser<'_>) -> bool {
     if p.at(K::LetKw) || p.at(K::VarKw) {
         return true;
@@ -787,12 +793,17 @@ fn decl_expr(p: &mut Parser<'_>) {
     if keyword {
         p.bump_any();
     }
-    let typed =
-        types::scan_type(p.input(), p.pos()).is_some_and(|end| p.input().kind(end) == K::Ident);
-    if !keyword || typed {
-        types::ty(p);
+    if types::at_type_first(p) {
+        // `out int y` becomes `out let y: int`.
+        let first = TypeFirst::parse(p);
+        types::name(p);
+        first.report(p, if keyword { "" } else { "let " });
+    } else {
+        types::name(p);
+        if p.at(K::Colon) {
+            types::annotation(p, false);
+        }
     }
-    types::name(p);
     m.complete(p, K::DeclExpr);
 }
 

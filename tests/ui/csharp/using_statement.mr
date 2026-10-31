@@ -1,4 +1,4 @@
 class Log { }
 using (var log = new Log()) { } //~ ERROR MR0121
 using var other = new Log(); //~ ERROR MR0121
-using Log third = new Log(); //~ ERROR MR0121
+using let third: Log = new Log(); //~ ERROR MR0121

@@ -1,18 +1,18 @@
-public record User(int Id, string Name);
-public record struct Money(long Cents) : IComparable<Money>;
-record class Tag(string Value)
+public record User(Id: int, Name: string);
+public record struct Money(Cents: long) : IComparable<Money>;
+record class Tag(Value: string)
 {
-    public string Upper => Value;
+    public Upper: string => Value;
 }
 
 public union Json
 {
     Null,
-    Bool(bool Value),
-    [Default] Number(double Value),
-    indirect Array(List<Json> Items);
+    Bool(Value: bool),
+    [Default] Number(Value: double),
+    indirect Array(Items: List<Json>);
 
-    public bool IsNull => false;
+    public IsNull: bool => false;
 }
 
 enum Color : byte { Red, Green = 2, Blue = Green + 1, }

@@ -124,6 +124,8 @@ registry! {
     MR0132 = 132: "`return value;` is ambiguous when `T` and `E` are the same type",
     MR0133 = 133: "`record`, which Mora writes as `struct`",
     MR0134 = 134: "`required` or `init`, which memberwise creation replaces",
+    MR0135 = 135: "a declaration that puts the type before the name",
+    MR0136 = 136: "`void` as a type",
     MR0140 = 140: "a constructor returns before assigning every field, or uses `this` too early",
     MR0141 = 141: "a `mut` struct method called on a value that is not a mutable place",
     MR0142 = 142: "`this` escapes from a destructor",

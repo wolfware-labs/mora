@@ -81,10 +81,7 @@ fn a_statement_can_start_with_a_predefined_type() {
         outline("int.Parse(s);").0,
         "SourceFile(ExprStmt(CallExpr(MemberExpr(PredefinedTypeExpr(PredefinedType), NameRef))))"
     );
-    assert_eq!(
-        errors("void F() { return int.MaxValue; }"),
-        Vec::<String>::new()
-    );
+    assert_eq!(errors("F() { return int.MaxValue; }"), Vec::<String>::new());
 }
 
 // expr_bp: a range does not associate, on either side of its `..`.
@@ -337,7 +334,7 @@ fn switch_without_parentheses_is_not_a_statement() {
 
 #[test]
 fn return_without_a_semicolon_reports_only_the_semicolon() {
-    assert_eq!(errors("void F() { return }"), ["expected `;`"]);
+    assert_eq!(errors("F() { return }"), ["expected `;`"]);
 }
 
 // switch_stmt and switch_section.

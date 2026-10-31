@@ -1,7 +1,7 @@
 class Counter
 {
-    volatile int count; //~ ERROR MR0104
-    public void Add(List<int> gate)
+    volatile count: int; //~ ERROR MR0104
+    public Add(gate: List<int>)
     {
         lock (gate) { count++; } //~ ERROR MR0104
     }

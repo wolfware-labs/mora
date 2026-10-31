@@ -1,7 +1,8 @@
 //! Statements (§7.10, §7.11).
 
 use super::exprs::{self, at_expr_start};
-use super::types::{self, scan_type};
+use super::items::Declarators;
+use super::types::scan_type;
 use super::{Parser, csharp, items, patterns};
 use crate::SyntaxKind;
 
@@ -77,7 +78,8 @@ fn statement_inner(p: &mut Parser<'_>) {
             items::local_function(p);
             m.complete(p, K::LocalFunctionStmt);
         }
-        _ if at_typed_local(p) => local_decl_stmt(p),
+        // `int x = 1;`, the C# order, reported when parsed.
+        _ if at_type_first_local(p) => local_decl_stmt(p),
         _ if at_expr_start(p) => {
             let m = p.start();
             exprs::expr(p);
@@ -88,21 +90,20 @@ fn statement_inner(p: &mut Parser<'_>) {
     }
 }
 
-/// `int Add(int a, int b) => a + b;` or `static T Max<T>(...)` in a body.
+/// `Add(a: int, b: int): int => a + b;` or `static Max<T>(...)` in a
+/// body, or `int Add(int a, int b)` in the C# order.
 fn at_local_function(p: &Parser<'_>) -> bool {
     let input = p.input();
     let mut at = p.pos();
     while matches!(input.kind(at), K::StaticKw | K::AsyncKw | K::ExternKw) {
         at += 1;
     }
-    let Some(end) = scan_type(input, at) else {
-        return false;
-    };
-    input.kind(end) == K::Ident && matches!(input.kind(end + 1), K::LParen | K::Lt)
+    items::at_function(input, at) || items::at_type_first_function(input, at)
 }
 
-/// `int x = 1;`, `List<int> xs;`, `User? u = none, v;`.
-fn at_typed_local(p: &Parser<'_>) -> bool {
+/// `int x = 1;`, `List<int> xs;`, `User? u = none, v;`: a local in the C#
+/// order. A local declared name first starts with `let` or `var`.
+fn at_type_first_local(p: &Parser<'_>) -> bool {
     let input = p.input();
     scan_type(input, p.pos()).is_some_and(|end| {
         input.kind(end) == K::Ident
@@ -110,7 +111,7 @@ fn at_typed_local(p: &Parser<'_>) -> bool {
     })
 }
 
-/// `let x = 1;`, `var x = 1;`, `let int x = 1;`, `int x = 1;`, `let x;` (§7.10).
+/// `let x = 1;`, `var x: int = 1;`, `let x: int;` (§7.10).
 pub(crate) fn local_decl_stmt(p: &mut Parser<'_>) {
     let m = p.start();
     local_decl(p);
@@ -120,15 +121,11 @@ pub(crate) fn local_decl_stmt(p: &mut Parser<'_>) {
 
 fn local_decl(p: &mut Parser<'_>) {
     let m = p.start();
-    if p.at(K::LetKw) || p.at(K::VarKw) {
+    let keyword = p.at(K::LetKw) || p.at(K::VarKw);
+    if keyword {
         p.bump_any();
-        if scan_type(p.input(), p.pos()).is_some_and(|end| p.input().kind(end) == K::Ident) {
-            types::ty(p);
-        }
-    } else {
-        types::ty(p);
     }
-    items::variable_declarators(p);
+    items::variable_declarators(p, Declarators::Local { keyword });
     m.complete(p, K::LocalDecl);
 }
 
@@ -136,7 +133,7 @@ fn local_decl(p: &mut Parser<'_>) {
 fn deconstruct_stmt(p: &mut Parser<'_>) {
     let m = p.start();
     p.bump_any();
-    patterns::tuple_designation(p);
+    patterns::tuple_designation(p, Some(""));
     p.expect(K::Eq);
     exprs::expr(p);
     p.expect(K::Semicolon);
@@ -205,7 +202,7 @@ fn for_stmt(p: &mut Parser<'_>) {
     p.bump(K::ForKw);
     p.expect(K::LParen);
     if !p.at(K::Semicolon) {
-        if p.at(K::LetKw) || p.at(K::VarKw) || at_typed_local(p) {
+        if p.at(K::LetKw) || p.at(K::VarKw) || at_type_first_local(p) {
             local_decl(p);
         } else {
             let init = p.start();
@@ -236,16 +233,18 @@ fn expr_list(p: &mut Parser<'_>) {
 }
 
 /// `foreach (let x in xs)`, `foreach (var (k, v) in d)`,
-/// `foreach (ref var x in span)`, `foreach (int x in xs)` (§7.11).
+/// `foreach (ref var x in span)`, `foreach (let x: int in xs)` (§7.11).
 fn foreach_stmt(p: &mut Parser<'_>) {
     let m = p.start();
     p.bump(K::ForeachKw);
     p.expect(K::LParen);
     p.eat(K::RefKw);
-    if p.at(K::LetKw) || p.at(K::VarKw) {
+    let keyword = p.at(K::LetKw) || p.at(K::VarKw);
+    if keyword {
         p.bump_any();
     }
-    patterns::designation(p, false);
+    // `foreach (int x in xs)` becomes `foreach (let x: int in xs)`.
+    patterns::designation(p, Some(if keyword { "" } else { "let " }));
     p.expect(K::InKw);
     exprs::expr(p);
     p.expect(K::RParen);

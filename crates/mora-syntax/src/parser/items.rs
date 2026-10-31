@@ -1,9 +1,9 @@
 //! Compilation units, declarations and members (§4, §6, §8.2, §9.2).
 
-use super::csharp::{self, OpenNamespace};
+use super::csharp::{self, OpenNamespace, TypeFirst};
 use super::exprs;
 use super::types::{self, name, name_ref, scan_type};
-use super::{Marker, Parser, stmts};
+use super::{Input, Marker, Parser, stmts};
 use crate::{SyntaxError, SyntaxKind};
 use mora_diag::codes;
 use mora_span::TextRange;
@@ -209,17 +209,18 @@ fn file_namespace(p: &mut Parser<'_>, namespaces: &mut Namespaces) {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Context {
+enum Context<'t> {
     /// At the top of a file, where statements are allowed too.
     TopLevel,
-    /// In the member list of a type.
-    Member,
+    /// In the member list of a type, named `owner` (none in `code { }`),
+    /// or a local function.
+    Member { owner: Option<&'t str> },
 }
 
 /// Parses a declaration with its attributes and modifiers. At the top
 /// level, returns `false` without taking anything when the next tokens are
 /// a statement instead.
-fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
+fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
     if cx == Context::TopLevel && !at_declaration_start(p) {
         return false;
     }
@@ -230,9 +231,10 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
     }
     let attributed = p.pos() > start;
     let modifiers = modifiers(p, false);
-    let has_const_or_static = modifiers
-        .iter()
-        .any(|k| matches!(k, K::ConstKw | K::StaticKw));
+    // `event Action Changed;` is reported as a whole, not for its order too.
+    let event = (start..p.pos()).any(|i| p.input().kind(i) == K::EventKw);
+    let since = p.reported();
+    let member = cx != Context::TopLevel;
     match p.current() {
         K::StructKw => struct_or_class(p, m, K::StructKw, K::StructDecl),
         K::ClassKw => struct_or_class(p, m, K::ClassKw, K::ClassDecl),
@@ -241,50 +243,35 @@ fn declaration(p: &mut Parser<'_>, cx: Context) -> bool {
         K::EnumKw => enum_decl(p, m),
         K::MacroKw => macro_decl(p, m),
         K::Ident if p.at_contextual("record") && record_follows(p) => record_decl(p, m),
-        K::Tilde if cx == Context::Member => destructor(p, m),
+        K::Tilde if member => destructor(p, m),
         K::ImplicitKw | K::ExplicitKw => conversion(p, m),
-        K::Ident if cx == Context::Member && p.at_contextual("type") && p.nth(1) == K::Ident => {
-            assoc_type(p, m)
-        }
-        K::Ident if cx == Context::Member && p.nth(1) == K::LParen => constructor(p, m),
-        _ => match scan_type(p.input(), p.pos()).map(|end| p.input().kind(end)) {
-            Some(K::OperatorKw) => operator(p, m),
-            Some(K::ThisKw) => indexer(p, m, 0),
-            Some(K::Ident | K::Dollar)
-                if cx == Context::TopLevel
-                    && attributed
-                    && modifiers.is_empty()
-                    && !at_function_after_type(p) =>
-            {
-                // `[Cfg(Debug = true)] int x = 1;`: an attributed statement.
-                stmts::statement(p);
-                m.complete(p, K::AttributedStmt);
-            }
-            Some(K::Ident | K::Dollar) => {
-                // `int IList<int>.this[int i]`: an explicit indexer.
-                let after_type = scan_type(p.input(), p.pos()).unwrap_or(p.pos());
-                let (segments, _, end) = name_segments(p, after_type);
-                if p.input().kind(end) == K::Dot && p.input().kind(end + 1) == K::ThisKw {
-                    indexer(p, m, segments);
-                } else {
-                    member_after_type(p, m, cx, has_const_or_static);
+        K::Ident if member && p.at_contextual("type") && p.nth(1) == K::Ident => assoc_type(p, m),
+        K::OperatorKw => operator(p, m, None),
+        K::ThisKw if member && p.nth(1) == K::LBracket => indexer(p, m, 0, None),
+        _ => {
+            // `[Cfg(Debug = true)] Log(x);` at the top level (§6.11). There,
+            // without modifiers, only a function has a shape.
+            let statement = cx == Context::TopLevel && attributed && modifiers.is_empty();
+            match shape(p, cx, !modifiers.is_empty()) {
+                Some(shape) => member_with_shape(p, m, shape),
+                _ if p.pos() == start => {
+                    // Nothing taken: the caller reports and recovers.
+                    m.abandon(p);
+                    return false;
+                }
+                _ if statement => {
+                    stmts::statement(p);
+                    m.complete(p, K::AttributedStmt);
+                }
+                _ => {
+                    p.error("expected a declaration after the attributes and modifiers");
+                    m.complete(p, K::Error);
                 }
             }
-            _ if p.pos() == start => {
-                // Nothing taken: the caller reports and recovers.
-                m.abandon(p);
-                return false;
-            }
-            // `[Cfg(Debug = true)] Log(x);` at the top level (§6.11).
-            _ if cx == Context::TopLevel && attributed && modifiers.is_empty() => {
-                stmts::statement(p);
-                m.complete(p, K::AttributedStmt);
-            }
-            _ => {
-                p.error("expected a declaration after the attributes and modifiers");
-                m.complete(p, K::Error);
-            }
-        },
+        }
+    }
+    if event {
+        p.withdraw(since, codes::MR0135);
     }
     true
 }
@@ -311,11 +298,52 @@ fn at_declaration_start(p: &Parser<'_>) -> bool {
     {
         return true;
     }
-    // `int Add(int a, int b) => a + b;` and `T Max<T>(...)`.
-    let Some(end) = scan_type(p.input(), p.pos()) else {
+    // `Add(a: int, b: int): int => a + b;`, or `int Add(int a, int b)`
+    // in the C# order.
+    at_function(p.input(), p.pos()) || at_type_first_function(p.input(), p.pos())
+}
+
+/// Whether a function declared name first starts at `at`: a name, its type
+/// parameters and its parameters, then what only a declaration has after
+/// them: a body, a return type or a `where` clause. `Log(x);` is a call.
+pub(crate) fn at_function(input: &Input<'_>, at: usize) -> bool {
+    if input.kind(at) != K::Ident {
         return false;
-    };
-    p.input().kind(end) == K::Ident && matches!(p.input().kind(end + 1), K::LParen | K::Lt)
+    }
+    let mut i = at + 1;
+    if let Some(end) = types::scan_generic_args(input, i) {
+        i = end;
+    }
+    if input.kind(i) != K::LParen {
+        return false;
+    }
+    let mut depth = 0usize;
+    loop {
+        match input.kind(i) {
+            K::LParen => depth += 1,
+            K::RParen => {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            _ if i >= input.len() => return false,
+            _ => {}
+        }
+        i += 1;
+    }
+    matches!(
+        input.kind(i + 1),
+        K::LBrace | K::FatArrow | K::Colon | K::WhereKw
+    )
+}
+
+/// Whether a function declared in the C# order starts at `at`: a type, a
+/// name and `(` or `<`.
+pub(crate) fn at_type_first_function(input: &Input<'_>, at: usize) -> bool {
+    scan_type(input, at).is_some_and(|end| {
+        input.kind(end) == K::Ident && matches!(input.kind(end + 1), K::LParen | K::Lt)
+    })
 }
 
 /// Whether a `[` at the top level opens an attribute rather than a
@@ -355,14 +383,6 @@ pub(crate) fn at_attribute(p: &Parser<'_>) -> bool {
     let continues = matches!(next, K::IsKw | K::AsKw | K::SwitchKw)
         || (input.kind(i) == K::Ident && input.text(i) == "with" && input.kind(i + 1) == K::LBrace);
     !operator && !continues && i < input.len()
-}
-
-/// Whether a type, a name and `(` or `<` follow: a function.
-fn at_function_after_type(p: &Parser<'_>) -> bool {
-    let input = p.input();
-    scan_type(input, p.pos()).is_some_and(|end| {
-        input.kind(end) == K::Ident && matches!(input.kind(end + 1), K::LParen | K::Lt)
-    })
 }
 
 /// `record Point(...)`, `record class Point`, `record struct Point`.
@@ -462,6 +482,7 @@ fn type_tail(p: &mut Parser<'_>) {
 
 fn struct_or_class(p: &mut Parser<'_>, m: Marker, keyword: SyntaxKind, kind: SyntaxKind) {
     p.bump(keyword);
+    let owner = p.nth_text(0);
     type_head(p);
     if p.at(K::LParen) {
         // C# 12 primary constructors are not Mora (§6.9).
@@ -481,7 +502,7 @@ fn struct_or_class(p: &mut Parser<'_>, m: Marker, keyword: SyntaxKind, kind: Syn
     }
     type_tail(p);
     if !p.eat(K::Semicolon) {
-        member_list(p);
+        member_list(p, Some(owner));
     }
     m.complete(p, kind);
 }
@@ -491,28 +512,31 @@ fn record_decl(p: &mut Parser<'_>, m: Marker) {
     if p.at(K::ClassKw) || p.at(K::StructKw) {
         p.bump_any();
     }
+    let owner = p.nth_text(0);
     type_head(p);
     if p.at(K::LParen) {
         param_list(p);
     }
     type_tail(p);
     if !p.eat(K::Semicolon) {
-        member_list(p);
+        member_list(p, Some(owner));
     }
     m.complete(p, K::RecordDecl);
 }
 
 fn interface_decl(p: &mut Parser<'_>, m: Marker) {
     p.bump(K::InterfaceKw);
+    let owner = p.nth_text(0);
     type_head(p);
     type_tail(p);
-    member_list(p);
+    member_list(p, Some(owner));
     m.complete(p, K::InterfaceDecl);
 }
 
-/// `union Json { Null, Bool(bool Value), indirect Array(List<Json> Items); members }`.
+/// `union Json { Null, Bool(Value: bool), indirect Array(Items: List<Json>); members }`.
 fn union_decl(p: &mut Parser<'_>, m: Marker) {
     p.bump(K::UnionKw);
+    let owner = p.nth_text(0);
     type_head(p);
     type_tail(p);
     let body = p.start();
@@ -533,7 +557,7 @@ fn union_decl(p: &mut Parser<'_>, m: Marker) {
             }
         }
         if p.eat(K::Semicolon) {
-            members(p);
+            members(p, Some(owner));
         }
         p.expect(K::RBrace);
     }
@@ -591,29 +615,29 @@ fn macro_decl(p: &mut Parser<'_>, m: Marker) {
     m.complete(p, K::MacroDecl);
 }
 
-pub(crate) fn member_list(p: &mut Parser<'_>) {
+/// `{ members }` of the type named `owner`, or of a `code { }` quote.
+pub(crate) fn member_list(p: &mut Parser<'_>, owner: Option<&str>) {
     let m = p.start();
     if p.expect(K::LBrace) {
-        members(p);
+        members(p, owner);
         p.expect(K::RBrace);
     }
     m.complete(p, K::MemberList);
 }
 
 /// Members up to the closing `}`, recovering at each member boundary.
-fn members(p: &mut Parser<'_>) {
+fn members(p: &mut Parser<'_>, owner: Option<&str>) {
+    let cx = Context::Member { owner };
     while !p.at(K::RBrace) && !p.at_end() {
         let before = p.pos();
-        // `$..members;` is a splice of members; `$T value;` declares a field.
-        let declares = scan_type(p.input(), p.pos())
-            .is_some_and(|end| matches!(p.input().kind(end), K::Ident | K::Dollar));
-        if p.at(K::Dollar) && !declares {
+        // `$..members;` is a splice of members; `$f: int;` declares a field.
+        if p.at(K::Dollar) && shape(p, cx, false).is_none() {
             let m = p.start();
             exprs::splice(p);
             p.eat(K::Semicolon);
             m.complete(p, K::SpliceMember);
         } else if !(p.at(K::DelegateKw) && csharp::statement(p)) {
-            declaration(p, Context::Member);
+            declaration(p, cx);
         }
         if p.pos() == before {
             // Skip to something that can start a member, as one error.
@@ -632,56 +656,194 @@ fn members(p: &mut Parser<'_>) {
     }
 }
 
-/// After a type: a function, a property or a field, possibly with an
-/// explicit interface implementation `IShape.Area`.
-fn member_after_type(p: &mut Parser<'_>, m: Marker, cx: Context, has_const_or_static: bool) {
-    // Decide from the tokens after the name before taking anything.
-    let after_type = scan_type(p.input(), p.pos()).unwrap_or(p.pos());
-    let (segments, name_at, _) = name_segments(p, after_type);
-    let next = p.input().kind(name_at + 1);
-    let is_function = matches!(next, K::LParen | K::Lt);
-    let is_property = cx == Context::Member && matches!(next, K::LBrace | K::FatArrow);
-    if cx == Context::TopLevel && !is_function && !has_const_or_static {
-        // `int x = 1;` at the top level is a local variable (§4.2).
-        m.abandon(p);
-        stmts::local_decl_stmt(p);
+/// What a member is, decided from the tokens before taking any.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Kind {
+    Function,
+    Constructor,
+    Property,
+    Field,
+    Indexer,
+    Operator,
+}
+
+/// A member's kind, the segments of its dotted name (more than one for an
+/// explicit implementation, `IShape.Area`), and whether its type comes
+/// before the name, as in C#.
+#[derive(Clone, Copy)]
+struct Shape {
+    kind: Kind,
+    segments: usize,
+    type_first: bool,
+}
+
+/// The member that starts here, in either order, or `None`. At the top
+/// level a field needs `modifiers` (`const`, `static`): without them a
+/// declaration is a local, which is a statement.
+fn shape(p: &Parser<'_>, cx: Context<'_>, modifiers: bool) -> Option<Shape> {
+    let input = p.input();
+    let at = p.pos();
+    let member = cx != Context::TopLevel;
+    let fields = member || modifiers;
+    let shape = |kind, segments, type_first| {
+        Some(Shape {
+            kind,
+            segments,
+            type_first,
+        })
+    };
+    // Name first: `Area(): float`, `Count: int`, `IList<int>.this[i: int]`.
+    let (segments, name_at, end) = if p.at(K::Dollar) {
+        let end = types::scan_splice(input, at)?;
+        (1, at, end)
+    } else {
+        name_segments(p, at)
+    };
+    if segments > 0 {
+        match input.kind(end) {
+            K::Dot if input.kind(end + 1) == K::ThisKw && member => {
+                return shape(Kind::Indexer, segments, false);
+            }
+            K::LParen | K::Lt => {
+                if let Context::Member { owner: Some(owner) } = cx
+                    && segments == 1
+                    && input.text(name_at) == owner
+                {
+                    return shape(Kind::Constructor, 1, false);
+                }
+                if member || at_function(input, name_at) || p.at(K::Dollar) {
+                    return shape(Kind::Function, segments, false);
+                }
+            }
+            K::Colon => {
+                let after = scan_type(input, end + 1).map(|i| input.kind(i));
+                if member && matches!(after, Some(K::LBrace | K::FatArrow)) {
+                    return shape(Kind::Property, segments, false);
+                }
+                if fields && segments == 1 {
+                    return shape(Kind::Field, 1, false);
+                }
+            }
+            K::Eq | K::Semicolon | K::Comma if fields && segments == 1 && !p.at(K::Dollar) => {
+                // `Count;`: a field without its type, reported when parsed.
+                return shape(Kind::Field, 1, false);
+            }
+            _ => {}
+        }
+    }
+    // Type first: `int Count;`, `void Tick()`, `T this[int i]`.
+    let after_type = scan_type(input, at)?;
+    match input.kind(after_type) {
+        K::OperatorKw if member => shape(Kind::Operator, 0, true),
+        K::ThisKw if member => shape(Kind::Indexer, 0, true),
+        K::Dollar => {
+            let end = types::scan_splice(input, after_type)?;
+            if input.kind(end) == K::LParen {
+                shape(Kind::Function, 1, true)
+            } else if fields {
+                shape(Kind::Field, 1, true)
+            } else {
+                None
+            }
+        }
+        K::Ident => {
+            let (segments, _, end) = name_segments(p, after_type);
+            match input.kind(end) {
+                K::Dot if input.kind(end + 1) == K::ThisKw && member => {
+                    shape(Kind::Indexer, segments, true)
+                }
+                K::LParen | K::Lt => shape(Kind::Function, segments, true),
+                K::LBrace | K::FatArrow if member => shape(Kind::Property, segments, true),
+                _ if fields => shape(Kind::Field, 1, true),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn member_with_shape(p: &mut Parser<'_>, m: Marker, shape: Shape) {
+    if shape.kind == Kind::Field {
+        // The type goes into the first declarator, where the name-first
+        // form has it.
+        variable_declarators(p, Declarators::Field);
+        p.expect(K::Semicolon);
+        m.complete(p, K::FieldDecl);
         return;
     }
-    types::ty(p);
+    let first = shape.type_first.then(|| TypeFirst::parse(p));
+    match shape.kind {
+        Kind::Function => function(p, m, shape.segments, first),
+        Kind::Constructor => constructor(p, m),
+        Kind::Property => property(p, m, shape.segments, first),
+        Kind::Indexer => indexer(p, m, shape.segments, first),
+        _ => operator(p, m, first),
+    }
+}
+
+/// The name of a function or a property: a dotted explicit implementation
+/// `IShape.Area` when there are several `segments`, or a splice.
+fn member_name(p: &mut Parser<'_>, segments: usize) {
     if segments > 1 {
         explicit_impl(p, segments - 1);
     }
     if p.at(K::Dollar) {
         exprs::splice(p);
-    } else if is_function || is_property {
+    } else {
         name(p);
     }
-    if is_function {
-        if p.at(K::Lt) {
-            type_param_list(p);
+}
+
+/// `Deposit(amount: decimal): decimal { ... }`, `Max<T>(a: T, b: T): T
+/// where T : IComparable<T>`, `Tick() { }` (§6.1).
+fn function(p: &mut Parser<'_>, m: Marker, segments: usize, first: Option<TypeFirst>) {
+    member_name(p, segments);
+    let name_end = p.prev_end();
+    if p.at(K::Lt) {
+        type_param_list(p);
+    }
+    param_list(p);
+    match first {
+        Some(first) => {
+            let end = p.prev_end();
+            first.report_at(p, name_end, &[end], "", true);
         }
-        param_list(p);
-        while p.at(K::WhereKw) {
-            where_clause(p);
-        }
-        body_or_semicolon(p);
-        m.complete(p, K::FunctionDecl);
-    } else if is_property {
-        if p.at(K::LBrace) {
-            accessor_list(p);
-            if p.eat(K::Eq) {
-                exprs::expr(p);
-                p.expect(K::Semicolon);
-            }
-        } else {
-            expr_body(p);
+        None if p.at(K::Colon) => types::annotation(p, true),
+        None => {}
+    }
+    while p.at(K::WhereKw) {
+        where_clause(p);
+    }
+    body_or_semicolon(p);
+    m.complete(p, K::FunctionDecl);
+}
+
+/// `Count: int { get; }`, `IsEmpty: bool => Count == 0;` (§6.9).
+fn property(p: &mut Parser<'_>, m: Marker, segments: usize, first: Option<TypeFirst>) {
+    member_name(p, segments);
+    match first {
+        Some(first) => first.report(p, ""),
+        None => required_annotation(p),
+    }
+    if p.at(K::LBrace) {
+        accessor_list(p);
+        if p.eat(K::Eq) {
+            exprs::expr(p);
             p.expect(K::Semicolon);
         }
-        m.complete(p, K::PropertyDecl);
     } else {
-        variable_declarators(p);
+        expr_body(p);
         p.expect(K::Semicolon);
-        m.complete(p, K::FieldDecl);
+    }
+    m.complete(p, K::PropertyDecl);
+}
+
+/// `: Type` where a declaration must have one.
+fn required_annotation(p: &mut Parser<'_>) {
+    if p.at(K::Colon) {
+        types::annotation(p, false);
+    } else {
+        p.error("expected `:` and a type");
     }
 }
 
@@ -729,21 +891,58 @@ fn explicit_impl(p: &mut Parser<'_>, segments: usize) {
     m.complete(p, K::ExplicitImpl);
 }
 
-pub(crate) fn variable_declarators(p: &mut Parser<'_>) {
+/// Where declarators are, which decides whether each needs a type.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Declarators {
+    /// Fields, constants and statics: every declarator has a type.
+    Field,
+    /// Locals, after `let` or `var` (`keyword`) or, in the C# order,
+    /// after neither.
+    Local { keyword: bool },
+}
+
+/// `Count: int = 0, Peak: int` or, for a local, `x = 1, y: int`. A type
+/// written first, `int x = 1, y`, goes into the first declarator and is
+/// reported once, with a fix that gives each declarator the type.
+pub(crate) fn variable_declarators(p: &mut Parser<'_>, at: Declarators) {
+    let mut d = p.start();
+    let first = types::at_type_first(p).then(|| TypeFirst::parse(p));
+    let mut names = Vec::new();
+    let mut initialized = None;
     loop {
-        let d = p.start();
         if p.at(K::Dollar) {
             exprs::splice(p);
         } else {
             name(p);
         }
-        if p.eat(K::Eq) {
+        names.push(p.prev_end());
+        if first.is_none() {
+            if at == Declarators::Field {
+                required_annotation(p);
+            } else if p.at(K::Colon) {
+                types::annotation(p, false);
+            }
+        }
+        let init = p.eat(K::Eq);
+        if init {
             exprs::expr(p);
         }
+        initialized.get_or_insert(init);
         d.complete(p, K::VariableDeclarator);
         if !p.eat(K::Comma) {
             break;
         }
+        d = p.start();
+    }
+    if let Some(first) = first {
+        // `T x = e;` was a variable, `var x: T = e;`; `T x;` is assigned
+        // once later, `let x: T;`.
+        let keyword = match (at, initialized) {
+            (Declarators::Local { keyword: false }, Some(true)) => "var ",
+            (Declarators::Local { keyword: false }, _) => "let ",
+            _ => "",
+        };
+        first.report_at(p, names[0], &names, keyword, false);
     }
 }
 
@@ -774,14 +973,14 @@ fn accessor_list(p: &mut Parser<'_>) {
     m.complete(p, K::AccessorList);
 }
 
-/// `public T this[int i] { ... }`; with `explicit` segments, an explicit
-/// implementation such as `int IList<int>.this[int i]`.
-fn indexer(p: &mut Parser<'_>, m: Marker, explicit: usize) {
-    types::ty(p);
-    if explicit > 0 {
-        explicit_impl(p, explicit);
+/// `public this[i: int]: T { ... }`; with `segments`, an explicit
+/// implementation such as `IList<int>.this[i: int]: int`.
+fn indexer(p: &mut Parser<'_>, m: Marker, segments: usize, first: Option<TypeFirst>) {
+    if segments > 0 {
+        explicit_impl(p, segments);
     }
     p.expect(K::ThisKw);
+    let name_end = p.prev_end();
     p.expect(K::LBracket);
     while !p.at(K::RBracket) && !p.at_end() {
         param(p);
@@ -790,6 +989,13 @@ fn indexer(p: &mut Parser<'_>, m: Marker, explicit: usize) {
         }
     }
     p.expect(K::RBracket);
+    match first {
+        Some(first) => {
+            let end = p.prev_end();
+            first.report_at(p, name_end, &[end], "", false);
+        }
+        None => required_annotation(p),
+    }
     if p.at(K::LBrace) {
         accessor_list(p);
     } else {
@@ -799,7 +1005,7 @@ fn indexer(p: &mut Parser<'_>, m: Marker, explicit: usize) {
     m.complete(p, K::IndexerDecl);
 }
 
-/// `public Counter(string name) : this(name, 1) { ... }` (§6.9).
+/// `public Counter(name: string) : this(name, 1) { ... }` (§6.9).
 fn constructor(p: &mut Parser<'_>, m: Marker) {
     name(p);
     param_list(p);
@@ -851,19 +1057,28 @@ const OVERLOADABLE: &[SyntaxKind] = &[
     K::Gt,
 ];
 
-fn operator(p: &mut Parser<'_>, m: Marker) {
-    types::ty(p);
+/// `public static operator +(a: Vec, b: Vec): Vec => ...` (§6.9).
+fn operator(p: &mut Parser<'_>, m: Marker, first: Option<TypeFirst>) {
     p.bump(K::OperatorKw);
     match OVERLOADABLE.iter().find(|&&kind| p.at(kind)) {
         Some(&kind) => p.bump(kind),
         None => p.error("expected an operator"),
     }
+    let name_end = p.prev_end();
     param_list(p);
+    match first {
+        Some(first) => {
+            let end = p.prev_end();
+            first.report_at(p, name_end, &[end], "", true);
+        }
+        None if p.at(K::Colon) => types::annotation(p, true),
+        None => {}
+    }
     body_or_semicolon(p);
     m.complete(p, K::OperatorDecl);
 }
 
-/// `public static implicit operator AppError(IoError e) => Io(e);`
+/// `public static implicit operator AppError(e: IoError) => Io(e);`
 fn conversion(p: &mut Parser<'_>, m: Marker) {
     p.bump_any();
     p.expect(K::OperatorKw);
@@ -902,14 +1117,21 @@ pub(crate) fn param_list(p: &mut Parser<'_>) {
     m.complete(p, K::ParamList);
 }
 
+/// `amount: decimal`, `ref p: Point`, `port: int = 80` (§10.3).
 fn param(p: &mut Parser<'_>) {
     let m = p.start();
     while p.at(K::LBracket) {
         attribute(p);
     }
     modifiers(p, true);
-    types::ty(p);
-    name(p);
+    if types::at_type_first(p) {
+        let first = TypeFirst::parse(p);
+        name(p);
+        first.report(p, "");
+    } else {
+        name(p);
+        required_annotation(p);
+    }
     if p.eat(K::Eq) {
         exprs::expr(p);
     }
@@ -1001,9 +1223,11 @@ fn expr_body(p: &mut Parser<'_>) {
 }
 
 /// A local function in a body: modifiers such as `static` or `async`, a
-/// return type, a name and the rest of a function (§7.11).
+/// name and the rest of a function (§7.11).
 pub(crate) fn local_function(p: &mut Parser<'_>) {
     let m = p.start();
     modifiers(p, false);
-    member_after_type(p, m, Context::Member, false);
+    let type_first = !at_function(p.input(), p.pos());
+    let first = type_first.then(|| TypeFirst::parse(p));
+    function(p, m, 1, first);
 }

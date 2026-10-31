@@ -1,5 +1,5 @@
-SourceFile@0..65
-  ClassDecl@0..64
+SourceFile@0..67
+  ClassDecl@0..66
     Modifier@0..6
       PublicKw@0..6 "public"
     Whitespace@6..7 " "
@@ -8,43 +8,45 @@ SourceFile@0..65
     Name@13..14
       Ident@13..14 "C"
     Newline@14..15 "\n"
-    MemberList@15..64
+    MemberList@15..66
       LBrace@15..16 "{"
       Newline@16..17 "\n"
       Whitespace@17..21 "    "
-      FieldDecl@21..34
+      FieldDecl@21..35
         Modifier@21..27
           PublicKw@21..27 "public"
         Whitespace@27..28 " "
-        PredefinedType@28..31
-          IntKw@28..31 "int"
-        Whitespace@31..32 " "
-        VariableDeclarator@32..33
-          Name@32..33
-            Ident@32..33 "X"
-        Semicolon@33..34 ";"
-      Newline@34..35 "\n"
-      Whitespace@35..39 "    "
-      Error@39..44
-        RParen@39..40 ")"
-        Whitespace@40..41 " "
-        RParen@41..42 ")"
-        Whitespace@42..43 " "
-        Semicolon@43..44 ";"
-      Newline@44..45 "\n"
-      Whitespace@45..49 "    "
-      FieldDecl@49..62
-        Modifier@49..55
-          PublicKw@49..55 "public"
-        Whitespace@55..56 " "
-        PredefinedType@56..59
-          IntKw@56..59 "int"
-        Whitespace@59..60 " "
-        VariableDeclarator@60..61
-          Name@60..61
-            Ident@60..61 "Y"
-        Semicolon@61..62 ";"
-      Newline@62..63 "\n"
-      RBrace@63..64 "}"
-  Newline@64..65 "\n"
-error MR0110 39..40: expected a member
+        VariableDeclarator@28..34
+          Name@28..29
+            Ident@28..29 "X"
+          Colon@29..30 ":"
+          Whitespace@30..31 " "
+          PredefinedType@31..34
+            IntKw@31..34 "int"
+        Semicolon@34..35 ";"
+      Newline@35..36 "\n"
+      Whitespace@36..40 "    "
+      Error@40..45
+        RParen@40..41 ")"
+        Whitespace@41..42 " "
+        RParen@42..43 ")"
+        Whitespace@43..44 " "
+        Semicolon@44..45 ";"
+      Newline@45..46 "\n"
+      Whitespace@46..50 "    "
+      FieldDecl@50..64
+        Modifier@50..56
+          PublicKw@50..56 "public"
+        Whitespace@56..57 " "
+        VariableDeclarator@57..63
+          Name@57..58
+            Ident@57..58 "Y"
+          Colon@58..59 ":"
+          Whitespace@59..60 " "
+          PredefinedType@60..63
+            IntKw@60..63 "int"
+        Semicolon@63..64 ";"
+      Newline@64..65 "\n"
+      RBrace@65..66 "}"
+  Newline@66..67 "\n"
+error MR0110 40..41: expected a member

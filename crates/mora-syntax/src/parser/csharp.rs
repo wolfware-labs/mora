@@ -224,7 +224,10 @@ fn using_statement(p: &mut Parser<'_>) {
         skip_parens(p);
         stmts::statement(p);
     } else {
+        // `using File f = Open();` is reported as a whole, not for its order too.
+        let since = p.reported();
         stmts::local_decl_stmt(p);
+        p.withdraw(since, codes::MR0135);
     }
 }
 
@@ -446,4 +449,129 @@ fn whole_line(text: &str, range: TextRange) -> TextRange {
 
 fn size(offset: usize) -> TextSize {
     TextSize::new(u32::try_from(offset).unwrap_or(u32::MAX))
+}
+
+/// A type written before the name, as C# declares: the `int` of `int x` or
+/// the `void` of `void Tick()` (§6.1). The parser takes it where the name
+/// would be, builds the same declaration as the name-first form, and
+/// reports `MR0135` once it knows where that form puts the type.
+pub(crate) struct TypeFirst {
+    /// The type.
+    ty: TextRange,
+    /// The start of the name after it.
+    name: TextSize,
+    /// Whether the type is `void`, which the name-first form drops.
+    void: bool,
+    /// The type as the fix writes it after the name: with the fixes of the
+    /// errors inside it applied, such as `(int x, string y)` in
+    /// `List<(int x, string y)> xs`. Those errors are still reported, and
+    /// lose their own fixes, which would edit text this fix moves.
+    moved: String,
+}
+
+impl TypeFirst {
+    /// Takes the type at the next token.
+    pub(crate) fn parse(p: &mut Parser<'_>) -> Self {
+        let start = p.range(0).start();
+        let void = p.at(K::VoidKw) && !p.nth_at(1, K::Question) && !p.nth_at(1, K::LBracket);
+        let since = p.reported();
+        types::ty(p);
+        let ty = TextRange::new(start, p.prev_end().max(start));
+        let edits = p
+            .take_fixes(since, ty)
+            .into_iter()
+            .map(|(at, text)| (at - start, text))
+            .collect();
+        let moved = SyntaxFix {
+            message: String::new(),
+            edits,
+        }
+        .apply(&p.input().source()[ty]);
+        Self {
+            ty,
+            name: p.range(0).start(),
+            void,
+            moved,
+        }
+    }
+
+    /// Reports the declaration whose name was just taken: the fix puts
+    /// `keyword` (`let `, `var ` or nothing) where the type was and the type
+    /// after the name.
+    pub(crate) fn report(self, p: &mut Parser<'_>, keyword: &str) {
+        let end = p.prev_end();
+        self.report_at(p, end, &[end], keyword, false);
+    }
+
+    /// Reports the declaration whose name ends at `name_end`, with the type
+    /// moved after a colon at each of `at`. The type of a function
+    /// (`returns`) goes after its parameters, and `void` goes away there.
+    pub(crate) fn report_at(
+        self,
+        p: &mut Parser<'_>,
+        name_end: TextSize,
+        at: &[TextSize],
+        keyword: &str,
+        returns: bool,
+    ) {
+        let text = p.input().source();
+        let ty = &text[self.ty];
+        let name_end = name_end.max(self.name);
+        let name = &text[TextRange::new(self.name, name_end)];
+        let message = format!("`{ty} {name}`: Mora writes the name before the type");
+        let mut edits = vec![(
+            TextRange::new(self.ty.start(), self.name),
+            keyword.to_owned(),
+        )];
+        if !(returns && self.void) {
+            let ty = if self.void { "()" } else { &self.moved };
+            edits.extend(
+                at.iter()
+                    .map(|&at| (TextRange::empty(at), format!(": {ty}"))),
+            );
+        }
+        p.report(
+            SyntaxError::new(
+                codes::MR0135,
+                TextRange::new(self.ty.start(), name_end),
+                message,
+            )
+            .with_note(
+                "Write `name: Type`. A function's return type follows its parameters, and a \
+                 function without one returns `()`.",
+            )
+            .with_fix(SyntaxFix {
+                message: "put the name first".to_owned(),
+                edits,
+            }),
+        );
+    }
+}
+
+/// Reports `void` at the next token, the type of an annotation whose colon
+/// starts at `colon`, after a name or a parameter list ending at `before`.
+/// After a parameter list (`returns`) the fix removes the annotation;
+/// elsewhere it writes `()`.
+pub(crate) fn report_void(p: &mut Parser<'_>, before: TextSize, colon: TextSize, returns: bool) {
+    let void = p.range(0);
+    let fix = if returns {
+        SyntaxFix {
+            message: "remove `: void`".to_owned(),
+            edits: vec![(TextRange::new(before, void.end()), String::new())],
+        }
+    } else {
+        SyntaxFix {
+            message: "write `()`".to_owned(),
+            edits: vec![(void, "()".to_owned())],
+        }
+    };
+    p.report(
+        SyntaxError::new(
+            codes::MR0136,
+            TextRange::new(colon, void.end()),
+            "`void` as a type: Mora's unit type is `()`",
+        )
+        .with_note("A function without a return type returns `()`.")
+        .with_fix(fix),
+    );
 }

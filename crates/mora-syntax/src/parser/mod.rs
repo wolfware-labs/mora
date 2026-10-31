@@ -239,6 +239,44 @@ impl<'t> Parser<'t> {
         self.reports.push(error);
     }
 
+    /// How many errors other than `MR0110` have been reported, for
+    /// [`Parser::withdraw`].
+    pub(crate) fn reported(&self) -> usize {
+        self.reports.len()
+    }
+
+    /// Withdraws the errors with `code` reported after the first `since`:
+    /// inside a C# construct that is reported whole, what it contains is
+    /// not reported again.
+    pub(crate) fn withdraw(&mut self, since: usize, code: mora_diag::Code) {
+        let mut i = 0;
+        self.reports.retain(|error| {
+            i += 1;
+            i <= since || error.code != code
+        });
+    }
+
+    /// Takes the fixes of the errors reported after the first `since` whose
+    /// edits all fall within `range`, leaving the errors without them: a
+    /// fix that moves the text of `range` carries them instead.
+    pub(crate) fn take_fixes(
+        &mut self,
+        since: usize,
+        range: TextRange,
+    ) -> Vec<(TextRange, String)> {
+        let mut edits = Vec::new();
+        for error in self.reports.iter_mut().skip(since) {
+            let inside = error
+                .fix
+                .as_ref()
+                .is_some_and(|fix| fix.edits.iter().all(|(at, _)| range.contains_range(*at)));
+            if inside && let Some(fix) = error.fix.take() {
+                edits.extend(fix.edits);
+            }
+        }
+        edits
+    }
+
     /// The end of the last token taken, or the start of the text.
     pub(crate) fn prev_end(&self) -> TextSize {
         self.pos

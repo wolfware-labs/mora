@@ -1,4 +1,4 @@
-int Parse(string text)
+Parse(text: string): int
 {
     try //~ ERROR MR0101
     {
@@ -13,4 +13,4 @@ int Parse(string text)
         Console.WriteLine("done");
     }
 }
-int Fallback(int? x) => x ?? throw new ArgumentException(); //~ ERROR MR0101
+Fallback(x: int?): int => x ?? throw new ArgumentException(); //~ ERROR MR0101

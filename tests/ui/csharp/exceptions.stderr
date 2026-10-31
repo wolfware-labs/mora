@@ -15,9 +15,9 @@ error[MR0101]: `throw`: Mora has no exceptions
   = note: Return `Result<T, E>` and propagate errors with `?`.
 
 error[MR0101]: `throw`: Mora has no exceptions
-  --> tests/ui/csharp/exceptions.mr:16:30
+  --> tests/ui/csharp/exceptions.mr:16:32
    |
-16 | int Fallback(int? x) => x ?? throw new ArgumentException(); //~ ERROR MR0101
-   |                              ^^^^^
+16 | Fallback(x: int?): int => x ?? throw new ArgumentException(); //~ ERROR MR0101
+   |                                ^^^^^
    |
    = note: Return `Result<T, E>` and propagate errors with `?`.

@@ -17,7 +17,7 @@ error[MR0121]: `using`: Mora has no disposal statement
 error[MR0121]: `using`: Mora has no disposal statement
  --> tests/ui/csharp/using_statement.mr:4:1
   |
-4 | using Log third = new Log(); //~ ERROR MR0121
+4 | using let third: Log = new Log(); //~ ERROR MR0121
   | ^^^^^
   |
   = note: A value's destructor runs when its owner goes out of scope, so declare it without `using`.

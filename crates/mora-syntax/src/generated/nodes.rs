@@ -1021,7 +1021,7 @@ impl AstNode for MacroDecl {
 }
 
 /// ```text
-/// FunctionDecl = Attribute* Modifier* ret:Type ExplicitImpl? (Name | Splice) TypeParamList? ParamList WhereClause* (Block | ExprBody ';' | ';')
+/// FunctionDecl = Attribute* Modifier* ExplicitImpl? (Name | Splice) TypeParamList? ParamList (':' ret:Type)? WhereClause* (Block | ExprBody ';' | ';')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunctionDecl {
@@ -1034,9 +1034,6 @@ impl FunctionDecl {
     }
     pub fn modifiers(&self) -> AstChildren<Modifier> {
         support::children(&self.syntax)
-    }
-    pub fn ret(&self) -> Option<Type> {
-        support::child(&self.syntax)
     }
     pub fn explicit_impl(&self) -> Option<ExplicitImpl> {
         support::child(&self.syntax)
@@ -1051,6 +1048,12 @@ impl FunctionDecl {
         support::child(&self.syntax)
     }
     pub fn param_list(&self) -> Option<ParamList> {
+        support::child(&self.syntax)
+    }
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Colon])
+    }
+    pub fn ret(&self) -> Option<Type> {
         support::child(&self.syntax)
     }
     pub fn where_clauses(&self) -> AstChildren<WhereClause> {
@@ -1082,7 +1085,7 @@ impl AstNode for FunctionDecl {
 }
 
 /// ```text
-/// FieldDecl = Attribute* Modifier* Type VariableDeclarator (',' VariableDeclarator)* ';'
+/// FieldDecl = Attribute* Modifier* VariableDeclarator (',' VariableDeclarator)* ';'
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FieldDecl {
@@ -1095,9 +1098,6 @@ impl FieldDecl {
     }
     pub fn modifiers(&self) -> AstChildren<Modifier> {
         support::children(&self.syntax)
-    }
-    pub fn ty(&self) -> Option<Type> {
-        support::child(&self.syntax)
     }
     pub fn variable_declarator(&self) -> Option<VariableDeclarator> {
         support::child(&self.syntax)
@@ -2173,7 +2173,7 @@ impl AstNode for Block {
 }
 
 /// ```text
-/// PropertyDecl = Attribute* Modifier* Type ExplicitImpl? (Name | Splice) (AccessorList ('=' init:Expr ';')? | ExprBody ';')
+/// PropertyDecl = Attribute* Modifier* ExplicitImpl? (Name | Splice) ':' Type (AccessorList ('=' init:Expr ';')? | ExprBody ';')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PropertyDecl {
@@ -2187,9 +2187,6 @@ impl PropertyDecl {
     pub fn modifiers(&self) -> AstChildren<Modifier> {
         support::children(&self.syntax)
     }
-    pub fn ty(&self) -> Option<Type> {
-        support::child(&self.syntax)
-    }
     pub fn explicit_impl(&self) -> Option<ExplicitImpl> {
         support::child(&self.syntax)
     }
@@ -2197,6 +2194,12 @@ impl PropertyDecl {
         support::child(&self.syntax)
     }
     pub fn splice(&self) -> Option<Splice> {
+        support::child(&self.syntax)
+    }
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Colon])
+    }
+    pub fn ty(&self) -> Option<Type> {
         support::child(&self.syntax)
     }
     pub fn accessor_list(&self) -> Option<AccessorList> {
@@ -2231,7 +2234,7 @@ impl AstNode for PropertyDecl {
 }
 
 /// ```text
-/// IndexerDecl = Attribute* Modifier* Type ExplicitImpl? 'this' '[' Param (',' Param)* ','? ']' (AccessorList | ExprBody ';')
+/// IndexerDecl = Attribute* Modifier* ExplicitImpl? 'this' '[' Param (',' Param)* ','? ']' ':' Type (AccessorList | ExprBody ';')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IndexerDecl {
@@ -2244,9 +2247,6 @@ impl IndexerDecl {
     }
     pub fn modifiers(&self) -> AstChildren<Modifier> {
         support::children(&self.syntax)
-    }
-    pub fn ty(&self) -> Option<Type> {
-        support::child(&self.syntax)
     }
     pub fn explicit_impl(&self) -> Option<ExplicitImpl> {
         support::child(&self.syntax)
@@ -2268,6 +2268,12 @@ impl IndexerDecl {
     }
     pub fn r_bracket_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::RBracket])
+    }
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Colon])
+    }
+    pub fn ty(&self) -> Option<Type> {
+        support::child(&self.syntax)
     }
     pub fn accessor_list(&self) -> Option<AccessorList> {
         support::child(&self.syntax)
@@ -2393,7 +2399,7 @@ impl AstNode for DestructorDecl {
 }
 
 /// ```text
-/// OperatorDecl = Attribute* Modifier* ret:Type 'operator' op:('+' | '-' | '*' | '/' | '%' | '+%' | '-%' | '*%' | '&' | '|' | '^' | '!' | '~' | '<<' | '>>' | '>>>' | '==' | '!=' | '<' | '>' | '<=' | '>=' | '++' | '--') ParamList (Block | ExprBody ';' | ';')
+/// OperatorDecl = Attribute* Modifier* 'operator' op:('+' | '-' | '*' | '/' | '%' | '+%' | '-%' | '*%' | '&' | '|' | '^' | '!' | '~' | '<<' | '>>' | '>>>' | '==' | '!=' | '<' | '>' | '<=' | '>=' | '++' | '--') ParamList (':' ret:Type)? (Block | ExprBody ';' | ';')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OperatorDecl {
@@ -2406,9 +2412,6 @@ impl OperatorDecl {
     }
     pub fn modifiers(&self) -> AstChildren<Modifier> {
         support::children(&self.syntax)
-    }
-    pub fn ret(&self) -> Option<Type> {
-        support::child(&self.syntax)
     }
     pub fn operator_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::OperatorKw])
@@ -2445,6 +2448,12 @@ impl OperatorDecl {
         )
     }
     pub fn param_list(&self) -> Option<ParamList> {
+        support::child(&self.syntax)
+    }
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Colon])
+    }
+    pub fn ret(&self) -> Option<Type> {
         support::child(&self.syntax)
     }
     pub fn block(&self) -> Option<Block> {
@@ -2713,7 +2722,7 @@ impl AstNode for Splice {
 }
 
 /// ```text
-/// Param = Attribute* Modifier* Type Name ('=' default:Expr)?
+/// Param = Attribute* Modifier* Name ':' Type ('=' default:Expr)?
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Param {
@@ -2727,10 +2736,13 @@ impl Param {
     pub fn modifiers(&self) -> AstChildren<Modifier> {
         support::children(&self.syntax)
     }
-    pub fn ty(&self) -> Option<Type> {
+    pub fn name(&self) -> Option<Name> {
         support::child(&self.syntax)
     }
-    pub fn name(&self) -> Option<Name> {
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Colon])
+    }
+    pub fn ty(&self) -> Option<Type> {
         support::child(&self.syntax)
     }
     pub fn eq_token(&self) -> Option<SyntaxToken> {
@@ -2756,7 +2768,7 @@ impl AstNode for Param {
 }
 
 /// ```text
-/// VariableDeclarator = (Name | Splice) ('=' init:Expr)?
+/// VariableDeclarator = (Name | Splice) (':' Type)? ('=' init:Expr)?
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct VariableDeclarator {
@@ -2768,6 +2780,12 @@ impl VariableDeclarator {
         support::child(&self.syntax)
     }
     pub fn splice(&self) -> Option<Splice> {
+        support::child(&self.syntax)
+    }
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Colon])
+    }
+    pub fn ty(&self) -> Option<Type> {
         support::child(&self.syntax)
     }
     pub fn eq_token(&self) -> Option<SyntaxToken> {
@@ -3399,7 +3417,7 @@ impl AstNode for SpliceType {
 }
 
 /// ```text
-/// TupleTypeElem = Type Name?
+/// TupleTypeElem = (Name ':')? Type
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TupleTypeElem {
@@ -3407,10 +3425,13 @@ pub struct TupleTypeElem {
 }
 
 impl TupleTypeElem {
-    pub fn ty(&self) -> Option<Type> {
+    pub fn name(&self) -> Option<Name> {
         support::child(&self.syntax)
     }
-    pub fn name(&self) -> Option<Name> {
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Colon])
+    }
+    pub fn ty(&self) -> Option<Type> {
         support::child(&self.syntax)
     }
 }
@@ -3994,7 +4015,7 @@ impl AstNode for AttributedStmt {
 }
 
 /// ```text
-/// LocalDecl = kw:('let' | 'var')? Type? VariableDeclarator (',' VariableDeclarator)*
+/// LocalDecl = kw:('let' | 'var')? VariableDeclarator (',' VariableDeclarator)*
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LocalDecl {
@@ -4004,9 +4025,6 @@ pub struct LocalDecl {
 impl LocalDecl {
     pub fn kw(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::LetKw, SyntaxKind::VarKw])
-    }
-    pub fn ty(&self) -> Option<Type> {
-        support::child(&self.syntax)
     }
     pub fn variable_declarator(&self) -> Option<VariableDeclarator> {
         support::child(&self.syntax)
@@ -4111,7 +4129,7 @@ impl AstNode for Designation {
 }
 
 /// ```text
-/// NameDesignation = Type? Name
+/// NameDesignation = Name (':' Type)?
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NameDesignation {
@@ -4119,10 +4137,13 @@ pub struct NameDesignation {
 }
 
 impl NameDesignation {
-    pub fn ty(&self) -> Option<Type> {
+    pub fn name(&self) -> Option<Name> {
         support::child(&self.syntax)
     }
-    pub fn name(&self) -> Option<Name> {
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Colon])
+    }
+    pub fn ty(&self) -> Option<Type> {
         support::child(&self.syntax)
     }
 }
@@ -6170,7 +6191,7 @@ impl AstNode for Arg {
 }
 
 /// ```text
-/// DeclExpr = kw:('let' | 'var')? Type? Name
+/// DeclExpr = kw:('let' | 'var')? Name (':' Type)?
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DeclExpr {
@@ -6181,10 +6202,13 @@ impl DeclExpr {
     pub fn kw(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::LetKw, SyntaxKind::VarKw])
     }
-    pub fn ty(&self) -> Option<Type> {
+    pub fn name(&self) -> Option<Name> {
         support::child(&self.syntax)
     }
-    pub fn name(&self) -> Option<Name> {
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Colon])
+    }
+    pub fn ty(&self) -> Option<Type> {
         support::child(&self.syntax)
     }
 }
@@ -6321,7 +6345,7 @@ impl AstNode for CaptureList {
 }
 
 /// ```text
-/// LambdaParam = Attribute* Modifier* Type? Name ('=' default:Expr)?
+/// LambdaParam = Attribute* Modifier* Name (':' Type)? ('=' default:Expr)?
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LambdaParam {
@@ -6335,10 +6359,13 @@ impl LambdaParam {
     pub fn modifiers(&self) -> AstChildren<Modifier> {
         support::children(&self.syntax)
     }
-    pub fn ty(&self) -> Option<Type> {
+    pub fn name(&self) -> Option<Name> {
         support::child(&self.syntax)
     }
-    pub fn name(&self) -> Option<Name> {
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Colon])
+    }
+    pub fn ty(&self) -> Option<Type> {
         support::child(&self.syntax)
     }
     pub fn eq_token(&self) -> Option<SyntaxToken> {

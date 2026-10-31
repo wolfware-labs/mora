@@ -1,4 +1,4 @@
-let a = code { public int Count => 0; };
+let a = code { public Count: int => 0; };
 let b = code(x + 1);
 let c = code(List<$t>);
 let d = #Assert(total > 0);

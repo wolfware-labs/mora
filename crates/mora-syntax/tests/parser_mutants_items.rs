@@ -3,6 +3,7 @@
 
 //! Tests that pin parser behavior found untested by `cargo mutants` (§20.5).
 
+use mora_diag::codes;
 use mora_syntax::ast::{self, AstNode};
 use mora_syntax::{SyntaxKind as K, SyntaxNode, parse};
 
@@ -42,65 +43,73 @@ fn assert_clean_with(text: &str, kind: K) {
     assert!(has(text, kind), "no {kind:?} in {text:?}");
 }
 
+/// Reports one declaration in the C# order (`MR0135`) and nothing else,
+/// and holds a node of `kind`.
+fn assert_type_first_with(text: &str, kind: K) {
+    let codes: Vec<_> = parse(text).errors().iter().map(|e| e.code).collect();
+    assert_eq!(codes, [codes::MR0135], "{text:?}");
+    assert!(has(text, kind), "no {kind:?} in {text:?}");
+}
+
 // `ty`: `weak T` is a type of its own.
 
 #[test]
 fn a_weak_field_type_parses() {
-    let text = "class A { weak Node? Parent; }";
+    let text = "class A { Parent: weak Node?; }";
     assert_clean_with(text, K::WeakType);
     assert!(has(text, K::FieldDecl));
 }
 
 // `scan_type`: a splice type, a tuple type, an alias-qualified, nested or
-// array type before a name makes a local declaration.
+// array type before a name makes a local declaration in the C# order.
 
 #[test]
 fn a_spread_splice_type_declares_a_local() {
-    assert_clean_with("void F() { $..ts x; }", K::LocalDeclStmt);
+    assert_type_first_with("F() { $..ts x; }", K::LocalDeclStmt);
 }
 
 #[test]
 fn a_parenthesized_splice_type_declares_a_local() {
-    assert_clean_with("void F() { $(T) x; }", K::LocalDeclStmt);
-    assert_clean_with("void F() { $(f()) x; }", K::LocalDeclStmt);
+    assert_type_first_with("F() { $(T) x; }", K::LocalDeclStmt);
+    assert_type_first_with("F() { $(f()) x; }", K::LocalDeclStmt);
 }
 
 #[test]
 fn an_unclosed_splice_type_ends_at_the_end_of_the_file() {
     assert_eq!(
-        messages("void F() { $(a"),
+        messages("F() { $(a"),
         ["expected `)`", "expected `;`", "expected `}`"]
     );
 }
 
 #[test]
 fn a_tuple_type_declares_a_local() {
-    assert_clean_with("void F() { (int a, string b) pair; }", K::LocalDeclStmt);
-    assert_clean_with("void F() { (int, string) pair; }", K::LocalDeclStmt);
+    assert_type_first_with("F() { (a: int, b: string) pair; }", K::LocalDeclStmt);
+    assert_type_first_with("F() { (int, string) pair; }", K::LocalDeclStmt);
 }
 
 #[test]
 fn an_alias_qualified_type_declares_a_local() {
-    let text = "void F() { Alias::T x; }";
-    assert_clean_with(text, K::LocalDeclStmt);
+    let text = "F() { Alias::T x; }";
+    assert_type_first_with(text, K::LocalDeclStmt);
     assert!(has(text, K::AliasQualifier));
 }
 
 #[test]
 fn a_nested_generic_type_declares_a_local() {
-    assert_clean_with("void F() { Outer<int>.Inner x; }", K::LocalDeclStmt);
+    assert_type_first_with("F() { Outer<int>.Inner x; }", K::LocalDeclStmt);
 }
 
 #[test]
 fn an_array_type_declares_a_local() {
-    let text = "void F() { int[] xs; }";
-    assert_clean_with(text, K::LocalDeclStmt);
+    let text = "F() { int[] xs; }";
+    assert_type_first_with(text, K::LocalDeclStmt);
     assert!(has(text, K::ArrayType));
 }
 
 #[test]
 fn an_unclosed_index_is_not_an_array_type() {
-    let text = "void F() { T[0 x; }";
+    let text = "F() { T[0 x; }";
     assert!(!has(text, K::LocalDeclStmt));
     assert!(has(text, K::IndexExpr));
     assert_eq!(messages(text), ["expected `]`", "expected `;`"]);
@@ -136,7 +145,7 @@ fn a_missing_import_path_is_a_string() {
 
 #[test]
 fn and_after_a_type_pattern_combines_patterns() {
-    let text = "bool B = x is Foo and Bar;";
+    let text = "let b: bool = x is Foo and Bar;";
     assert_clean_with(text, K::BinPattern);
     assert!(!has(text, K::DeclarationPattern));
 }
@@ -146,7 +155,7 @@ fn and_after_a_type_pattern_combines_patterns() {
 
 #[test]
 fn an_indented_comment_belongs_to_the_member_below() {
-    let field = node("class A {\n    // doc\n    int X;\n}", K::FieldDecl);
+    let field = node("class A {\n    // doc\n    X: int;\n}", K::FieldDecl);
     assert!(field.text().starts_with("// doc"), "{}", field.text());
 }
 
@@ -209,7 +218,7 @@ fn modifiers_do_not_make_an_attributed_statement() {
 #[test]
 fn a_top_level_variable_is_a_local() {
     let text = "int x = 1;";
-    assert_clean_with(text, K::LocalDeclStmt);
+    assert_type_first_with(text, K::LocalDeclStmt);
     assert!(!has(text, K::FieldDecl));
 }
 
@@ -218,6 +227,9 @@ fn an_operator_is_a_member_only() {
     let text = "int operator <(A a, A b) => true;";
     assert!(!has(text, K::OperatorDecl));
     assert_eq!(messages(text)[0], "expected `;`");
+    let text = "operator <(a: A, b: A): bool => true;";
+    assert!(!has(text, K::OperatorDecl));
+    assert_eq!(messages(text)[0], "expected a statement");
 }
 
 // `at_attribute`: a `[` opens an attribute only when it names something and
@@ -269,7 +281,7 @@ fn record_alone_is_a_name() {
 
 #[test]
 fn required_before_a_named_type_is_a_modifier() {
-    let text = "class A { required Name X; }";
+    let text = "class A { required X: Name; }";
     assert_clean_with(text, K::Modifier);
     assert_eq!(node(text, K::Modifier).text(), "required");
 }
@@ -304,15 +316,15 @@ fn union_case_lists_can_be_empty_or_end_in_a_comma() {
 
 #[test]
 fn an_explicit_indexer_with_a_dotted_interface() {
-    let text = "class A { int Outer.IList<int>.this[int i] => 0; }";
+    let text = "class A { Outer.IList<int>.this[i: int]: int => 0; }";
     assert_clean_with(text, K::IndexerDecl);
     assert_eq!(node(text, K::ExplicitImpl).text(), "Outer.IList<int>.");
 }
 
 #[test]
 fn indexer_parameter_lists() {
-    assert_clean_with("class A { int this[] => 0; }", K::IndexerDecl);
-    let text = "class A { int this[int a, int b] => 0; }";
+    assert_clean_with("class A { this[]: int => 0; }", K::IndexerDecl);
+    let text = "class A { this[a: int, b: int]: int => 0; }";
     assert_clean_with(text, K::IndexerDecl);
     assert_eq!(count(text, K::Param), 2);
 }
@@ -350,4 +362,138 @@ fn ref_after_a_type_constraint_is_not_a_ref_struct_constraint() {
         "class A<T> where T : class, allows ref struct { }",
         K::RefStructConstraint,
     );
+}
+
+// `declaration` and `shape`: indexers, operators and properties are members
+// only; at the top level they are not declarations, whatever the order.
+
+#[test]
+fn an_indexer_is_a_member_only() {
+    for text in [
+        "static this[0];",
+        "static int this[int i] => 0;",
+        "static int IList.this[int i] => 0;",
+    ] {
+        assert!(!has(text, K::IndexerDecl), "{text:?}");
+        assert!(!messages(text).is_empty(), "{text:?}");
+    }
+}
+
+#[test]
+fn a_type_first_operator_is_a_member_only() {
+    let text = "static int operator +(A a) => a;";
+    assert!(!has(text, K::OperatorDecl));
+}
+
+#[test]
+fn a_type_first_property_is_a_member_only() {
+    let text = "static int X => 1;";
+    assert!(!has(text, K::PropertyDecl));
+    assert!(has(text, K::FieldDecl));
+}
+
+#[test]
+fn an_attributed_type_first_local_stays_a_statement() {
+    let text = "[Cfg(Debug = true)] int x = 1;";
+    assert_type_first_with(text, K::AttributedStmt);
+    assert!(!has(text, K::FieldDecl));
+}
+
+// `shape`: a type-first explicit indexer, and a dot that is not one.
+
+#[test]
+fn a_type_first_explicit_indexer() {
+    let text = "class A { int IList<int>.this[int i] => 0; }";
+    assert_eq!(
+        parse(text)
+            .errors()
+            .iter()
+            .map(|e| e.code)
+            .collect::<Vec<_>>(),
+        [codes::MR0135, codes::MR0135]
+    );
+    assert!(has(text, K::IndexerDecl));
+    assert_eq!(node(text, K::ExplicitImpl).text(), "IList<int>.");
+}
+
+#[test]
+fn a_dot_without_this_is_not_an_indexer() {
+    let text = "class A { int X.; }";
+    assert!(!has(text, K::IndexerDecl));
+    assert!(has(text, K::FieldDecl));
+}
+
+// `shape`: a splice as the name of a type-first member.
+
+#[test]
+fn a_spliced_name_after_a_type() {
+    let text = "class A { int $f() => 0; int $g; }";
+    assert_eq!(
+        parse(text)
+            .errors()
+            .iter()
+            .map(|e| e.code)
+            .collect::<Vec<_>>(),
+        [codes::MR0135, codes::MR0135]
+    );
+    assert_eq!(count(text, K::FunctionDecl), 1);
+    assert_eq!(count(text, K::FieldDecl), 1);
+    assert!(node(text, K::FunctionDecl).text().contains("$f"));
+}
+
+// `operator`: no return type, no annotation.
+
+#[test]
+fn an_operator_without_a_return_type() {
+    let text = "class A { static operator ++(a: A) => a; }";
+    assert_clean_with(text, K::OperatorDecl);
+    assert!(has(text, K::ExprBody));
+    assert!(!has(text, K::PredefinedType));
+}
+
+// `shape`: name first, a dot is an explicit indexer only before `this` and
+// in a type, and a name alone is a field that lacks its type.
+
+#[test]
+fn a_name_first_dot_without_this_is_not_an_indexer() {
+    assert!(!has("class A { X.; }", K::IndexerDecl));
+    assert!(!has("static IList.this[i: int]: int => 0;", K::IndexerDecl));
+}
+
+#[test]
+fn a_field_without_a_type() {
+    let text = "class A { Count; }";
+    assert!(has(text, K::FieldDecl));
+    assert_eq!(messages(text), ["expected `:` and a type"]);
+}
+
+// `at_function`: parentheses left open at the end of the file are a call.
+
+#[test]
+fn an_unclosed_call_at_the_end_is_not_a_function() {
+    let text = "F(a";
+    assert!(!has(text, K::FunctionDecl));
+    assert!(has(text, K::ExprStmt));
+}
+
+// `shape`: a tuple type first is a type, not a name, and a field has one
+// plain name where fields are allowed.
+
+#[test]
+fn a_tuple_return_type_written_first() {
+    let text = "class A { (int, int) F() => (1, 2); }";
+    let codes: Vec<_> = parse(text).errors().iter().map(|e| e.code).collect();
+    assert_eq!(codes, [codes::MR0135]);
+    assert!(has(text, K::FunctionDecl));
+    assert!(has(text, K::TupleType));
+}
+
+#[test]
+fn a_field_needs_a_plain_name_and_a_place_for_fields() {
+    // `IShape.` is skipped as an error; the field is `X` alone.
+    assert_eq!(
+        node("class A { IShape.X: int; }", K::FieldDecl).text(),
+        "X: int;"
+    );
+    assert!(!has("[A] x: int;", K::FieldDecl));
 }

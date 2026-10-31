@@ -157,7 +157,7 @@ UnionBody =
     (';' Member*)?
   '}'
 
-// `Null`, `Bool(bool Value)`, `indirect Node(Tree Left, Tree Right)`.
+// `Null`, `Bool(Value: bool)`, `indirect Node(Left: Tree, Right: Tree)`.
 UnionCase =
   Attribute* 'indirect'? Name ParamList?
 
@@ -216,14 +216,16 @@ Member =
 ExprBody =
   '=>' Expr
 
-// §6.1: FunctionDecl = Attribute* Modifier* Type Identifier TypeParams? "(" Params? ")"
-//                      Constraints* ( Block | "=>" Expr ";" | ";" ) ;
+// §6.1: FunctionDecl = Attribute* Modifier* Identifier TypeParams? "(" Params? ")"
+//                      ( ":" Type )? Constraints* ( Block | "=>" Expr ";" | ";" ) ;
 // Also methods (§6.9), interface members (§6.8), extern functions (§13.9) and
-// explicit implementations `float IShape.Area() => ...`.
-// The name may be a splice inside `code { }` (§9.3).
+// explicit implementations `IShape.Area(): float => ...`. Without a return
+// type a function returns `()`. The name may be a splice inside `code { }` (§9.3).
+// Declarations in the C# order (`int F()`) are reported with MR0135 and get the
+// same nodes, the type before the name and without the ':'.
 FunctionDecl =
   Attribute* Modifier*
-  ret:Type ExplicitImpl? (Name | Splice) TypeParamList? ParamList WhereClause*
+  ExplicitImpl? (Name | Splice) TypeParamList? ParamList (':' ret:Type)? WhereClause*
   (Block | ExprBody ';' | ';')
 
 // `IShape.` in an explicit interface implementation (§6.8).
@@ -233,23 +235,26 @@ ExplicitImpl =
 ParamList =
   '(' (Param (',' Param)* ','?)? ')'
 
+// `amount: decimal`, `ref p: Point`, `port: int = 80`.
 // `in`/`ref`/`out`/`move`/`params`/`this` are Modifiers (§10.3, §6.9).
 Param =
-  Attribute* Modifier* Type Name ('=' default:Expr)?
+  Attribute* Modifier* Name ':' Type ('=' default:Expr)?
 
 // Fields, constants and statics (§6.3, §4.7, §6.10). At namespace level this is the
 // ConstDecl/StaticDecl of §4.2: the `const` or `static` modifier is required there.
+// `public mut Count: int;`, `const Max: int = 5;`.
 FieldDecl =
   Attribute* Modifier*
-  Type VariableDeclarator (',' VariableDeclarator)* ';'
+  VariableDeclarator (',' VariableDeclarator)* ';'
 
+// A field's declarators each have a type; a local's may leave it out.
 VariableDeclarator =
-  (Name | Splice) ('=' init:Expr)?
+  (Name | Splice) (':' Type)? ('=' init:Expr)?
 
-// §6.9. `public int Step { get; set; } = 1;`, `public int Count => _count;`
+// §6.9. `public Step: int { get; set; } = 1;`, `public Count: int => _count;`
 PropertyDecl =
   Attribute* Modifier*
-  Type ExplicitImpl? (Name | Splice)
+  ExplicitImpl? (Name | Splice) ':' Type
   (AccessorList ('=' init:Expr ';')? | ExprBody ';')
 
 AccessorList =
@@ -261,13 +266,13 @@ Accessor =
   kind:('get' | 'set' | 'init')
   (Block | ExprBody ';' | ';')
 
-// §6.9. `public T this[int i] { get => ...; }`
+// §6.9. `public this[i: int]: T { get => ...; }`
 IndexerDecl =
   Attribute* Modifier*
-  Type ExplicitImpl? 'this' '[' Param (',' Param)* ','? ']'
+  ExplicitImpl? 'this' '[' Param (',' Param)* ','? ']' ':' Type
   (AccessorList | ExprBody ';')
 
-// §6.9. `public Counter(string name) : this(name, 1) { ... }`
+// §6.9. `public Counter(name: string) : this(name, 1) { ... }`
 ConstructorDecl =
   Attribute* Modifier*
   Name ParamList ConstructorInitializer?
@@ -283,20 +288,20 @@ DestructorDecl =
   '~' Name '(' ')'
   (Block | ExprBody ';')
 
-// §6.9. `public static Vec operator +(Vec a, Vec b) => ...`
+// §6.9. `public static operator +(a: Vec, b: Vec): Vec => ...`
 OperatorDecl =
   Attribute* Modifier*
-  ret:Type 'operator'
+  'operator'
   op:(
     '+' | '-' | '*' | '/' | '%' | '+%' | '-%' | '*%'
   | '&' | '|' | '^' | '!' | '~' | '<<' | '>>' | '>>>'
   | '==' | '!=' | '<' | '>' | '<=' | '>='
   | '++' | '--'
   )
-  ParamList
+  ParamList (':' ret:Type)?
   (Block | ExprBody ';' | ';')
 
-// §6.9. `public static implicit operator AppError(IoError e) => Io(e);`
+// §6.9. `public static implicit operator AppError(e: IoError) => Io(e);`
 ConversionOperatorDecl =
   Attribute* Modifier*
   kind:('implicit' | 'explicit') 'operator' Type ParamList
@@ -366,7 +371,8 @@ Type =
 PathType =
   Path
 
-// §5.2 primitives, `string` (§5.3) and `void` (return type meaning `()`).
+// §5.2 primitives and `string` (§5.3). `void` is reserved; as a type the parser
+// reports it (MR0136) and keeps it here.
 PredefinedType =
   kind:(
     'bool' | 'byte' | 'sbyte' | 'short' | 'ushort' | 'int' | 'uint'
@@ -382,14 +388,14 @@ ArrayType =
 OptionalType =
   Type '?'
 
-// §5.5. `()`, `(int, string)`, `(int Id, string Name)`.
+// §5.5. `()`, `(int, string)`, `(Id: int, Name: string)`.
 TupleType =
   '(' (TupleTypeElem (',' TupleTypeElem)* ','?)? ')'
 
 TupleTypeElem =
-  Type Name?
+  (Name ':')? Type
 
-// §10.7. `public weak Node Parent;`
+// §10.7. `public Parent: weak Node;`
 WeakType =
   'weak' Type
 
@@ -426,12 +432,13 @@ Block =
 AttributedStmt =
   Attribute Attribute* Stmt
 
-// §7.10. `let x = e;`, `let T x = e;`, `var x = e;`, `T x = e;`, `let x;`, `T x;`
+// §7.10. `let x = e;`, `let x: T = e;`, `var x = e;`, `var x: T = e;`, `let x: T;`.
+// The C# order `T x = e;` is reported with MR0135 and has no keyword.
 LocalDeclStmt =
   LocalDecl ';'
 
 LocalDecl =
-  kw:('let' | 'var')? Type? VariableDeclarator (',' VariableDeclarator)*
+  kw:('let' | 'var')? VariableDeclarator (',' VariableDeclarator)*
 
 // §5.5, §6.5. `let (id, name) = pair;`
 DeconstructStmt =
@@ -442,8 +449,9 @@ Designation =
 | TupleDesignation
 | DiscardDesignation
 
+// `x`, or `x: int` in a `foreach` or a deconstruction, never in a pattern.
 NameDesignation =
-  Type? Name
+  Name (':' Type)?
 
 TupleDesignation =
   '(' (Designation (',' Designation)* ','?)? ')'
@@ -487,7 +495,7 @@ ForUpdate =
   Expr (',' Expr)*
 
 // `foreach (let x in xs)`, `foreach (var x in xs)`, `foreach (ref var x in span)`,
-// `foreach (let (k, v) in dict)`.
+// `foreach (let (k, v) in dict)`, `foreach (let x: int in xs)`.
 ForeachStmt =
   'foreach' '(' 'ref'? kw:('let' | 'var')? Designation 'in' iterable:Expr ')' body:Stmt
 
@@ -636,9 +644,9 @@ ArgList =
 Arg =
   (name:NameRef ':')? mode:('ref' | 'out' | 'in' | 'move')? (Expr | DeclExpr)
 
-// `out var y`, `out let y`, `out int y` (§7.2, §10.3).
+// `out var y`, `out let y`, `out let y: int` (§7.2, §10.3).
 DeclExpr =
-  kw:('let' | 'var')? Type? Name
+  kw:('let' | 'var')? Name (':' Type)?
 
 // `a[i]`, `a?[i]`, `s[1..^1]`.
 IndexExpr =
@@ -712,7 +720,7 @@ AssignExpr =
   )
   rhs:Expr
 
-// §7.6, §10.9. `x => x * 2`, `static (int x) => x + 1`,
+// §7.6, §10.9. `x => x * 2`, `static (x: int) => x + 1`,
 // `[weak this] () => this?.Refresh()`, `[move conn] async () => await conn.Close()`.
 // Modifiers: `static`, `async`.
 LambdaExpr =
@@ -725,7 +733,7 @@ LambdaParamList =
 
 // Type optional: inferred from the target function type.
 LambdaParam =
-  Attribute* Modifier* Type? Name ('=' default:Expr)?
+  Attribute* Modifier* Name (':' Type)? ('=' default:Expr)?
 
 CaptureList =
   '[' Capture (',' Capture)* ','? ']'
