@@ -428,8 +428,15 @@ fn primary_constructor_fixes_to_fields_and_a_constructor() {
         "class Point {\n    x: int;\n    y: int;\n    public Point(x: int, y: int) { this.x = x; this.y = y; }\n}\n"
     );
     assert_eq!(
-        fixed("    class Point(x: int);\n"),
-        "    class Point\n    {\n        x: int;\n        public Point(x: int) { this.x = x; }\n    }\n"
+        fixed("struct A;\n    class Point(x: int);\n"),
+        "struct A;\n    class Point\n    {\n        x: int;\n        public Point(x: int) { this.x = x; }\n    }\n"
+    );
+    // Commas inside a default value or a type do not end a parameter;
+    // `<` and `>` in a default value are comparisons.
+    assert_eq!(
+        fixed("class C(a: int = F(2 > 1, 3), b: bool = 1 < 2, c: Map<int, int>) { }\n"),
+        "class C {\n    a: int;\n    b: bool;\n    c: Map<int, int>;\n    public C(a: int = F(2 > 1, 3), b: bool = 1 < 2, c: Map<int, int>) \
+         { this.a = a; this.b = b; this.c = c; }\n}\n"
     );
     assert_eq!(
         fixed(
@@ -447,6 +454,7 @@ fn primary_constructor_with_modifiers_has_no_fix() {
         "class Point([Json] x: int) { }",
         "class Point(int x) { }",
         "class Point(x: int { }",
+        "class Point(x: int, { }",
     ] {
         let parse = parse(text);
         let error = parse

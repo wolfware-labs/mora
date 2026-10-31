@@ -736,19 +736,20 @@ impl PrimaryConstructor {
                     K::RParen | K::RBracket | K::RBrace => depth = depth.saturating_sub(1),
                     K::Lt if default.is_none() => depth += 1,
                     K::Gt if default.is_none() => depth = depth.saturating_sub(1),
-                    K::Eq if depth == 0 => default = Some(i),
+                    K::Eq => {
+                        default.get_or_insert(i);
+                    }
                     K::Comma if depth == 0 => break,
                     _ => {}
                 }
                 i += 1;
             }
-            let ty_end = default.unwrap_or(i);
-            if input.kind(start) != K::Ident
-                || input.kind(start + 1) != K::Colon
-                || start + 2 >= ty_end
-            {
+            // The list has no errors, so a parameter that starts with its
+            // name is `name: Type`.
+            if input.kind(start) != K::Ident {
                 return None;
             }
+            let ty_end = default.unwrap_or(i);
             let span = |from: usize, to: usize| {
                 TextRange::new(input.range(from).start(), input.range(to - 1).end())
             };
