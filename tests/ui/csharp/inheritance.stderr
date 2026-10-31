@@ -9,7 +9,7 @@ error[MR0108]: `abstract`: Mora has no class inheritance
 error[MR0108]: `protected`: Mora has no class inheritance
  --> tests/ui/csharp/inheritance.mr:3:5
   |
-3 |     protected int sides; //~ ERROR MR0108
+3 |     protected sides: int; //~ ERROR MR0108
   |     ^^^^^^^^^
   |
   = note: Use an interface with default methods.
@@ -17,7 +17,7 @@ error[MR0108]: `protected`: Mora has no class inheritance
 error[MR0108]: `virtual`: Mora has no class inheritance
  --> tests/ui/csharp/inheritance.mr:4:12
   |
-4 |     public virtual double Area() => 0; //~ ERROR MR0108
+4 |     public virtual Area(): double => 0; //~ ERROR MR0108
   |            ^^^^^^^
   |
   = note: Use an interface with default methods.
@@ -33,15 +33,15 @@ error[MR0108]: `sealed`: Mora has no class inheritance
 error[MR0108]: `override`: Mora has no class inheritance
  --> tests/ui/csharp/inheritance.mr:8:12
   |
-8 |     public override string ToString() => base.ToString(); //~ ERROR MR0108 //~ ERROR MR0108
+8 |     public override ToString(): string => base.ToString(); //~ ERROR MR0108 //~ ERROR MR0108
   |            ^^^^^^^^
   |
   = note: Use an interface with default methods.
 
 error[MR0108]: `base`: Mora has no class inheritance
- --> tests/ui/csharp/inheritance.mr:8:42
+ --> tests/ui/csharp/inheritance.mr:8:43
   |
-8 |     public override string ToString() => base.ToString(); //~ ERROR MR0108 //~ ERROR MR0108
-  |                                          ^^^^
+8 |     public override ToString(): string => base.ToString(); //~ ERROR MR0108 //~ ERROR MR0108
+  |                                           ^^^^
   |
   = note: Use an interface with default methods.

@@ -1,44 +1,48 @@
 public class Counter
 {
-    public string Name { get; }
-    public int Step { get; private set; } = 1;
-    public int Doubled => Step * 2;
-    static readonly int Limit = 1 << 10;
-    mut int _count, _peak = 0;
+    public Name: string { get; }
+    public Step: int { get; private set; } = 1;
+    public Doubled: int => Step * 2;
+    static readonly Limit: int = 1 << 10;
+    mut _count: int, _peak: int = 0;
 
-    public Counter(string name, int step)
+    public Counter(name: string, step: int)
     {
         Name = name;
     }
 
-    public Counter(string name) : this(name, 1) { }
+    public Counter(name: string) : this(name, 1) { }
 
     ~Counter() { }
 
-    () Reset() { }
+    Reset(): () { }
 
-    (int, string,) Pair() => (1, "a");
+    Pair(): (int, string,) => (1, "a");
 
-    public int this[int i] { get => i; }
+    Named(): (x: int, y: string) => (x: 1, y: "a");
 
-    public T Max<T>(T a, T b) where T : IComparable<T> => a;
+    public this[i: int]: int { get => i; }
 
-    public void Add(in Counter other, ref int total, out int seen, params ReadOnlySpan<int> rest) { }
+    public Max<T>(a: T, b: T): T where T : IComparable<T> => a;
 
-    public static Counter operator +(Counter a, Counter b) => a;
+    public Add(in other: Counter, ref total: int, out seen: int, params rest: ReadOnlySpan<int>, port: int = 80) { }
 
-    public static bool operator >=(Counter a, Counter b) => true;
+    public static operator +(a: Counter, b: Counter): Counter => a;
 
-    public static implicit operator string(Counter c) => c.Name;
+    public static operator >=(a: Counter, b: Counter): bool => true;
 
-    float IShape.Area() => 0.0f;
+    public static implicit operator string(c: Counter) => c.Name;
 
-    int IList<int>.Count => 0;
+    IShape.Area(): float => 0.0f;
 
-    int IList<int>.this[int i] { get => i; }
+    IList<int>.Count: int => 0;
+
+    IList<int>.this[i: int]: int { get => i; }
+
+    public async Load(id: UserId): Result<User, E> { }
 }
 
 public unique class Connection
 {
-    public void Close() { }
+    public Close() { }
 }

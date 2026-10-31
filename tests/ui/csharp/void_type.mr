@@ -1,0 +1,5 @@
+Tick(): void { } //~ ERROR MR0136
+Main()
+{
+    Tick();
+}

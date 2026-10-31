@@ -1,14 +1,15 @@
-public macro Counted(TypeInfo t)
+public macro Counted(t: TypeInfo)
 {
     return code
     {
-        public int Count => 0;
-        $T value;
+        public Count: int => 0;
+        value: $T;
+        $name(): int => 0;
     };
 }
 
 public class Holder
 {
-    $T value;
+    value: $T;
     $..members;
 }

@@ -9,7 +9,7 @@ error[MR0105]: `delegate`: Mora has no delegates or events
 error[MR0105]: `event`: Mora has no delegates or events
  --> tests/ui/csharp/delegates_events.mr:4:12
   |
-4 |     public event Action Clicked; //~ ERROR MR0105
+4 |     public event Clicked: Action; //~ ERROR MR0105
   |            ^^^^^
   |
   = note: Use a function type such as `Func<A, R>` or `Action<A>`, and `Signal<T>` for events.

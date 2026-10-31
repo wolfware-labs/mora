@@ -239,6 +239,23 @@ impl<'t> Parser<'t> {
         self.reports.push(error);
     }
 
+    /// How many errors other than `MR0110` have been reported, for
+    /// [`Parser::withdraw`].
+    pub(crate) fn reported(&self) -> usize {
+        self.reports.len()
+    }
+
+    /// Withdraws the errors with `code` reported after the first `since`:
+    /// inside a C# construct that is reported whole, what it contains is
+    /// not reported again.
+    pub(crate) fn withdraw(&mut self, since: usize, code: mora_diag::Code) {
+        let mut i = 0;
+        self.reports.retain(|error| {
+            i += 1;
+            i <= since || error.code != code
+        });
+    }
+
     /// The end of the last token taken, or the start of the text.
     pub(crate) fn prev_end(&self) -> TextSize {
         self.pos

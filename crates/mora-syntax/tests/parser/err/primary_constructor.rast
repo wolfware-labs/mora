@@ -1,5 +1,5 @@
-SourceFile@0..37
-  ClassDecl@0..36
+SourceFile@0..39
+  ClassDecl@0..38
     Modifier@0..6
       PublicKw@0..6 "public"
     Whitespace@6..7 " "
@@ -7,28 +7,30 @@ SourceFile@0..37
     Whitespace@12..13 " "
     Name@13..18
       Ident@13..18 "Point"
-    Error@18..32
-      ParamList@18..32
+    Error@18..34
+      ParamList@18..34
         LParen@18..19 "("
-        Param@19..24
-          PredefinedType@19..22
-            IntKw@19..22 "int"
-          Whitespace@22..23 " "
-          Name@23..24
-            Ident@23..24 "x"
-        Comma@24..25 ","
-        Whitespace@25..26 " "
-        Param@26..31
-          PredefinedType@26..29
-            IntKw@26..29 "int"
+        Param@19..25
+          Name@19..20
+            Ident@19..20 "x"
+          Colon@20..21 ":"
+          Whitespace@21..22 " "
+          PredefinedType@22..25
+            IntKw@22..25 "int"
+        Comma@25..26 ","
+        Whitespace@26..27 " "
+        Param@27..33
+          Name@27..28
+            Ident@27..28 "y"
+          Colon@28..29 ":"
           Whitespace@29..30 " "
-          Name@30..31
-            Ident@30..31 "y"
-        RParen@31..32 ")"
-    Whitespace@32..33 " "
-    MemberList@33..36
-      LBrace@33..34 "{"
-      Whitespace@34..35 " "
-      RBrace@35..36 "}"
-  Newline@36..37 "\n"
-error MR0128 18..32: a class or struct has no parameter list
+          PredefinedType@30..33
+            IntKw@30..33 "int"
+        RParen@33..34 ")"
+    Whitespace@34..35 " "
+    MemberList@35..38
+      LBrace@35..36 "{"
+      Whitespace@36..37 " "
+      RBrace@37..38 "}"
+  Newline@38..39 "\n"
+error MR0128 18..34: a class or struct has no parameter list

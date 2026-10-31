@@ -1,8 +1,8 @@
 public class B
 {
-    public void First()
+    public First()
     {
         Work();
 
-    public void Second() { }
+    public Second() { }
 }

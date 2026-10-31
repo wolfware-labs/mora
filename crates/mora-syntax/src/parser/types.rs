@@ -1,6 +1,7 @@
 //! Types (§5), and a lookahead that recognizes a type without parsing it.
 
-use super::{Input, Parser, csharp, describe, exprs};
+use super::csharp::{self, TypeFirst};
+use super::{Input, Parser, describe, exprs};
 use crate::SyntaxKind;
 
 use SyntaxKind as K;
@@ -92,14 +93,22 @@ pub(crate) fn at_type_start(p: &Parser<'_>) -> bool {
         )
 }
 
+/// `()`, `(int, string)`, `(x: int, y: string)`.
 fn tuple_type(p: &mut Parser<'_>) -> super::CompletedMarker {
     let m = p.start();
     p.bump(K::LParen);
     while !p.at(K::RParen) && !p.at_end() {
         let elem = p.start();
-        ty(p);
-        if p.at(K::Ident) {
+        if p.at(K::Ident) && p.nth(1) == K::Colon {
             name(p);
+            annotation(p, false);
+        } else if at_type_first(p) {
+            // `(int x, string y)`, the C# order.
+            let first = TypeFirst::parse(p);
+            name(p);
+            first.report(p, "");
+        } else {
+            ty(p);
         }
         elem.complete(p, K::TupleTypeElem);
         if !p.eat(K::Comma) {
@@ -108,6 +117,25 @@ fn tuple_type(p: &mut Parser<'_>) -> super::CompletedMarker {
     }
     p.expect(K::RParen);
     m.complete(p, K::TupleType)
+}
+
+/// `: Type` after a name, or after a parameter list (`returns`). `void`
+/// is taken as the type it spells and reported (`MR0136`).
+pub(crate) fn annotation(p: &mut Parser<'_>, returns: bool) {
+    let before = p.prev_end();
+    let colon = p.range(0).start();
+    p.bump(K::Colon);
+    if p.at(K::VoidKw) && !p.nth_at(1, K::Question) && !p.nth_at(1, K::LBracket) {
+        csharp::report_void(p, before, colon, returns);
+    }
+    ty(p);
+}
+
+/// Whether a type and then a name start here: `int x`, `List<T> xs`, the
+/// C# order of a declaration.
+pub(crate) fn at_type_first(p: &Parser<'_>) -> bool {
+    scan_type(p.input(), p.pos())
+        .is_some_and(|end| matches!(p.input().kind(end), K::Ident | K::Dollar))
 }
 
 /// `Name`: a declared identifier.
@@ -227,38 +255,16 @@ pub(crate) fn scan_type(input: &Input<'_>, at: usize) -> Option<usize> {
         K::ObjectKw | K::DynamicKw => at + 1,
         K::WeakKw => return scan_type(input, at + 1),
         // `$t`, `$..ts`, `$(expr)` (§9.3).
-        K::Dollar => {
-            let mut i = at + 1;
-            if input.kind(i) == K::DotDot {
-                i += 1;
-            }
-            match input.kind(i) {
-                K::Ident => i + 1,
-                K::LParen => {
-                    let mut depth = 0usize;
-                    loop {
-                        match input.kind(i) {
-                            K::LParen => depth += 1,
-                            K::RParen => {
-                                depth -= 1;
-                                if depth == 0 {
-                                    break i + 1;
-                                }
-                            }
-                            _ if i >= input.len() => return None,
-                            _ => {}
-                        }
-                        i += 1;
-                    }
-                }
-                _ => return None,
-            }
-        }
+        K::Dollar => scan_splice(input, at)?,
         // `()`, the unit type.
         K::LParen if input.kind(at + 1) == K::RParen => at + 2,
         K::LParen => {
             let mut i = at + 1;
             loop {
+                // `x: int`, or `int x` in the C# order, reported when parsed.
+                if input.kind(i) == K::Ident && input.kind(i + 1) == K::Colon {
+                    i += 2;
+                }
                 i = scan_type(input, i)?;
                 if input.kind(i) == K::Ident {
                     i += 1;
@@ -300,5 +306,37 @@ pub(crate) fn scan_type(input: &Input<'_>, at: usize) -> Option<usize> {
             K::LBracket if input.kind(i + 1) == K::RBracket => i += 2,
             _ => return Some(i),
         }
+    }
+}
+
+/// The index after a splice `$t`, `$..ts` or `$(expr)` at `at` (§9.3).
+pub(crate) fn scan_splice(input: &Input<'_>, at: usize) -> Option<usize> {
+    if input.kind(at) != K::Dollar {
+        return None;
+    }
+    let mut i = at + 1;
+    if input.kind(i) == K::DotDot {
+        i += 1;
+    }
+    match input.kind(i) {
+        K::Ident => Some(i + 1),
+        K::LParen => {
+            let mut depth = 0usize;
+            loop {
+                match input.kind(i) {
+                    K::LParen => depth += 1,
+                    K::RParen => {
+                        depth -= 1;
+                        if depth == 0 {
+                            return Some(i + 1);
+                        }
+                    }
+                    _ if i >= input.len() => return None,
+                    _ => {}
+                }
+                i += 1;
+            }
+        }
+        _ => None,
     }
 }

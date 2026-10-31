@@ -1,6 +1,6 @@
 public class C
 {
-    public int X;
+    public X: int;
     ) ) ;
-    public int Y;
+    public Y: int;
 }

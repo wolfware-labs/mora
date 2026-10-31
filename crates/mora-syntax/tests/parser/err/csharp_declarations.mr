@@ -2,12 +2,12 @@ delegate void Handler(int x);
 abstract class Shape { }
 sealed class Circle
 {
-    public virtual double Area() => 0;
-    protected int sides;
-    volatile int ticks;
-    event Action Changed;
-    public override string ToString() => "circle";
-    object tag;
-    unsafe void Raw() { }
+    public virtual Area(): double => 0;
+    protected sides: int;
+    volatile ticks: int;
+    event Changed: Action;
+    public override ToString(): string => "circle";
+    tag: object;
+    unsafe Raw() { }
 }
-interface IUnit { static abstract IUnit Unit { get; } }
+interface IUnit { static abstract Unit: IUnit { get; } }

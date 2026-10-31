@@ -1,8 +1,9 @@
 let a = x => x * 2;
-let b = (int x, int y) => x + y;
-let c = async (Request req) => Results.Ok();
-let d = static (int x) => x + 1;
+let b = (x: int, y: int) => x + y;
+let c = async (req: Request) => Results.Ok();
+let d = static (x: int) => x + 1;
 let e = [weak this] () => this?.Refresh();
 let f = [move conn] async () => await conn.Close();
 let g = () => { return 1; };
 let h = items.Where(x => x > 0).Select((x, i) => x + i);
+let i = (ref x: int, y = 0) => x + y;

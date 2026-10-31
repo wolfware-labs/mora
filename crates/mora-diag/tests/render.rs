@@ -7,16 +7,16 @@ use mora_span::{FileId, Span, TextRange, TextSize};
 const POOL: &str = "\
 using Std.Collections;
 
-namespace Pool;
+namespace App;
 public unique class Connection
 {
 }
 
 public class ConnectionPool
 {
-    private List<Connection> _idle = new();
+    private _idle: List<Connection> = new();
 
-    public void Return(Connection conn)
+    public Return(conn: Connection)
     {
         _idle.Add(conn);
     }
@@ -34,7 +34,7 @@ fn span_of(file: FileId, text: &str, needle: &str, nth: usize) -> Span {
 /// are the ones the spec shows.
 fn mr0310(files: &mut Files) -> Diagnostic {
     let file = files.add("src/Pool.mr", POOL);
-    let param = span_of(file, POOL, "Connection conn", 0);
+    let param = span_of(file, POOL, "conn: Connection", 0);
     let stored = span_of(file, POOL, "conn", 1);
     Diagnostic::error(
         Code::new(310),

@@ -1,21 +1,23 @@
-void Run(List<int> items, Dictionary<string, int> counts)
+Run(items: List<int>, counts: Dictionary<string, int>)
 {
     let total = 0;
     var count = 1;
-    let int limit = 10;
-    int index;
-    User? user = none, other = none;
+    let limit: int = 10;
+    let index: int;
+    var user: User? = none, other: User? = none;
     let (id, name) = pair;
+    let (first: int, second) = pair;
 
     if (total > limit) { return; } else if (count == 0) count++; else { }
     while (count < limit) count *= 2;
     do { count--; } while (count > 0);
     for (var i = 0; i < 10; i++) { continue; }
+    for (var k: int = 0; k < 10; k++) { }
     for (i = 0, j = 1; ; i++, j--) break;
     foreach (let item in items) { }
     foreach (var (key, value) in counts) { }
     foreach (ref var cell in span) { }
-    foreach (int n in items) { }
+    foreach (let n: int in items) { }
 
     switch (total)
     {
@@ -25,12 +27,15 @@ void Run(List<int> items, Dictionary<string, int> counts)
             break;
         case > 100:
             Log("big");
+        case let x:
+            Log("any");
         default:
             Log("other");
     }
 
-    int Square(int n) => n * n;
-    static T Pick<T>(T a, T b) { return a; }
+    Square(n: int): int => n * n;
+    static Pick<T>(a: T, b: T): T { return a; }
+    Helper() { }
 
     [Cfg(Debug = true)]
     Log("debug");

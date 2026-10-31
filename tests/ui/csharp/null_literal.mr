@@ -1,6 +1,6 @@
-string? name = null; //~ ERROR MR0129
+let name: string? = null; //~ ERROR MR0129
 if (name is not null) //~ ERROR MR0129
 {
     Console.WriteLine(name);
 }
-string? other = none;
+let other: string? = none;

@@ -36,11 +36,10 @@ fn parse_errors(text: &str) -> Vec<String> {
 
 #[test]
 fn block_namespace_becomes_file_scoped() {
-    let text =
-        "using Std;\n\nnamespace Shop.Orders\n{\n    class Order { }\n\n    void Ship() { }\n}\n";
+    let text = "using Std;\n\nnamespace Shop.Orders\n{\n    class Order { }\n\n    Ship() { }\n}\n";
     assert_eq!(
         fixed(text),
-        "using Std;\n\nnamespace Shop.Orders;\n    class Order { }\n\n    void Ship() { }\n"
+        "using Std;\n\nnamespace Shop.Orders;\n    class Order { }\n\n    Ship() { }\n"
     );
 }
 
@@ -131,19 +130,19 @@ fn each_construct_reports_one_error_and_recovers() {
         // A label is reported with its colon; the statement after it parses.
         ("done: Console.WriteLine(1);", &[("MR0106", "done:")]),
         // `goto` without `;` stops before the `}` of its block.
-        ("void F() { goto done }\nint x = 1;", &[("MR0106", "goto")]),
-        ("void F() { unsafe void G() { } }", &[("MR0107", "unsafe")]),
-        ("void F() { unsafe { G(); } }", &[("MR0107", "unsafe")]),
+        ("F() { goto done }\nlet x: int = 1;", &[("MR0106", "goto")]),
+        ("F() { unsafe G() { } }", &[("MR0107", "unsafe")]),
+        ("F() { unsafe { G(); } }", &[("MR0107", "unsafe")]),
         ("unsafe { G(); }", &[("MR0107", "unsafe")]),
         ("fixed (int* p = &x) { G(); }", &[("MR0107", "fixed")]),
         // A reserved modifier before a tuple type still starts a declaration.
         (
-            "virtual (int, int) F() => (1, 2);",
+            "virtual F(): (int, int) => (1, 2);",
             &[("MR0108", "virtual")],
         ),
         // An anonymous delegate is an expression, wherever it starts.
         (
-            "void F() { delegate (int x) { G(); }; H(); }",
+            "F() { delegate (int x) { G(); }; H(); }",
             &[("MR0105", "delegate")],
         ),
         (
@@ -151,23 +150,23 @@ fn each_construct_reports_one_error_and_recovers() {
             &[("MR0105", "delegate")],
         ),
         (
-            "class C { delegate void D(); int x; }",
+            "class C { delegate void D(); x: int; }",
             &[("MR0105", "delegate")],
         ),
         // `null` is read as `none`, in expressions, patterns and casts.
-        ("User? u = null;", &[("MR0129", "null")]),
+        ("let u: User? = null;", &[("MR0129", "null")]),
         ("let found = u is null;", &[("MR0129", "null")]),
         (
             "let v = u switch { null => 0, _ => 1 };",
             &[("MR0129", "null")],
         ),
         ("let w = (User?)null;", &[("MR0129", "null")]),
-        ("User? x = none;", &[]),
+        ("let x: User? = none;", &[]),
         // `using` for disposal, against `using` directives.
-        ("using File g = Open();", &[("MR0121", "using")]),
+        ("using var g: File = Open();", &[("MR0121", "using")]),
         ("using A = B.C;\nusing System.Text;", &[]),
         ("using Foo g;", &[("MR0110", "")]),
-        ("void F() { using Foo; }", &[("MR0110", "using")]),
+        ("F() { using Foo; }", &[("MR0110", "using")]),
     ];
     for (text, expected) in cases {
         assert_reports(text, expected);
@@ -176,7 +175,7 @@ fn each_construct_reports_one_error_and_recovers() {
 
 #[test]
 fn unsafe_functions_stay_declarations() {
-    for text in ["unsafe void F() { }", "class C { unsafe void Raw() { } }"] {
+    for text in ["unsafe F() { }", "class C { unsafe Raw() { } }"] {
         let tree = parse(text).syntax().debug_tree();
         assert!(tree.contains("FunctionDecl"), "{text}:\n{tree}");
         assert!(!tree.contains("LocalFunctionStmt"), "{text}:\n{tree}");
@@ -185,7 +184,138 @@ fn unsafe_functions_stay_declarations() {
 
 #[test]
 fn null_fixes_to_none() {
-    assert_eq!(fixed("User? u = null;\n"), "User? u = none;\n");
+    assert_eq!(fixed("let u: User? = null;\n"), "let u: User? = none;\n");
     let tree = parse("let found = u is null;").syntax().debug_tree();
     assert!(tree.contains("NoneKw"), "{tree}");
+}
+
+/// `text` with the fixes of every error applied at once; the result must
+/// parse without errors.
+fn all_fixed(text: &str) -> String {
+    let edits = parse(text)
+        .errors()
+        .iter()
+        .filter_map(|e| e.fix.as_ref())
+        .flat_map(|fix| fix.edits.iter().cloned())
+        .collect();
+    let out = SyntaxFix {
+        message: String::new(),
+        edits,
+    }
+    .apply(text);
+    assert_eq!(
+        parse_errors(&out),
+        Vec::<String>::new(),
+        "fixed text:\n{out}"
+    );
+    out
+}
+
+#[test]
+fn type_first_declarations_fix_to_name_first() {
+    let cases = [
+        (
+            "public mut decimal Balance;",
+            "public mut Balance: decimal;",
+        ),
+        ("const int Max = 5, Min;", "const Max: int = 5, Min: int;"),
+        ("public static int N = 0;", "public static N: int = 0;"),
+        ("int x = 5;", "var x: int = 5;"),
+        ("List<int> xs;", "let xs: List<int>;"),
+        ("let int y = 1;", "let y: int = 1;"),
+        ("var string s = \"a\";", "var s: string = \"a\";"),
+        ("void Tick() { }", "Tick() { }"),
+        ("async void Run() { }", "async Run() { }"),
+        (
+            "T Max<T>(T a, T b) where T : IComparable<T> => a;",
+            "Max<T>(a: T, b: T): T where T : IComparable<T> => a;",
+        ),
+        (
+            "static string Shout(this string s, int times = 1) => s;",
+            "static Shout(this s: string, times: int = 1): string => s;",
+        ),
+        (
+            "foreach (int n in xs) { }",
+            "foreach (let n: int in xs) { }",
+        ),
+        (
+            "foreach (let int n in xs) { }",
+            "foreach (let n: int in xs) { }",
+        ),
+        (
+            "let f = (int a, ref int b) => a;",
+            "let f = (a: int, ref b: int) => a;",
+        ),
+        ("F(out int z);", "F(out let z: int);"),
+        (
+            "let p: (int x, string y) = t;",
+            "let p: (x: int, y: string) = t;",
+        ),
+        (
+            "class C { public int Count { get; } public T this[int i] => i; }",
+            "class C { public Count: int { get; } public this[i: int]: T => i; }",
+        ),
+        (
+            "class V { public static V operator -(V a) => a; float IShape.Area() => 0; }",
+            "class V { public static operator -(a: V): V => a; IShape.Area(): float => 0; }",
+        ),
+        (
+            "union U { Circle(double Radius) }",
+            "union U { Circle(Radius: double) }",
+        ),
+        ("macro M(TypeInfo t) { }", "macro M(t: TypeInfo) { }"),
+        (
+            "[Import(\"c\")] static extern int puts(ReadOnlySpan<byte> s);",
+            "[Import(\"c\")] static extern puts(s: ReadOnlySpan<byte>): int;",
+        ),
+    ];
+    for (text, expected) in cases {
+        assert!(
+            parse(text).errors().iter().all(|e| e.code == codes::MR0135),
+            "{text}: {:#?}",
+            parse(text).errors()
+        );
+        assert_eq!(all_fixed(text), expected, "{text}");
+    }
+}
+
+#[test]
+fn type_first_reports_the_type_and_the_name() {
+    assert_reports(
+        "public decimal Deposit(decimal amount) { }",
+        &[("MR0135", "decimal Deposit"), ("MR0135", "decimal amount")],
+    );
+    assert_reports("int x = 1, y;", &[("MR0135", "int x")]);
+    // A C# construct reported whole is not reported again.
+    assert_reports("delegate int Transform(int x);", &[("MR0105", "delegate")]);
+    assert_reports("class B { event Action Clicked; }", &[("MR0105", "event")]);
+    assert_reports("using File f = Open();", &[("MR0121", "using")]);
+    // Type patterns keep the C# order.
+    assert_reports("let ok = s is Circle c;", &[]);
+    assert_reports("switch (s) { case Circle c: break; }", &[]);
+}
+
+#[test]
+fn type_first_keeps_the_declaration_nodes() {
+    let tree = parse("class C { int X; int F(int a) => a; }")
+        .syntax()
+        .debug_tree();
+    for kind in ["FieldDecl", "VariableDeclarator", "FunctionDecl", "Param"] {
+        assert!(tree.contains(kind), "{kind}:\n{tree}");
+    }
+    let tree = parse("void F() { int x = 1; }").syntax().debug_tree();
+    assert!(tree.contains("LocalDeclStmt"), "{tree}");
+}
+
+#[test]
+fn void_as_a_type_is_reported() {
+    assert_reports("Tick(): void { }", &[("MR0136", ": void")]);
+    assert_eq!(fixed("Tick(): void { }\n"), "Tick() { }\n");
+    assert_eq!(
+        fixed("async Run() : void => Go();\n"),
+        "async Run() => Go();\n"
+    );
+    assert_eq!(fixed("let u: void = ();\n"), "let u: () = ();\n");
+    // `void?` and `void[]` are not `void` alone.
+    assert_reports("let v: void? = none;", &[]);
 }

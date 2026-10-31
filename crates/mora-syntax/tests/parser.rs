@@ -100,7 +100,7 @@ fn class_members(text: &str) -> Vec<String> {
 
 #[test]
 fn a_missing_semicolon_keeps_the_next_members() {
-    let text = "class A { int X int Y; void M() { } }";
+    let text = "class A { X: int Y: int; M() { } }";
     assert_eq!(
         class_members(text),
         ["FieldDecl X", "FieldDecl Y", "FunctionDecl M"]
@@ -109,7 +109,7 @@ fn a_missing_semicolon_keeps_the_next_members() {
 
 #[test]
 fn a_missing_brace_keeps_the_next_members() {
-    let text = "class B {\n public void First() {\n Work();\n public void Second() { }\n}";
+    let text = "class B {\n public First() {\n Work();\n public Second() { }\n}";
     assert_eq!(
         class_members(text),
         ["FunctionDecl First", "FunctionDecl Second"]
@@ -118,7 +118,7 @@ fn a_missing_brace_keeps_the_next_members() {
 
 #[test]
 fn garbage_between_members_is_skipped() {
-    let text = "class C { int X; ) ) ; int Y; }";
+    let text = "class C { X: int; ) ) ; Y: int; }";
     assert_eq!(class_members(text), ["FieldDecl X", "FieldDecl Y"]);
 }
 
@@ -442,10 +442,13 @@ fn nothing_chains_after_propagation() {
     assert_eq!(stmts("[a] with { };"), ["ExprStmt"]);
     assert_eq!(stmts("[Cfg(Debug = true)]\nLog(1);"), ["AttributedStmt"]);
     assert_eq!(stmts("[Inline] { }"), ["AttributedStmt"]);
-    assert_eq!(stmts("[Cfg(Debug = true)]\nint x = 1;"), ["AttributedStmt"]);
     assert_eq!(
-        stmts("[Inline]\nint Twice(int x) => x * 2;"),
+        stmts("[Cfg(Debug = true)]\nlet x: int = 1;"),
+        ["AttributedStmt"]
+    );
+    assert_eq!(
+        stmts("[Inline]\nTwice(x: int): int => x * 2;"),
         ["FunctionDecl"]
     );
-    assert_eq!(stmts("[A]\n[B]\nstatic int X;"), ["FieldDecl"]);
+    assert_eq!(stmts("[A]\n[B]\nstatic X: int;"), ["FieldDecl"]);
 }

@@ -1,17 +1,22 @@
 Console.WriteLine("Hello, world!");
 let name = "Mora";
 var count = 0;
-let int total = 1 + 2 * 3;
-string label = $"{name} has {count,5:D2} items";
-const int Max = 100;
-static int Calls;
+let total: int = 1 + 2 * 3;
+var label: string = $"{name} has {count,5:D2} items";
+const Max: int = 100;
+static Calls: int;
 
-int Add(int a, int b) => a + b;
+Add(a: int, b: int): int => a + b;
 
-T First<T>(List<T> items) { return items[0]; }
+First<T>(items: List<T>): T { return items[0]; }
+Main() { }
+Log(1);
+Make<int>(1);
 [1, 2].Print();
 [Cfg(Debug = true)]
-static int Hits;
+static Hits: int;
+[Cfg(Debug = true)]
+let debug: bool = true;
 this.Name();
 this[0];
-static string Shout(this string s) => s;
+static Shout(this s: string): string => s;

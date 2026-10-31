@@ -46,7 +46,7 @@ fn name_ref(text: &'static str) -> Tree {
     )
 }
 
-/// `struct Point { int X; }`
+/// `struct Point { X: int; }`
 fn point() -> Tree {
     Node(
         K::SourceFile,
@@ -65,11 +65,14 @@ fn point() -> Tree {
                         Node(
                             K::FieldDecl,
                             vec![
-                                Node(K::PredefinedType, vec![Token(K::IntKw, "int")]),
-                                Token(K::Whitespace, " "),
                                 Node(
                                     K::VariableDeclarator,
-                                    vec![Node(K::Name, vec![Token(K::Ident, "X")])],
+                                    vec![
+                                        Node(K::Name, vec![Token(K::Ident, "X")]),
+                                        Token(K::Colon, ":"),
+                                        Token(K::Whitespace, " "),
+                                        Node(K::PredefinedType, vec![Token(K::IntKw, "int")]),
+                                    ],
                                 ),
                                 Token(K::Semicolon, ";"),
                             ],
@@ -86,7 +89,7 @@ fn point() -> Tree {
 #[test]
 fn a_struct_declaration_navigates() {
     let root = build(&point());
-    assert_eq!(root.text(), "struct Point { int X; }");
+    assert_eq!(root.text(), "struct Point { X: int; }");
     let file = ast::SourceFile::cast(root).unwrap();
     let items: Vec<_> = file.top_level_items().collect();
     let [ast::TopLevelItem::Item(ast::Item::StructDecl(point))] = items.as_slice() else {
@@ -98,12 +101,13 @@ fn a_struct_declaration_navigates() {
     let [ast::Member::FieldDecl(field)] = members.as_slice() else {
         panic!("{members:?}");
     };
-    let Some(ast::Type::PredefinedType(int)) = field.ty() else {
-        panic!("{:?}", field.ty());
-    };
-    assert_eq!(int.kind().unwrap().kind(), K::IntKw);
     let declarator = field.variable_declarator().unwrap();
     assert_eq!(declarator.name().unwrap().syntax().text(), "X");
+    assert_eq!(declarator.colon_token().unwrap().text(), ":");
+    let Some(ast::Type::PredefinedType(int)) = declarator.ty() else {
+        panic!("{:?}", declarator.ty());
+    };
+    assert_eq!(int.kind().unwrap().kind(), K::IntKw);
     assert!(declarator.init().is_none());
     assert_eq!(field.semicolon_token().unwrap().text(), ";");
 }
@@ -111,26 +115,27 @@ fn a_struct_declaration_navigates() {
 #[test]
 fn the_debug_tree_shows_every_token() {
     let root = build(&point());
-    let expected = r#"SourceFile@0..23
-  StructDecl@0..23
+    let expected = r#"SourceFile@0..24
+  StructDecl@0..24
     StructKw@0..6 "struct"
     Whitespace@6..7 " "
     Name@7..12
       Ident@7..12 "Point"
     Whitespace@12..13 " "
-    MemberList@13..23
+    MemberList@13..24
       LBrace@13..14 "{"
       Whitespace@14..15 " "
-      FieldDecl@15..21
-        PredefinedType@15..18
-          IntKw@15..18 "int"
-        Whitespace@18..19 " "
-        VariableDeclarator@19..20
-          Name@19..20
-            Ident@19..20 "X"
-        Semicolon@20..21 ";"
-      Whitespace@21..22 " "
-      RBrace@22..23 "}"
+      FieldDecl@15..22
+        VariableDeclarator@15..21
+          Name@15..16
+            Ident@15..16 "X"
+          Colon@16..17 ":"
+          Whitespace@17..18 " "
+          PredefinedType@18..21
+            IntKw@18..21 "int"
+        Semicolon@21..22 ";"
+      Whitespace@22..23 " "
+      RBrace@23..24 "}"
 "#;
     assert_eq!(root.debug_tree(), expected);
 }
@@ -190,7 +195,7 @@ fn tokens_walk_the_whole_text() {
     assert_eq!(text, root.text());
     let x = root.tokens().find(|t| t.text() == "X").unwrap();
     assert_eq!(x.parent().unwrap().kind(), K::Name);
-    assert_eq!(x.next_token().unwrap().kind(), K::Semicolon);
+    assert_eq!(x.next_token().unwrap().kind(), K::Colon);
     assert_eq!(x.prev_token().unwrap().kind(), K::Whitespace);
     let ancestors: Vec<_> = x.parent().unwrap().ancestors().map(|n| n.kind()).collect();
     assert_eq!(
@@ -236,13 +241,13 @@ fn the_lexer_never_produces_joined_or_contextual_kinds() {
 fn nodes_tokens_and_elements() {
     let root = build(&point());
     assert_eq!(root.kind(), K::SourceFile);
-    assert_eq!(format!("{root:?}"), "SourceFile@0..23");
-    assert_eq!(root.to_string(), "struct Point { int X; }");
+    assert_eq!(format!("{root:?}"), "SourceFile@0..24");
+    assert_eq!(root.to_string(), "struct Point { X: int; }");
     assert!(root.parent().is_none());
 
     let struct_node = root.children().next().unwrap();
     assert_eq!(struct_node.parent().unwrap(), root);
-    assert_eq!(u32::from(struct_node.text_range().len()), 23);
+    assert_eq!(u32::from(struct_node.text_range().len()), 24);
     assert_eq!(struct_node.first_token().unwrap().text(), "struct");
     assert_eq!(struct_node.last_token().unwrap().text(), "}");
     let kinds: Vec<_> = struct_node.descendants().map(|n| n.kind()).collect();

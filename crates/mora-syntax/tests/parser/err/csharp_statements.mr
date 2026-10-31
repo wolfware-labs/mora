@@ -1,4 +1,4 @@
-void F()
+F()
 {
     try { G(); } catch (IOException e) when (e.Retry) { H(); } finally { Close(); }
     throw new Error();

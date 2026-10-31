@@ -1,5 +1,5 @@
-SourceFile@0..35
-  ClassDecl@0..34
+SourceFile@0..36
+  ClassDecl@0..35
     Modifier@0..6
       PublicKw@0..6 "public"
     Whitespace@6..7 " "
@@ -8,20 +8,21 @@ SourceFile@0..35
     Name@13..14
       Ident@13..14 "E"
     Newline@14..15 "\n"
-    MemberList@15..34
+    MemberList@15..35
       LBrace@15..16 "{"
       Newline@16..17 "\n"
       Whitespace@17..21 "    "
-      FieldDecl@21..34
+      FieldDecl@21..35
         Modifier@21..27
           PublicKw@21..27 "public"
         Whitespace@27..28 " "
-        PredefinedType@28..31
-          IntKw@28..31 "int"
-        Whitespace@31..32 " "
-        VariableDeclarator@32..33
-          Name@32..33
-            Ident@32..33 "X"
-        Semicolon@33..34 ";"
-  Newline@34..35 "\n"
-error MR0110 34..34: expected `}`
+        VariableDeclarator@28..34
+          Name@28..29
+            Ident@28..29 "X"
+          Colon@29..30 ":"
+          Whitespace@30..31 " "
+          PredefinedType@31..34
+            IntKw@31..34 "int"
+        Semicolon@34..35 ";"
+  Newline@35..36 "\n"
+error MR0110 35..35: expected `}`

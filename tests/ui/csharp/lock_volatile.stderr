@@ -1,7 +1,7 @@
 error[MR0104]: `volatile`: Mora has no `lock` or `volatile`
  --> tests/ui/csharp/lock_volatile.mr:3:5
   |
-3 |     volatile int count; //~ ERROR MR0104
+3 |     volatile count: int; //~ ERROR MR0104
   |     ^^^^^^^^
   |
   = note: Use `Mutex<T>` or `Atomic<T>`.
