@@ -256,6 +256,27 @@ impl<'t> Parser<'t> {
         });
     }
 
+    /// Takes the fixes of the errors reported after the first `since` whose
+    /// edits all fall within `range`, leaving the errors without them: a
+    /// fix that moves the text of `range` carries them instead.
+    pub(crate) fn take_fixes(
+        &mut self,
+        since: usize,
+        range: TextRange,
+    ) -> Vec<(TextRange, String)> {
+        let mut edits = Vec::new();
+        for error in self.reports.iter_mut().skip(since) {
+            let inside = error
+                .fix
+                .as_ref()
+                .is_some_and(|fix| fix.edits.iter().all(|(at, _)| range.contains_range(*at)));
+            if inside && let Some(fix) = error.fix.take() {
+                edits.extend(fix.edits);
+            }
+        }
+        edits
+    }
+
     /// The end of the last token taken, or the start of the text.
     pub(crate) fn prev_end(&self) -> TextSize {
         self.pos

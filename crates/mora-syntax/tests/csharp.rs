@@ -197,7 +197,12 @@ fn all_fixed(text: &str) -> String {
         .iter()
         .filter_map(|e| e.fix.as_ref())
         .flat_map(|fix| fix.edits.iter().cloned())
-        .collect();
+        .collect::<Vec<_>>();
+    let mut ranges: Vec<_> = edits.iter().map(|(range, _)| *range).collect();
+    ranges.sort_by_key(|range| (range.start(), range.end()));
+    for pair in ranges.windows(2) {
+        assert!(pair[0].end() <= pair[1].start(), "{text}: {pair:?} overlap");
+    }
     let out = SyntaxFix {
         message: String::new(),
         edits,
@@ -274,6 +279,85 @@ fn type_first_declarations_fix_to_name_first() {
             parse(text).errors().iter().all(|e| e.code == codes::MR0135),
             "{text}: {:#?}",
             parse(text).errors()
+        );
+        assert_eq!(all_fixed(text), expected, "{text}");
+    }
+}
+
+/// A type written first that holds declarations written first itself: the
+/// fix that moves the type moves them fixed, and every error is still
+/// reported. Applied together, the fixes give the name-first text.
+#[test]
+fn nested_type_first_declarations_fix_together() {
+    let cases = [
+        (
+            "class C { List<(int x, string y)> xs; }",
+            "class C { xs: List<(x: int, y: string)>; }",
+            3,
+        ),
+        (
+            "class C { Dictionary<string, (int a, int b)> Pairs() => d; }",
+            "class C { Pairs(): Dictionary<string, (a: int, b: int)> => d; }",
+            3,
+        ),
+        (
+            "F(List<(int a, int b)> xs) { }",
+            "F(xs: List<(a: int, b: int)>) { }",
+            3,
+        ),
+        (
+            "void G((int a, int b) p) { }",
+            "G(p: (a: int, b: int)) { }",
+            4,
+        ),
+        (
+            "class C { public (int a, int b) P { get; } public (int a, int b) this[(int a, int b) k] => k; }",
+            "class C { public P: (a: int, b: int) { get; } public this[k: (a: int, b: int)]: (a: int, b: int) => k; }",
+            9,
+        ),
+        (
+            "class V { public static (int a, V b) operator +(V x, V y) => x; }",
+            "class V { public static operator +(x: V, y: V): (a: int, b: V) => x; }",
+            5,
+        ),
+        (
+            "List<(int a, int b)> xs = d;",
+            "var xs: List<(a: int, b: int)> = d;",
+            3,
+        ),
+        (
+            "foreach (List<(int a, int b)> p in ps) { }",
+            "foreach (let p: List<(a: int, b: int)> in ps) { }",
+            3,
+        ),
+        (
+            "let f = ((int a, int b) p) => p;",
+            "let f = (p: (a: int, b: int)) => p;",
+            3,
+        ),
+        (
+            "F(out (int a, int b) p);",
+            "F(out let p: (a: int, b: int));",
+            3,
+        ),
+        (
+            "List<(List<(int a, int b)> x, int y)> z;",
+            "let z: List<(x: List<(a: int, b: int)>, y: int)>;",
+            5,
+        ),
+    ];
+    for (text, expected, errors) in cases {
+        let parse = parse(text);
+        assert!(
+            parse.errors().iter().all(|e| e.code == codes::MR0135),
+            "{text}: {:#?}",
+            parse.errors()
+        );
+        assert_eq!(
+            parse.errors().len(),
+            errors,
+            "{text}: {:#?}",
+            parse.errors()
         );
         assert_eq!(all_fixed(text), expected, "{text}");
     }

@@ -462,6 +462,11 @@ pub(crate) struct TypeFirst {
     name: TextSize,
     /// Whether the type is `void`, which the name-first form drops.
     void: bool,
+    /// The type as the fix writes it after the name: with the fixes of the
+    /// errors inside it applied, such as `(int x, string y)` in
+    /// `List<(int x, string y)> xs`. Those errors are still reported, and
+    /// lose their own fixes, which would edit text this fix moves.
+    moved: String,
 }
 
 impl TypeFirst {
@@ -469,11 +474,24 @@ impl TypeFirst {
     pub(crate) fn parse(p: &mut Parser<'_>) -> Self {
         let start = p.range(0).start();
         let void = p.at(K::VoidKw) && !p.nth_at(1, K::Question) && !p.nth_at(1, K::LBracket);
+        let since = p.reported();
         types::ty(p);
+        let ty = TextRange::new(start, p.prev_end().max(start));
+        let edits = p
+            .take_fixes(since, ty)
+            .into_iter()
+            .map(|(at, text)| (at - start, text))
+            .collect();
+        let moved = SyntaxFix {
+            message: String::new(),
+            edits,
+        }
+        .apply(&p.input().source()[ty]);
         Self {
-            ty: TextRange::new(start, p.prev_end().max(start)),
+            ty,
             name: p.range(0).start(),
             void,
+            moved,
         }
     }
 
@@ -506,7 +524,7 @@ impl TypeFirst {
             keyword.to_owned(),
         )];
         if !(returns && self.void) {
-            let ty = if self.void { "()" } else { ty };
+            let ty = if self.void { "()" } else { &self.moved };
             edits.extend(
                 at.iter()
                     .map(|&at| (TextRange::empty(at), format!(": {ty}"))),
