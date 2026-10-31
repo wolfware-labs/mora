@@ -703,11 +703,13 @@ impl PrimaryConstructor {
             });
         }
         let body = p.range(0);
+        // Between the braces of an empty body there is only whitespace: a
+        // comment there stays, after the inserted members.
+        let inside = TextRange::new(body.end(), p.range(1).start().max(body.end()));
         let edit = match p.current() {
-            K::LBrace if p.nth(1) == K::RBrace => (
-                TextRange::new(body.end(), p.range(1).start()),
-                format!("{fields}\n{indent}"),
-            ),
+            K::LBrace if p.nth(1) == K::RBrace && text[inside].trim().is_empty() => {
+                (inside, format!("{fields}\n{indent}"))
+            }
             K::LBrace => (TextRange::empty(body.end()), fields),
             K::Semicolon => (body, format!("\n{indent}{{{fields}\n{indent}}}")),
             _ => return None,

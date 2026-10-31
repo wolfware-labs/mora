@@ -444,6 +444,10 @@ fn primary_constructor_fixes_to_fields_and_a_constructor() {
         ),
         "class Bag<T> : IBag\n{\n    items: Map<string, T>;\n    n: int;\n    public Bag(items: Map<string, T>, n: int = Max(1, 2)) { this.items = items; this.n = n; }\n    public Count: int => n;\n}\n"
     );
+    assert_eq!(
+        fixed("class C(x: int) { // keep\n}\n"),
+        "class C {\n    x: int;\n    public C(x: int) { this.x = x; } // keep\n}\n"
+    );
     assert_eq!(fixed("class Unit() { }\n"), "class Unit { }\n");
 }
 
