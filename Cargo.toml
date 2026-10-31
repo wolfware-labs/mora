@@ -30,8 +30,8 @@ version = "0.0.0"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/wolfware-labs/mora"
-homepage = "https://github.com/wolfware-labs/mora"
+repository = "https://github.com/wolfware-labs/mora-lang"
+homepage = "https://github.com/wolfware-labs/mora-lang"
 
 [workspace.lints.rust]
 # `deny`, not `forbid`, so that the crates CONTRIBUTING.md names can allow it.
