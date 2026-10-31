@@ -355,16 +355,37 @@ Some C# keywords name features Mora leaves out. They are reserved, so code writt
 | Form | Example | Notes |
 |---|---|---|
 | Regular | `"a\tb"` | Escapes as for characters |
-| Verbatim | `@"C:\temp\""x"""` | No escapes; `""` is one quote |
-| Raw | `"""` ... `"""` | C# 11 rules: at least three quotes, multi-line content trimmed by the closing delimiter's indentation |
-| Interpolated | `$"x = {x}"`, `$@"..."`, `$"""..."""` | Holes `{expr}`, `{expr,alignment}`, `{expr:format}`; `$$"""` doubles the brace count as in C# 11 |
+| Raw | `` `C:\temp` ``, ``` ``a`b`` ``` | No escapes; between runs of backticks, on one line or several (below) |
+| Interpolated | `$"x = {x}"`, `` $`{x} "q"` ``, `` $$`{{x}} {y}` `` | Holes `{expr}`, `{expr,alignment}`, `{expr:format}`; with `$$` before a raw string, holes are `{{expr}}` |
 | UTF-8 bytes | `"abc"u8` | Type `ReadOnlySpan<byte>` |
 
 String literals have type `string` and are stored as immortal static objects (§13.4); using one never allocates.
 
+**Raw strings.** A raw string has no escapes: its value is the text between its delimiters, as written. It suits paths, regular expressions, quoted text and embedded documents.
+
+```mora
+let path  = `C:\data\users.json`;
+let regex = `^\d{3}-\d{4}$`;
+let quote = `She said "hi"`;
+let sql = `
+    select id, name
+    from users
+    `;
+let json = $$`{"id": {{user.Id}}}`;
+```
+
+- A raw string opens with a run of N ≥ 1 backticks and closes with the next run of exactly N backticks. A run of any other length is text, so N only has to differ from the length of every run inside: ``` ``a`b`` ``` holds `` a`b ``. One backtick more than the longest run inside always works.
+- When the opening run is followed by other text on its line, the string is on one line: the closing run is on the same line, and the value is everything between the two runs.
+- When the opening run is followed only by whitespace up to the end of its line, the string spans lines. The value starts on the next line and ends before the line of the closing run, which holds nothing but whitespace before the run. That whitespace is removed from the start of every content line, so the value can be indented with the code around it; a line that holds only whitespace may be shorter. Line breaks inside the value are kept as written.
+- `$` before a raw string makes it interpolated. With N `$`, a hole is N braces on each side, and a shorter run of braces is text: with one `$` every `{` opens a hole `{expr}`, and in `` $$`{"id": {{id}}}` `` `{{id}}` is a hole and the outer braces are text. A run of N or more `}` outside a hole, or of 2N or more `{`, is an error, so text with braces uses more `$`. The hole syntax (alignment, format) is the same for every interpolated string.
+
+When a raw string goes inside Markdown code, as in this document, an error page or a doc comment, the code span or fence around it needs more backticks than any run inside it.
+
+C#'s `"""` raw strings and `@"..."` verbatim strings, with or without `$`, are error `MR0018`. The compiler still reads them as C# does, so the rest of the file is checked, and offers a fix that writes the same value with backticks: `@"C:\temp\""x"""` becomes `` `C:\temp\"x"` ``.
+
 As in C#, a `:` at the top level of a hole starts its format, so a conditional expression in a hole goes in parentheses: `$"{(ok ? 1 : 2)}"`.
 
-A string, character literal or interpolated string that is not closed is error `MR0012`; a regular string ends at the end of its line. Error `MR0016` covers the rules of the other forms: a lone `}` in the text of an interpolated string (write `}}`), more than one `$` before a string that is not raw, a run of braces in a raw interpolated string that is as long as two hole delimiters, a raw string closed with more quotes than it opened with, and a multi-line raw string whose opening line holds content, whose closing quotes do not stand on their own line, or whose content lines do not start with the closing quotes' indentation.
+A string, character literal, raw string or interpolated string that is not closed is error `MR0012`; a regular string ends at the end of its line. Error `MR0016` covers the rules of the other forms: a lone `}` in the text of an interpolated string (write `}}`), more than one `$` before a string that is not raw, in a raw interpolated string with N `$`, a run of N or more `}` outside a hole, or a run of 2N or more `{`, which could open a hole in two ways, and a raw string that spans lines but holds text on its opening line, whose closing backticks do not stand on their own line, or whose content lines do not start with the closing backticks' indentation.
 
 **Other literals.** `true`, `false`, `none` (the empty value of any `T?`, §5.6), `default` (§7.13).
 
@@ -377,7 +398,7 @@ A string, character literal or interpolated string that is not closed is error `
 +% -% *% +%= -%= *%=
 ```
 
-`#` before an identifier calls an expression macro (§9). `+%`, `-%` and `*%` are wrapping arithmetic (§7.12). `->` is reserved. `::` qualifies a library alias (§4.4). A character that cannot start any token, such as `` ` `` or a non-breaking space, is error `MR0017`.
+`#` before an identifier calls an expression macro (§9). `+%`, `-%` and `*%` are wrapping arithmetic (§7.12). `->` is reserved. `::` qualifies a library alias (§4.4). A character that cannot start any token, such as `\` or a non-breaking space, is error `MR0017`.
 
 ## 4. Program structure
 
@@ -2299,6 +2320,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-52 | Interfaces keep default implementations, as in C#: members of different interfaces stay separate, and when two interfaces give different defaults for one inherited member, the implementing type must write its own | user | 6.8 |
 | D-53 | Mora is inspired by C#, not a copy of it: it takes C#'s syntax, names and idioms where they fit its own model, and its audience is application developers in general. Supersedes the C#-developer audience of D-33 | user | 1.1, 1.2, 1.4 |
 | D-54 | The empty option is written `none`; `null` is reserved and reported with a fix. Supersedes D-7 | user | 3.4, 5.6 |
+| D-55 | Raw strings are written with backticks; `"""` and `@"..."` are errors with a fix (MR0018) | user | 3.5 |
 | D-56 | Type declarations are struct (a value with generated equality and with) and class (identity); record is removed | user | 5.1, 6.1, 6.2, 6.5 |
 | D-57 | A type without a constructor is created memberwise with new T { ... }; required and init are removed. Amends D-51 | user | 6.2, 6.3, 6.9 |
 
