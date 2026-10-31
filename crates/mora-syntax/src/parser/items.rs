@@ -967,7 +967,10 @@ fn accessor_list(p: &mut Parser<'_>) {
     let mut inits = Vec::new();
     let mut get = false;
     while !p.at(K::RBrace) && !p.at_end() {
-        let after = p.prev_end();
+        // The space before it goes with an `init` accessor, but not a
+        // comment.
+        let gap = TextRange::new(p.prev_end(), p.range(0).start().max(p.prev_end()));
+        let after = gap.start() + TextSize::of(p.input().source()[gap].trim_end());
         let accessor = p.start();
         while p.at(K::LBracket) {
             attribute(p);

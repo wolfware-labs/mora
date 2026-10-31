@@ -582,6 +582,9 @@ pub(crate) fn report_void(p: &mut Parser<'_>, before: TextSize, colon: TextSize,
 /// initializer does not need (§6.9). The fix removes it.
 pub(crate) fn report_required(p: &mut Parser<'_>) {
     let range = p.range(0);
+    // The space after it goes too, but not a comment.
+    let gap = &p.input().source()[TextRange::new(range.end(), p.range(1).start())];
+    let end = range.end() + size(gap.len() - gap.trim_start().len());
     p.report(
         SyntaxError::new(
             codes::MR0134,
@@ -591,10 +594,7 @@ pub(crate) fn report_required(p: &mut Parser<'_>) {
         .with_note("A value is created with every such field set.")
         .with_fix(SyntaxFix {
             message: "remove `required`".to_owned(),
-            edits: vec![(
-                TextRange::new(range.start(), p.range(1).start()),
-                String::new(),
-            )],
+            edits: vec![(TextRange::new(range.start(), end), String::new())],
         }),
     );
 }
@@ -644,8 +644,8 @@ impl PrimaryConstructor {
         let since = p.reported();
         let e = p.start();
         items::param_list(p);
+        let clean = p.reported() == since && !e.has_errors(p);
         e.complete(p, K::Error);
-        let clean = p.reported() == since && p.input().kind(p.pos() - 1) == K::RParen;
         Self {
             tokens: first..p.pos(),
             clean,

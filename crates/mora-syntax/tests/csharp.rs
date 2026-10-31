@@ -459,6 +459,7 @@ fn primary_constructor_with_modifiers_has_no_fix() {
         "class Point(int x) { }",
         "class Point(x: int { }",
         "class Point(x: int, { }",
+        "class Point(x: int =) { }",
     ] {
         let parse = parse(text);
         let error = parse
@@ -496,6 +497,14 @@ fn required_and_init_fix_away() {
     assert_eq!(
         fixed("class A { public Port: int { init => x = value; get; } }\n"),
         "class A { public Port: int { get; } }\n"
+    );
+    assert_eq!(
+        fixed("class A { public required /* keep */ Host: string; }\n"),
+        "class A { public /* keep */ Host: string; }\n"
+    );
+    assert_eq!(
+        fixed("class A { public Port: int { get; /* keep */ init; } }\n"),
+        "class A { public Port: int { get; /* keep */ } }\n"
     );
     assert_eq!(
         fixed("class A { public Port: int { init; } }\n"),

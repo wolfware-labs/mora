@@ -180,6 +180,14 @@ pub(crate) struct CompletedMarker {
 }
 
 impl Marker {
+    /// Whether an error without its own code was taken since this node
+    /// opened.
+    pub(crate) fn has_errors(&self, p: &Parser<'_>) -> bool {
+        p.events[self.pos..]
+            .iter()
+            .any(|event| matches!(event, Event::Error { .. }))
+    }
+
     pub(crate) fn complete(self, p: &mut Parser<'_>, kind: SyntaxKind) -> CompletedMarker {
         if let Some(Event::Start { kind: slot, .. }) = p.events.get_mut(self.pos) {
             *slot = kind;
