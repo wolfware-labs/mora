@@ -2184,7 +2184,7 @@ Embedded targets need two more things, both planned: a backend for 32-bit instru
 | winget | `winget install Wolfware.Mora` |
 | Manual | Archives on GitHub Releases |
 
-The scripts install into `~/.mora` (`%USERPROFILE%\.mora`) and add `~/.mora/bin` to `PATH`. `mora self update` replaces the toolchain. Every archive has a SHA-256 checksum and a Sigstore signature produced by the release workflow through GitHub OIDC, whose certificate identity is the release workflow of `wolfware-labs/mora` on a version tag.
+The scripts install into `~/.mora` (`%USERPROFILE%\.mora`) and add `~/.mora/bin` to `PATH`. `mora self update` replaces the toolchain. Every archive has a SHA-256 checksum and a Sigstore signature produced by the release workflow through GitHub OIDC, whose certificate identity is the release workflow of `wolfware-labs/mora-lang` on a version tag.
 
 What each channel verifies:
 
@@ -2260,7 +2260,7 @@ A pull request that worsens a measured budget by more than 10% fails the `bench`
 
 ## 21. Project conventions
 
-- **Repository:** `github.com/wolfware-labs/mora`, public from the first commit (D-32). Dual licensed under MIT and Apache-2.0; contributions require the Wolfware Contributor License Agreement, checked by a bot on the first pull request; `CODE_OF_CONDUCT.md`, `SECURITY.md` and `CONTRIBUTING.md` as in other Wolfware projects.
+- **Repository:** `github.com/wolfware-labs/mora-lang`, public from the first commit (D-32). Dual licensed under MIT and Apache-2.0; contributions require the Wolfware Contributor License Agreement, checked by a bot on the first pull request; `CODE_OF_CONDUCT.md`, `SECURITY.md` and `CONTRIBUTING.md` as in other Wolfware projects.
 - **Spec first:** this document, its examples and the golden files under `tests/` are the oracle. A behaviour change updates the spec in the same pull request, before or with the code. Deciding behaviour in code without writing it here is a review blocker.
 - **Roadmap IDs:** every deliverable in `ROADMAP.md` has an ID such as `M2.4`, and maps to one issue and one pull request. Spec references look like §10.4, decisions like D-12, open questions like OQ-3.
 - **Commits and pull requests:** Conventional Commits with the roadmap ID at the end of the subject, for example `feat(mir): add the move checker (M2.3)`. Imperative, lowercase, at most 72 characters. Pull requests are squash-merged and their title becomes the commit. Every commit is signed; the organization ruleset rejects unsigned commits.
@@ -2326,7 +2326,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-29 | `Dictionary` iterates in insertion order | author | 15.3 |
 | D-30 | No class inheritance in the MVP; interfaces with default methods instead | author | 6.1 |
 | D-31 | The MVP is proven by a native REST API with JSON on Linux, macOS and Windows | user | 1.5, 2.2 |
-| D-32 | The project lives in a public repository, `wolfware-labs/mora`, from day one, with the conventions of other Wolfware projects | user | 21 |
+| D-32 | The project lives in a public repository, `wolfware-labs/mora-lang` (named `wolfware-labs/mora` until 2026-10-31), from day one, with the conventions of other Wolfware projects | user | 21 |
 | D-33 | Adoption by C# developers is the goal, so the MVP includes the LSP, VS Code extension, installers and migration guide | user, author | 1.5, 17 |
 | D-34 | HTTP and JSON ship in the standard library in the MVP | author | 16 |
 | D-35 | Local path imports are in the MVP; remote imports are post-MVP | author | 4.4 |

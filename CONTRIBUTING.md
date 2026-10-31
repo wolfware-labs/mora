@@ -4,7 +4,7 @@ Everyone taking part in the project is expected to follow the [Code of Conduct](
 
 ## Setup
 
-The Cargo workspace, `rust-toolchain.toml` and `deny.toml` arrive with M0.2 ([#17](https://github.com/wolfware-labs/mora/issues/17)). Until it is merged, the repository holds only documents, and the steps below apply from then on.
+The Cargo workspace, `rust-toolchain.toml` and `deny.toml` arrive with M0.2 ([#17](https://github.com/wolfware-labs/mora-lang/issues/17)). Until it is merged, the repository holds only documents, and the steps below apply from then on.
 
 1. Install [rustup](https://rustup.rs).
 2. Clone the repository. The toolchain version is pinned in `rust-toolchain.toml`, and `rustup` installs it with `rustfmt` and `clippy` the first time you run `cargo` in the repo.

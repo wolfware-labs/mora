@@ -9,6 +9,6 @@
 - [ ] One issue per pull request, linked below with `Closes #<number>`.
 - [ ] Tests added or updated for the changed behaviour.
 - [ ] The spec (`docs/design/mora.md`) updated in this pull request if behaviour changes or is settled.
-- [ ] Every check in [CONTRIBUTING.md](https://github.com/wolfware-labs/mora/blob/main/CONTRIBUTING.md#checks) passes locally.
+- [ ] Every check in [CONTRIBUTING.md](https://github.com/wolfware-labs/mora-lang/blob/main/CONTRIBUTING.md#checks) passes locally.
 
 Closes #
