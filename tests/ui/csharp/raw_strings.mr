@@ -1,0 +1,14 @@
+let path = @"C:\data\users.json"; //~ ERROR MR0018
+let quote = """She said "hi" """; //~ ERROR MR0018
+let id = 7;
+let json = $@"{{""id"": {id}}}"; //~ ERROR MR0018
+let line = $$"""{"id": {{id}}}"""; //~ ERROR MR0018
+let fixedPath = `C:\data\users.json`;
+let fixedQuote = `She said "hi" `;
+let fixedJson = $$`{"id": {{id}}}`;
+let ticks = ``a`b``;
+let fixedSql = $`
+    select name
+    from users
+    where id = {id}
+    `;

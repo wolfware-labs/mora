@@ -134,7 +134,7 @@ fn numbers() {
         [(K::IntNumber, "1"), (K::Dot, "."), (K::Ident, "_5")]
     );
     assert!(errors("1._5").is_empty());
-    assert!(errors("\"\"\"\n  \"\"\"").is_empty());
+    assert!(errors("`\n  `").is_empty());
     assert_eq!(
         errors("18446744073709551616 1e400 0xZ 1.5m"),
         [
@@ -239,15 +239,13 @@ fn characters() {
 
 #[test]
 fn strings() {
-    let text = r#""a\tb" "x"u8 @"C:\temp\""x""" "" @"""#;
+    let text = r#""a\tb" "x"u8 """#;
     assert_eq!(
         tokens(text),
         [
             (K::String, r#""a\tb""#),
             (K::String, r#""x"u8"#),
-            (K::VerbatimString, r#"@"C:\temp\""x""""#),
             (K::String, r#""""#),
-            (K::VerbatimString, r#"@"""#),
         ]
     );
     assert!(errors(text).is_empty());
@@ -274,30 +272,31 @@ fn strings() {
         errors(r#""\x41 \z""#),
         [(codes::MR0011, r"\x41"), (codes::MR0013, r"\z")]
     );
-    assert_eq!(errors("@\"open\n"), [(codes::MR0012, "@\"open\n")]);
-    assert!(errors("@\"two\nlines\"").is_empty());
 }
 
 #[test]
 fn raw_strings() {
-    let text = "\"\"\"one \"line\"\"\"\" \"\"\"\n    a\n      b\n    \"\"\"u8";
+    let text = "`C:\\data` `one \"line\"` ``a`b```c`` `\n    a\n      b\n    `u8";
     assert_eq!(
         tokens(text),
         [
-            (K::RawString, "\"\"\"one \"line\"\"\"\""),
-            (K::RawString, "\"\"\"\n    a\n      b\n    \"\"\"u8"),
+            (K::RawString, "`C:\\data`"),
+            (K::RawString, "`one \"line\"`"),
+            (K::RawString, "``a`b```c``"),
+            (K::RawString, "`\n    a\n      b\n    `u8"),
         ]
     );
-    // The first token closes with four quotes after opening with three.
-    assert_eq!(errors(text), [(codes::MR0016, "\"\"\"\"")]);
-    assert_eq!(errors("\"\"\"\n  a\n b\n  \"\"\""), [(codes::MR0016, " ")]);
-    assert_eq!(errors("\"\"\"x\n  \"\"\""), [(codes::MR0016, "\"\"\"")]);
+    assert!(errors(text).is_empty());
     assert_eq!(
-        errors("\"\"\"\n  x\n  y \"\"\""),
-        [(codes::MR0016, "\"\"\"")]
+        tokens("`a``b` ``"),
+        [(K::RawString, "`a``b`"), (K::RawString, "``")]
     );
-    assert_eq!(errors("\"\"\"\n  x"), [(codes::MR0012, "\"\"\"\n  x")]);
-    assert!(errors("\"\"\"\"\n  \"\"\" quoted\n  \"\"\"\"").is_empty());
+    assert_eq!(errors("`\n  a\n b\n  `"), [(codes::MR0016, " ")]);
+    assert_eq!(errors("`x\n  `"), [(codes::MR0016, "`")]);
+    assert_eq!(errors("`\n  x\n  y `"), [(codes::MR0016, "`")]);
+    assert_eq!(errors("`\n  x"), [(codes::MR0012, "`\n  x")]);
+    assert_eq!(errors("x = ``a`"), [(codes::MR0012, "``a`")]);
+    assert!(errors("``\n  ` quoted\n  ``").is_empty());
 }
 
 #[test]
@@ -324,14 +323,14 @@ fn interpolated_strings() {
         ]
     );
     assert_eq!(
-        tokens(r#"$@"{a}""" $"" $"{x::Y}""#),
+        tokens(r#"$`{a}"` $"" $"{x::Y}""#),
         [
-            (K::InterpStart, "$@\""),
+            (K::InterpStart, "$`"),
             (K::HoleOpen, "{"),
             (K::Ident, "a"),
             (K::HoleClose, "}"),
-            (K::InterpText, "\"\""),
-            (K::InterpEnd, "\""),
+            (K::InterpText, "\""),
+            (K::InterpEnd, "`"),
             (K::InterpStart, "$\""),
             (K::InterpEnd, "\""),
             (K::InterpStart, "$\""),
@@ -343,7 +342,6 @@ fn interpolated_strings() {
             (K::InterpEnd, "\""),
         ]
     );
-    assert_eq!(tokens(r#"@$"a""#)[0], (K::InterpStart, "@$\""));
     // As in C#, a top-level `:` in a hole starts the format; a conditional
     // goes in parentheses.
     assert_eq!(
@@ -392,11 +390,11 @@ fn holes_nest() {
 
 #[test]
 fn raw_interpolated_strings() {
-    let text = "$$\"\"\"\n  {x} {{y}} {{{z}}}\n  \"\"\"";
+    let text = "$$`\n  {x} {{y}} {{{z}}}\n  `";
     assert_eq!(
         tokens(text),
         [
-            (K::InterpStart, "$$\"\"\""),
+            (K::InterpStart, "$$`"),
             (K::InterpText, "\n  {x} "),
             (K::HoleOpen, "{{"),
             (K::Ident, "y"),
@@ -406,16 +404,29 @@ fn raw_interpolated_strings() {
             (K::Ident, "z"),
             (K::HoleClose, "}}"),
             (K::InterpText, "}\n  "),
-            (K::InterpEnd, "\"\"\""),
+            (K::InterpEnd, "`"),
         ]
     );
     assert!(errors(text).is_empty());
+    assert_eq!(
+        tokens("$``a`{b}\"``"),
+        [
+            (K::InterpStart, "$``"),
+            (K::InterpText, "a`"),
+            (K::HoleOpen, "{"),
+            (K::Ident, "b"),
+            (K::HoleClose, "}"),
+            (K::InterpText, "\""),
+            (K::InterpEnd, "``"),
+        ]
+    );
     // A hole may span lines without breaking the indentation rule.
-    assert!(errors("$\"\"\"\n  a{\nf(x)\n}\n  \"\"\"").is_empty());
-    assert!(errors("$\"\"\"\n{x\n}\n\"\"\"").is_empty());
-    // A line that starts with a hole still needs the indentation, as in C#.
-    assert_eq!(errors("$\"\"\"\n{x}\n  \"\"\""), [(codes::MR0016, "{")]);
-    assert_eq!(errors("$\"\"\"\n  a\n b\n  \"\"\""), [(codes::MR0016, " ")]);
+    assert!(errors("$`\n  a{\nf(x)\n}\n  `").is_empty());
+    assert!(errors("$`\n{x\n}\n`").is_empty());
+    // A line that starts with a hole still needs the indentation.
+    assert_eq!(errors("$`\n{x}\n  `"), [(codes::MR0016, "{")]);
+    assert_eq!(errors("$`\n  a\n b\n  `"), [(codes::MR0016, " ")]);
+    assert_eq!(errors("$`a {x}"), [(codes::MR0012, "$`")]);
 }
 
 #[test]
@@ -426,7 +437,7 @@ fn interpolation_errors() {
     assert_eq!(errors(r#"$$"{{x}}""#), [(codes::MR0016, "$$\"")]);
     assert_eq!(errors(r#"$"\q{x}""#), [(codes::MR0013, r"\q")]);
     assert_eq!(
-        errors("$$\"\"\"{{{{x}}}}\"\"\""),
+        errors("$$`{{{{x}}}}`"),
         [(codes::MR0016, "{{{{"), (codes::MR0016, "}}"),]
     );
 }
@@ -434,10 +445,11 @@ fn interpolation_errors() {
 #[test]
 fn unknown_characters() {
     assert_eq!(
-        errors("a ` b \u{a0} c"),
-        [(codes::MR0017, "`"), (codes::MR0017, "\u{a0}")]
+        errors("a \\ b \u{a0} c"),
+        [(codes::MR0017, "\\"), (codes::MR0017, "\u{a0}")]
     );
-    assert_eq!(tokens("`")[0].0, K::Unknown);
+    assert_eq!(tokens("\\")[0].0, K::Unknown);
+    assert_eq!(tokens("`")[0].0, K::RawString);
 }
 
 /// Every `mora` example in the spec and the error pages, and every `.mr`
@@ -588,6 +600,17 @@ fn hole_format_stops_at_a_quote_except_in_raw_strings() {
             (K::InterpEnd, "\"\"\""),
         ]
     );
+    assert_eq!(
+        tokens("$`{x:a\"b\nc}`"),
+        [
+            (K::InterpStart, "$`"),
+            (K::HoleOpen, "{"),
+            (K::Ident, "x"),
+            (K::HoleFormat, ":a\"b\nc"),
+            (K::HoleClose, "}"),
+            (K::InterpEnd, "`"),
+        ]
+    );
 }
 
 #[test]
@@ -611,9 +634,9 @@ fn verbatim_string_takes_a_u8_suffix() {
 
 #[test]
 fn backslashes_are_text_in_verbatim_and_raw_interpolated_strings() {
-    for text in ["$@\"\\q\"", "$\"\"\"\\q\"\"\""] {
-        assert!(errors(text).is_empty(), "{text}");
-    }
+    assert!(errors("$`\\q`").is_empty());
+    assert_eq!(errors("$@\"\\q\""), [(codes::MR0018, "$@\"")]);
+    assert_eq!(errors("$\"\"\"\\q\"\"\""), [(codes::MR0018, "$\"\"\"")]);
     assert_eq!(errors("$\"\\q\""), [(codes::MR0013, "\\q")]);
 }
 
@@ -635,23 +658,154 @@ fn a_newline_ends_a_plain_interpolated_string() {
 fn raw_interpolated_string_error_ranges() {
     assert_eq!(
         errors("x = $\"\"\"ab\"\"\"\""),
-        [(codes::MR0016, "\"\"\"\"")]
+        [(codes::MR0016, "\"\"\"\""), (codes::MR0018, "$\"\"\"")]
     );
-    assert_eq!(errors("x = $\"\"\"ab{{x}\"\"\""), [(codes::MR0016, "{{")]);
+    assert_eq!(errors("x = $`ab{{x}`"), [(codes::MR0016, "{{")]);
 }
 
 #[test]
 fn raw_string_lines_after_a_hole_are_checked() {
-    let text = "$\"\"\"\n    {x}\n  bad\n    \"\"\"";
+    let text = "$`\n    {x}\n  bad\n    `";
     assert_eq!(errors(text), [(codes::MR0016, "  ")]);
 }
 
 #[test]
 fn raw_string_opening_line_may_end_in_whitespace() {
-    assert!(errors("x = \"\"\"   \n  a\n  \"\"\"").is_empty());
+    assert!(errors("x = `   \n  a\n  `").is_empty());
 }
 
 #[test]
 fn raw_string_checks_a_short_last_line() {
-    assert_eq!(errors("\"\"\"\n  a\nb\n  \"\"\""), [(codes::MR0016, "b")]);
+    assert_eq!(errors("`\n  a\nb\n  `"), [(codes::MR0016, "b")]);
+}
+
+/// `text` with the fix of its last error, an `MR0018`, applied.
+fn legacy_fixed(text: &str) -> String {
+    let lexed = lex(text);
+    let error = lexed.errors.last().expect("an error");
+    assert_eq!(error.code, codes::MR0018, "{text}");
+    error.fix.as_ref().expect("a fix").apply(text)
+}
+
+#[test]
+fn legacy_strings_are_errors_with_a_backtick_fix() {
+    for (text, fixed) in [
+        (r#""""a "b" c""""#, r#"`a "b" c`"#),
+        (
+            "\"\"\"\n    a\n      b\n    \"\"\"",
+            "`\n    a\n      b\n    `",
+        ),
+        ("\"\"\"a\"\"\"u8", "`a`u8"),
+        ("\"\"\"`a\"\"\"", "``\n`a\n``"),
+        ("\"\"\"a``b\"\"\"", "```a``b```"),
+        ("\"\"\"\"a\"\"\"b\"\"\"\"", "`a\"\"\"b`"),
+        (r#"@"C:\temp\""x""""#, r#"`C:\temp\"x"`"#),
+        ("@\"\"", "`\n`"),
+        ("@\"a\n  b\"", "`\na\n  b\n`"),
+        ("@\"a\"u8", "`a`u8"),
+        ("@\"{{a}}\"", "`{{a}}`"),
+        ("@\"a`\"", "``\na`\n``"),
+        ("@\"a\r\"", "`a\r`"),
+    ] {
+        assert_eq!(legacy_fixed(text), fixed, "{text}");
+        assert!(errors(fixed).is_empty(), "{fixed}");
+        assert_eq!(
+            literal::string_value(fixed),
+            literal::string_value(text),
+            "{text}"
+        );
+    }
+}
+
+#[test]
+fn legacy_interpolated_strings_are_errors_with_a_backtick_fix() {
+    for (text, fixed) in [
+        ("$\"\"\"a {x} b\"\"\"", "$`a {x} b`"),
+        ("$$\"\"\"{{x}} {y}\"\"\"", "$$`{{x}} {y}`"),
+        ("$\"\"\"\n  {x}\n  \"\"\"", "$`\n  {x}\n  `"),
+        (r#"$@"{a}""x""""#, r#"$`{a}"x"`"#),
+        ("@$\"{a} {{b}}\"", "$$`{{a}} {b}`"),
+        ("$@\"{{{a}}}\"", "$$`{{{a}}}`"),
+        ("$@\"{a}{b}{{\"", "$$`{{a}}{{b}}{`"),
+        ("$@\"x{a,5:F2}`\"", "$``\nx{a,5:F2}`\n``"),
+        ("$@\"{x:a\nb}\"", "$`\n{x:a\nb}\n`"),
+        ("$@\"\"", "$`\n`"),
+    ] {
+        assert_eq!(legacy_fixed(text), fixed, "{text}");
+        assert!(errors(fixed).is_empty(), "{fixed}");
+        assert_eq!(holes(fixed), holes(text), "{text} -> {fixed}");
+    }
+}
+
+/// The holes of an interpolated string: their tokens, without the text
+/// between them and with hole braces counted once, however many there are.
+fn holes(text: &str) -> Vec<(SyntaxKind, &str)> {
+    tokens(text)
+        .into_iter()
+        .filter(|(kind, _)| !matches!(kind, K::InterpStart | K::InterpText | K::InterpEnd))
+        .map(|(kind, text)| match kind {
+            K::HoleOpen | K::HoleClose => (kind, ""),
+            _ => (kind, text),
+        })
+        .collect()
+}
+
+#[test]
+fn legacy_strings_nested_in_holes_get_fixes_of_their_own() {
+    let text = "$@\"{{{F($@\"{y}\"\"\")}\"";
+    assert_eq!(
+        errors(text),
+        [(codes::MR0018, "$@\""), (codes::MR0018, "$@\"")]
+    );
+    let outer = legacy_fixed(text);
+    assert_eq!(outer, "$$`{{{F($@\"{y}\"\"\")}}`");
+    assert_eq!(legacy_fixed(&outer), "$$`{{{F($`{y}\"`)}}`");
+    assert!(errors(&legacy_fixed(&outer)).is_empty());
+}
+
+#[test]
+fn legacy_strings_report_what_mora_uses() {
+    let lexed = lex("x = \"\"\"a\"\"\" + @\"b\" + $\"\"\"c\"\"\" + @$\"d\";");
+    let messages: Vec<_> = lexed.errors.iter().map(|e| e.message.as_str()).collect();
+    assert_eq!(
+        messages,
+        [
+            "`\"\"\"` strings are written with backticks in Mora",
+            "`@\"...\"` strings are written with backticks in Mora",
+            "`$\"\"\"` strings are written with backticks in Mora",
+            "`@$\"...\"` strings are written with backticks in Mora",
+        ]
+    );
+    let error = &lexed.errors[0];
+    assert!(error.note.as_ref().unwrap().contains("between backticks"));
+    assert_eq!(
+        error.fix.as_ref().unwrap().message,
+        "write it with backticks"
+    );
+}
+
+#[test]
+fn legacy_strings_with_other_errors_get_no_fix() {
+    for text in [
+        "\"\"\"a\"\"\"\"",
+        "\"\"\"a\n  \"\"\"",
+        "$$@\"{x}\"",
+        "$@\"a}\"",
+        "$@\"{\"\\q\"}\"",
+        "@\"\n\r\"",
+    ] {
+        let lexed = lex(text);
+        let error = lexed.errors.last().unwrap();
+        assert_eq!(error.code, codes::MR0018, "{text}");
+        assert_eq!(error.fix, None, "{text}");
+    }
+    // A fix may follow a nested string's own `MR0018`, but no other error.
+    assert!(lex("$@\"{@\"a\"}\"").errors[1].fix.is_some());
+}
+
+#[test]
+fn unclosed_legacy_strings_are_only_unclosed() {
+    assert_eq!(errors("@\"open\n"), [(codes::MR0012, "@\"open\n")]);
+    assert_eq!(errors("\"\"\"\n  x"), [(codes::MR0012, "\"\"\"\n  x")]);
+    assert_eq!(errors("$@\"a"), [(codes::MR0012, "$@\"")]);
 }
