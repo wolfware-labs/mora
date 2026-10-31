@@ -1,12 +1,12 @@
 //! Compilation units, declarations and members (§4, §6, §8.2, §9.2).
 
-use super::csharp::{self, OpenNamespace, TypeFirst};
+use super::csharp::{self, OpenNamespace, PrimaryConstructor, TypeFirst};
 use super::exprs;
 use super::types::{self, name, name_ref, scan_type};
 use super::{Input, Marker, Parser, stmts};
-use crate::{SyntaxError, SyntaxKind};
+use crate::{SyntaxError, SyntaxFix, SyntaxKind};
 use mora_diag::codes;
-use mora_span::TextRange;
+use mora_span::{TextRange, TextSize};
 
 use SyntaxKind as K;
 
@@ -409,6 +409,7 @@ fn modifiers(p: &mut Parser<'_>, params: bool) -> Vec<SyntaxKind> {
             let kind = if p.at_contextual("file") {
                 K::FileKw
             } else {
+                csharp::report_required(p);
                 K::RequiredKw
             };
             p.bump_remap(kind);
@@ -481,47 +482,61 @@ fn type_tail(p: &mut Parser<'_>) {
 }
 
 fn struct_or_class(p: &mut Parser<'_>, m: Marker, keyword: SyntaxKind, kind: SyntaxKind) {
+    let at = p.range(0).start();
     p.bump(keyword);
+    struct_or_class_rest(p, m, kind, at);
+}
+
+/// The declaration after its keyword, which starts at `at`. A struct may
+/// have a parameter list (§6.5); a class may not (§6.9).
+fn struct_or_class_rest(p: &mut Parser<'_>, m: Marker, kind: SyntaxKind, at: TextSize) {
     let owner = p.nth_text(0);
     type_head(p);
+    let mut primary = None;
     if p.at(K::LParen) {
-        // C# 12 primary constructors are not Mora (§6.9).
-        let start = p.range(0).start();
-        let e = p.start();
-        param_list(p);
-        e.complete(p, K::Error);
-        let range = TextRange::new(start, p.prev_end().max(start));
-        p.report(
-            SyntaxError::new(
-                codes::MR0128,
-                range,
-                "a class or struct has no parameter list",
-            )
-            .with_note("Declare fields and a constructor."),
-        );
+        if kind == K::ClassDecl {
+            primary = Some(PrimaryConstructor::parse(p));
+        } else {
+            param_list(p);
+        }
     }
     type_tail(p);
+    if let Some(primary) = primary {
+        primary.report(p, owner, at);
+    }
     if !p.eat(K::Semicolon) {
         member_list(p, Some(owner));
     }
     m.complete(p, kind);
 }
 
+/// `record`, `record class` and `record struct`, reported and taken as the
+/// `struct` they stand for (§6.5).
 fn record_decl(p: &mut Parser<'_>, m: Marker) {
-    p.bump_remap(K::RecordKw);
+    let at = p.range(0).start();
+    p.bump_remap(K::StructKw);
     if p.at(K::ClassKw) || p.at(K::StructKw) {
+        let e = p.start();
         p.bump_any();
+        e.complete(p, K::Error);
     }
-    let owner = p.nth_text(0);
-    type_head(p);
-    if p.at(K::LParen) {
-        param_list(p);
-    }
-    type_tail(p);
-    if !p.eat(K::Semicolon) {
-        member_list(p, Some(owner));
-    }
-    m.complete(p, K::RecordDecl);
+    let range = TextRange::new(at, p.prev_end());
+    p.report(
+        SyntaxError::new(
+            codes::MR0133,
+            range,
+            format!(
+                "`{}`: Mora writes it as `struct`",
+                &p.input().source()[range]
+            ),
+        )
+        .with_note("A record's data has no identity, which is what a struct is.")
+        .with_fix(SyntaxFix {
+            message: "write `struct`".to_owned(),
+            edits: vec![(range, "struct".to_owned())],
+        }),
+    );
+    struct_or_class_rest(p, m, K::StructDecl, at);
 }
 
 fn interface_decl(p: &mut Parser<'_>, m: Marker) {
@@ -949,7 +964,10 @@ pub(crate) fn variable_declarators(p: &mut Parser<'_>, at: Declarators) {
 fn accessor_list(p: &mut Parser<'_>) {
     let m = p.start();
     p.bump(K::LBrace);
+    let mut inits = Vec::new();
+    let mut get = false;
     while !p.at(K::RBrace) && !p.at_end() {
+        let after = p.prev_end();
         let accessor = p.start();
         while p.at(K::LBracket) {
             attribute(p);
@@ -965,12 +983,22 @@ fn accessor_list(p: &mut Parser<'_>) {
             accessor.complete(p, K::Error);
             break;
         };
+        get |= kind == K::GetKw;
+        let keyword = p.range(0);
         p.bump_remap(kind);
         body_or_semicolon(p);
         accessor.complete(p, K::Accessor);
+        if kind == K::InitKw {
+            inits.push((TextRange::new(after, p.prev_end()), keyword));
+        }
     }
     p.expect(K::RBrace);
     m.complete(p, K::AccessorList);
+    // Reported once the list is read: with a `get`, the fix removes `init`;
+    // alone, `init` becomes `get`.
+    for (accessor, keyword) in inits {
+        csharp::report_init(p, accessor, keyword, get);
+    }
 }
 
 /// `public this[i: int]: T { ... }`; with `segments`, an explicit

@@ -1,0 +1,119 @@
+SourceFile@0..176
+  StructDecl@0..42
+    Modifier@0..6
+      PublicKw@0..6 "public"
+    Whitespace@6..7 " "
+    StructKw@7..13 "record"
+    Whitespace@13..14 " "
+    Name@14..18
+      Ident@14..18 "User"
+    ParamList@18..41
+      LParen@18..19 "("
+      Param@19..26
+        Name@19..21
+          Ident@19..21 "Id"
+        Colon@21..22 ":"
+        Whitespace@22..23 " "
+        PredefinedType@23..26
+          IntKw@23..26 "int"
+      Comma@26..27 ","
+      Whitespace@27..28 " "
+      Param@28..40
+        Name@28..32
+          Ident@28..32 "Name"
+        Colon@32..33 ":"
+        Whitespace@33..34 " "
+        PredefinedType@34..40
+          StringKw@34..40 "string"
+      RParen@40..41 ")"
+    Semicolon@41..42 ";"
+  Newline@42..43 "\n"
+  StructDecl@43..104
+    Modifier@43..49
+      PublicKw@43..49 "public"
+    Whitespace@49..50 " "
+    StructKw@50..56 "record"
+    Whitespace@56..57 " "
+    Error@57..63
+      StructKw@57..63 "struct"
+    Whitespace@63..64 " "
+    Name@64..69
+      Ident@64..69 "Money"
+    ParamList@69..82
+      LParen@69..70 "("
+      Param@70..81
+        Name@70..75
+          Ident@70..75 "Cents"
+        Colon@75..76 ":"
+        Whitespace@76..77 " "
+        PredefinedType@77..81
+          LongKw@77..81 "long"
+      RParen@81..82 ")"
+    Whitespace@82..83 " "
+    BaseList@83..103
+      Colon@83..84 ":"
+      Whitespace@84..85 " "
+      PathType@85..103
+        Path@85..103
+          PathSegment@85..103
+            NameRef@85..96
+              Ident@85..96 "IComparable"
+            GenericArgList@96..103
+              Lt@96..97 "<"
+              PathType@97..102
+                Path@97..102
+                  PathSegment@97..102
+                    NameRef@97..102
+                      Ident@97..102 "Money"
+              Gt@102..103 ">"
+    Semicolon@103..104 ";"
+  Newline@104..105 "\n"
+  StructDecl@105..175
+    StructKw@105..111 "record"
+    Whitespace@111..112 " "
+    Error@112..117
+      ClassKw@112..117 "class"
+    Whitespace@117..118 " "
+    Name@118..121
+      Ident@118..121 "Tag"
+    ParamList@121..136
+      LParen@121..122 "("
+      Param@122..135
+        Name@122..127
+          Ident@122..127 "Value"
+        Colon@127..128 ":"
+        Whitespace@128..129 " "
+        PredefinedType@129..135
+          StringKw@129..135 "string"
+      RParen@135..136 ")"
+    Newline@136..137 "\n"
+    MemberList@137..175
+      LBrace@137..138 "{"
+      Newline@138..139 "\n"
+      Whitespace@139..143 "    "
+      PropertyDecl@143..173
+        Modifier@143..149
+          PublicKw@143..149 "public"
+        Whitespace@149..150 " "
+        Name@150..155
+          Ident@150..155 "Upper"
+        Colon@155..156 ":"
+        Whitespace@156..157 " "
+        PredefinedType@157..163
+          StringKw@157..163 "string"
+        Whitespace@163..164 " "
+        ExprBody@164..172
+          FatArrow@164..166 "=>"
+          Whitespace@166..167 " "
+          PathExpr@167..172
+            Path@167..172
+              PathSegment@167..172
+                NameRef@167..172
+                  Ident@167..172 "Value"
+        Semicolon@172..173 ";"
+      Newline@173..174 "\n"
+      RBrace@174..175 "}"
+  Newline@175..176 "\n"
+error MR0133 7..13: `record`: Mora writes it as `struct`
+error MR0133 50..63: `record struct`: Mora writes it as `struct`
+error MR0133 105..117: `record class`: Mora writes it as `struct`

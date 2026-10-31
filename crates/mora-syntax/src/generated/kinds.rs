@@ -430,8 +430,6 @@ pub enum SyntaxKind {
     StructDecl,
     /// A `ClassDecl` node.
     ClassDecl,
-    /// A `RecordDecl` node.
-    RecordDecl,
     /// A `UnionDecl` node.
     UnionDecl,
     /// A `EnumDecl` node.
@@ -458,12 +456,12 @@ pub enum SyntaxKind {
     BaseList,
     /// A `TypeParamList` node.
     TypeParamList,
+    /// A `ParamList` node.
+    ParamList,
     /// A `WhereClause` node.
     WhereClause,
     /// A `MemberList` node.
     MemberList,
-    /// A `ParamList` node.
-    ParamList,
     /// A `UnionBody` node.
     UnionBody,
     /// A `UnionCase` node.
@@ -936,7 +934,6 @@ impl SyntaxKind {
         UsingAlias,
         StructDecl,
         ClassDecl,
-        RecordDecl,
         UnionDecl,
         EnumDecl,
         InterfaceDecl,
@@ -950,9 +947,9 @@ impl SyntaxKind {
         AttributeArg,
         BaseList,
         TypeParamList,
+        ParamList,
         WhereClause,
         MemberList,
-        ParamList,
         UnionBody,
         UnionCase,
         EnumBase,

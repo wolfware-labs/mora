@@ -274,15 +274,17 @@ fn an_attribute_before_a_block_statement() {
 fn record_alone_is_a_name() {
     let text = "record = 5;";
     assert_clean_with(text, K::ExprStmt);
-    assert!(!has(text, K::RecordDecl));
+    assert!(!has(text, K::StructDecl));
 }
 
-// `at_contextual_modifier`: `required` before a named type is a modifier.
+// `at_contextual_modifier`: `required` before a name is a modifier,
+// reported (`MR0134`).
 
 #[test]
-fn required_before_a_named_type_is_a_modifier() {
+fn required_before_a_name_is_a_modifier() {
     let text = "class A { required X: Name; }";
-    assert_clean_with(text, K::Modifier);
+    let codes: Vec<_> = parse(text).errors().iter().map(|e| e.code).collect();
+    assert_eq!(codes, [codes::MR0134], "{text:?}");
     assert_eq!(node(text, K::Modifier).text(), "required");
 }
 

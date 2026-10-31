@@ -1,0 +1,81 @@
+SourceFile@0..129
+  ClassDecl@0..128
+    Modifier@0..6
+      PublicKw@0..6 "public"
+    Whitespace@6..7 " "
+    ClassKw@7..12 "class"
+    Whitespace@12..13 " "
+    Name@13..20
+      Ident@13..20 "Options"
+    Newline@20..21 "\n"
+    MemberList@21..128
+      LBrace@21..22 "{"
+      Newline@22..23 "\n"
+      Whitespace@23..27 "    "
+      FieldDecl@27..56
+        Modifier@27..33
+          PublicKw@27..33 "public"
+        Whitespace@33..34 " "
+        Modifier@34..42
+          RequiredKw@34..42 "required"
+        Whitespace@42..43 " "
+        VariableDeclarator@43..55
+          Name@43..47
+            Ident@43..47 "Host"
+          Colon@47..48 ":"
+          Whitespace@48..49 " "
+          PredefinedType@49..55
+            StringKw@49..55 "string"
+        Semicolon@55..56 ";"
+      Newline@56..57 "\n"
+      Whitespace@57..61 "    "
+      PropertyDecl@61..92
+        Modifier@61..67
+          PublicKw@61..67 "public"
+        Whitespace@67..68 " "
+        Name@68..72
+          Ident@68..72 "Port"
+        Colon@72..73 ":"
+        Whitespace@73..74 " "
+        PredefinedType@74..77
+          IntKw@74..77 "int"
+        Whitespace@77..78 " "
+        AccessorList@78..92
+          LBrace@78..79 "{"
+          Whitespace@79..80 " "
+          Accessor@80..84
+            GetKw@80..83 "get"
+            Semicolon@83..84 ";"
+          Whitespace@84..85 " "
+          Accessor@85..90
+            InitKw@85..89 "init"
+            Semicolon@89..90 ";"
+          Whitespace@90..91 " "
+          RBrace@91..92 "}"
+      Newline@92..93 "\n"
+      Whitespace@93..97 "    "
+      PropertyDecl@97..126
+        Modifier@97..103
+          PublicKw@97..103 "public"
+        Whitespace@103..104 " "
+        Name@104..108
+          Ident@104..108 "Name"
+        Colon@108..109 ":"
+        Whitespace@109..110 " "
+        PredefinedType@110..116
+          StringKw@110..116 "string"
+        Whitespace@116..117 " "
+        AccessorList@117..126
+          LBrace@117..118 "{"
+          Whitespace@118..119 " "
+          Accessor@119..124
+            InitKw@119..123 "init"
+            Semicolon@123..124 ";"
+          Whitespace@124..125 " "
+          RBrace@125..126 "}"
+      Newline@126..127 "\n"
+      RBrace@127..128 "}"
+  Newline@128..129 "\n"
+error MR0134 34..42: `required`: a field without an initializer is already required
+error MR0134 85..89: `init`: a read-only property is set only when the value is created
+error MR0134 119..123: `init`: a read-only property is set only when the value is created

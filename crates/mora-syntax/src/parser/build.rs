@@ -195,7 +195,6 @@ fn attaches_comments(kind: SyntaxKind) -> bool {
             | K::FileNamespace
             | K::StructDecl
             | K::ClassDecl
-            | K::RecordDecl
             | K::UnionDecl
             | K::EnumDecl
             | K::InterfaceDecl

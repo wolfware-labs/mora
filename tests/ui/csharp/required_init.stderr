@@ -1,0 +1,25 @@
+error[MR0134]: `required`: a field without an initializer is already required
+ --> tests/ui/csharp/required_init.mr:3:12
+  |
+3 |     public required Host: string; //~ ERROR MR0134
+  |            ^^^^^^^^
+  |
+  = note: A value is created with every such field set.
+help: remove `required`
+  |
+3 -     public required Host: string; //~ ERROR MR0134
+3 +     public Host: string; //~ ERROR MR0134
+  |
+
+error[MR0134]: `init`: a read-only property is set only when the value is created
+ --> tests/ui/csharp/required_init.mr:4:29
+  |
+4 |     public Port: int { get; init; } //~ ERROR MR0134
+  |                             ^^^^
+  |
+  = note: Write `{ get; }`.
+help: remove `init`
+  |
+4 -     public Port: int { get; init; } //~ ERROR MR0134
+4 +     public Port: int { get; } //~ ERROR MR0134
+  |

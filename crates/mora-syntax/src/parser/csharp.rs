@@ -6,7 +6,9 @@
 use mora_diag::{Code, codes};
 use mora_span::{TextRange, TextSize};
 
-use super::{CompletedMarker, Parser, exprs, stmts, types};
+use std::ops::Range;
+
+use super::{CompletedMarker, Input, Parser, exprs, items, stmts, types};
 use crate::{SyntaxError, SyntaxFix, SyntaxKind};
 
 use SyntaxKind as K;
@@ -574,4 +576,206 @@ pub(crate) fn report_void(p: &mut Parser<'_>, before: TextSize, colon: TextSize,
         .with_note("A function without a return type returns `()`.")
         .with_fix(fix),
     );
+}
+
+/// Reports `required` at the next token, a modifier that a field without an
+/// initializer does not need (§6.9). The fix removes it.
+pub(crate) fn report_required(p: &mut Parser<'_>) {
+    let range = p.range(0);
+    p.report(
+        SyntaxError::new(
+            codes::MR0134,
+            range,
+            "`required`: a field without an initializer is already required",
+        )
+        .with_note("A value is created with every such field set.")
+        .with_fix(SyntaxFix {
+            message: "remove `required`".to_owned(),
+            edits: vec![(
+                TextRange::new(range.start(), p.range(1).start()),
+                String::new(),
+            )],
+        }),
+    );
+}
+
+/// Reports the `init` accessor `accessor`, whose keyword is at `keyword`
+/// (§6.9). With a `get` in the same list the fix removes the accessor;
+/// otherwise it writes `get` for `init`.
+pub(crate) fn report_init(p: &mut Parser<'_>, accessor: TextRange, keyword: TextRange, get: bool) {
+    let fix = if get {
+        SyntaxFix {
+            message: "remove `init`".to_owned(),
+            edits: vec![(accessor, String::new())],
+        }
+    } else {
+        SyntaxFix {
+            message: "write `get`".to_owned(),
+            edits: vec![(keyword, "get".to_owned())],
+        }
+    };
+    p.report(
+        SyntaxError::new(
+            codes::MR0134,
+            keyword,
+            "`init`: a read-only property is set only when the value is created",
+        )
+        .with_note("Write `{ get; }`.")
+        .with_fix(fix),
+    );
+}
+
+/// A C# 12 primary constructor on a class, `class Point(x: int, y: int)`
+/// (§6.9). It is reported once the body is reached, with a fix that
+/// declares each parameter as a field and adds a constructor that assigns
+/// them.
+pub(crate) struct PrimaryConstructor {
+    /// The tokens of the parameter list, `(` and `)` included.
+    tokens: Range<usize>,
+    /// Whether the list has no error of its own, whose fix this one would
+    /// overlap.
+    clean: bool,
+}
+
+impl PrimaryConstructor {
+    /// Takes the parameter list at the next token.
+    pub(crate) fn parse(p: &mut Parser<'_>) -> Self {
+        let first = p.pos();
+        let since = p.reported();
+        let e = p.start();
+        items::param_list(p);
+        e.complete(p, K::Error);
+        let clean = p.reported() == since && p.input().kind(p.pos() - 1) == K::RParen;
+        Self {
+            tokens: first..p.pos(),
+            clean,
+        }
+    }
+
+    /// Reports the list of a class named `owner` whose keyword starts at
+    /// `at`, with the body at the next token.
+    pub(crate) fn report(self, p: &mut Parser<'_>, owner: &str, at: TextSize) {
+        let input = p.input();
+        let range = TextRange::new(
+            input.range(self.tokens.start).start(),
+            input.range(self.tokens.end - 1).end(),
+        );
+        let mut error = SyntaxError::new(
+            codes::MR0128,
+            range,
+            "a class has no parameter list: its fields and constructor go in its body",
+        )
+        .with_note("A struct may take a parameter list, whose parameters are its fields.");
+        if let Some(fix) = self.fix(p, range, owner, at) {
+            error = error.with_fix(fix);
+        }
+        p.report(error);
+    }
+
+    fn fix(&self, p: &Parser<'_>, list: TextRange, owner: &str, at: TextSize) -> Option<SyntaxFix> {
+        if !self.clean {
+            return None;
+        }
+        let input = p.input();
+        let text = input.source();
+        let indent = indent(text, at);
+        let mut fields = String::new();
+        let mut params = Vec::new();
+        let mut assigns = Vec::new();
+        for param in self.params(input)? {
+            let (name, ty) = (&text[param.name], &text[param.ty]);
+            fields.push_str(&format!("\n{indent}    {name}: {ty};"));
+            params.push(&text[param.whole]);
+            assigns.push(format!("this.{name} = {name};"));
+        }
+        if !params.is_empty() {
+            fields.push_str(&format!(
+                "\n{indent}    public {owner}({}) {{ {} }}",
+                params.join(", "),
+                assigns.join(" ")
+            ));
+        }
+        let mut edits = vec![(list, String::new())];
+        if fields.is_empty() {
+            return Some(SyntaxFix {
+                message: "remove the parameter list".to_owned(),
+                edits,
+            });
+        }
+        let body = p.range(0);
+        let edit = match p.current() {
+            K::LBrace if p.nth(1) == K::RBrace => (
+                TextRange::new(body.end(), p.range(1).start()),
+                format!("{fields}\n{indent}"),
+            ),
+            K::LBrace => (TextRange::empty(body.end()), fields),
+            K::Semicolon => (body, format!("\n{indent}{{{fields}\n{indent}}}")),
+            _ => return None,
+        };
+        edits.push(edit);
+        Some(SyntaxFix {
+            message: "declare fields and a constructor".to_owned(),
+            edits,
+        })
+    }
+
+    /// The parameters, each `name: Type` with an optional default, or
+    /// `None` when one has attributes or modifiers, which a field does not
+    /// take.
+    fn params(&self, input: &Input<'_>) -> Option<Vec<Param>> {
+        let end = self.tokens.end - 1;
+        let mut params = Vec::new();
+        let mut start = self.tokens.start + 1;
+        while start < end {
+            let mut i = start;
+            let mut depth = 0usize;
+            let mut default = None;
+            while i < end {
+                match input.kind(i) {
+                    K::LParen | K::LBracket | K::LBrace => depth += 1,
+                    K::RParen | K::RBracket | K::RBrace => depth = depth.saturating_sub(1),
+                    K::Lt if default.is_none() => depth += 1,
+                    K::Gt if default.is_none() => depth = depth.saturating_sub(1),
+                    K::Eq if depth == 0 => default = Some(i),
+                    K::Comma if depth == 0 => break,
+                    _ => {}
+                }
+                i += 1;
+            }
+            let ty_end = default.unwrap_or(i);
+            if input.kind(start) != K::Ident
+                || input.kind(start + 1) != K::Colon
+                || start + 2 >= ty_end
+            {
+                return None;
+            }
+            let span = |from: usize, to: usize| {
+                TextRange::new(input.range(from).start(), input.range(to - 1).end())
+            };
+            params.push(Param {
+                name: input.range(start),
+                ty: span(start + 2, ty_end),
+                whole: span(start, i),
+            });
+            start = i + 1;
+        }
+        Some(params)
+    }
+}
+
+/// A parameter of a primary constructor.
+struct Param {
+    /// The name.
+    name: TextRange,
+    /// The type.
+    ty: TextRange,
+    /// The whole parameter, default value included.
+    whole: TextRange,
+}
+
+/// The whitespace that starts the line holding `at`.
+fn indent(text: &str, at: TextSize) -> &str {
+    let at = usize::from(at);
+    let line = &text[text[..at].rfind('\n').map_or(0, |i| i + 1)..at];
+    &line[..line.len() - line.trim_start().len()]
 }

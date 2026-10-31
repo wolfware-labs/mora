@@ -1,6 +1,6 @@
-public record User(Id: int, Name: string);
-public record struct Money(Cents: long) : IComparable<Money>;
-record class Tag(Value: string)
+public struct User(Id: int, Name: string);
+public struct Money(Cents: long) : IComparable<Money>;
+struct Tag(Value: string)
 {
     public Upper: string => Value;
 }

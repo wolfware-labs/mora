@@ -1,0 +1,2 @@
+record Pair(A: int, B: int); //~ ERROR MR0133
+public record struct Money(Cents: long); //~ ERROR MR0133

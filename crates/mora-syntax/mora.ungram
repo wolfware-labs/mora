@@ -76,7 +76,6 @@ FileNamespace =
 Item =
   StructDecl
 | ClassDecl
-| RecordDecl
 | UnionDecl
 | EnumDecl
 | InterfaceDecl
@@ -84,11 +83,10 @@ Item =
 | FunctionDecl
 | FieldDecl
 
-// §6.1: TypeDecl = StructDecl | ClassDecl | RecordDecl | UnionDecl | EnumDecl | InterfaceDecl ;
+// §6.1: TypeDecl = StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl ;
 TypeDecl =
   StructDecl
 | ClassDecl
-| RecordDecl
 | UnionDecl
 | EnumDecl
 | InterfaceDecl
@@ -98,6 +96,7 @@ TypeDecl =
 //   'params' (§6.9), 'this' (extension methods §6.9),
 //   'abstract' (`static abstract` interface members only, §6.8, §8.5).
 // `ref struct` and `unique class` are a modifier plus the declaration keyword.
+// The parser reports `required` with MR0134.
 Modifier =
   kind:(
     'public' | 'internal' | 'private' | 'file'
@@ -124,22 +123,18 @@ AttributeArg =
 BaseList =
   ':' Type (',' Type)*
 
-// §6.2. A `ref struct` carries the `ref` modifier.
+// §6.2. A `ref struct` carries the `ref` modifier. A positional struct
+// (§6.5) has a parameter list. The parser reports `record` with MR0133
+// and takes it as `struct`.
 StructDecl =
   Attribute* Modifier*
-  'struct' Name TypeParamList? BaseList? WhereClause*
+  'struct' Name TypeParamList? ParamList? BaseList? WhereClause*
   (MemberList | ';')
 
 // §6.3, §6.4. No primary constructors (§6.9): the parser reports one with MR0128.
 ClassDecl =
   Attribute* Modifier*
   'class' Name TypeParamList? BaseList? WhereClause*
-  (MemberList | ';')
-
-// §6.5. `record`, `record class` (same as `record`) and `record struct`.
-RecordDecl =
-  Attribute* Modifier*
-  'record' kind:('class' | 'struct')? Name TypeParamList? ParamList? BaseList? WhereClause*
   (MemberList | ';')
 
 MemberList =
@@ -206,7 +201,6 @@ Member =
 | AssocTypeDecl
 | StructDecl
 | ClassDecl
-| RecordDecl
 | UnionDecl
 | EnumDecl
 | InterfaceDecl
@@ -260,7 +254,8 @@ PropertyDecl =
 AccessorList =
   '{' Accessor* '}'
 
-// `get;`, `private set;`, `get => x;`, `init { ... }`.
+// `get;`, `private set;`, `get => x;`. The parser reports `init` with
+// MR0134.
 Accessor =
   Attribute* Modifier*
   kind:('get' | 'set' | 'init')

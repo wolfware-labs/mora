@@ -1,0 +1,25 @@
+error[MR0133]: `record`: Mora writes it as `struct`
+ --> tests/ui/csharp/record.mr:1:1
+  |
+1 | record Pair(A: int, B: int); //~ ERROR MR0133
+  | ^^^^^^
+  |
+  = note: A record's data has no identity, which is what a struct is.
+help: write `struct`
+  |
+1 - record Pair(A: int, B: int); //~ ERROR MR0133
+1 + struct Pair(A: int, B: int); //~ ERROR MR0133
+  |
+
+error[MR0133]: `record struct`: Mora writes it as `struct`
+ --> tests/ui/csharp/record.mr:2:8
+  |
+2 | public record struct Money(Cents: long); //~ ERROR MR0133
+  |        ^^^^^^^^^^^^^
+  |
+  = note: A record's data has no identity, which is what a struct is.
+help: write `struct`
+  |
+2 - public record struct Money(Cents: long); //~ ERROR MR0133
+2 + public struct Money(Cents: long); //~ ERROR MR0133
+  |

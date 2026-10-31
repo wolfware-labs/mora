@@ -1,15 +1,14 @@
-error[MR0128]: a class or struct has no parameter list
+error[MR0128]: a class has no parameter list: its fields and constructor go in its body
  --> tests/ui/csharp/primary_constructor.mr:1:12
   |
 1 | class Point(x: int, y: int) { } //~ ERROR MR0128
   |            ^^^^^^^^^^^^^^^^
   |
-  = note: Declare fields and a constructor.
-
-error[MR0128]: a class or struct has no parameter list
- --> tests/ui/csharp/primary_constructor.mr:2:12
+  = note: A struct may take a parameter list, whose parameters are its fields.
+help: declare fields and a constructor
   |
-2 | struct Size(Width: int, Height: int); //~ ERROR MR0128
-  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+1 ~ class Point {
+2 +     x: int;
+3 +     y: int;
+4 +     public Point(x: int, y: int) { this.x = x; this.y = y; }
   |
-  = note: Declare fields and a constructor.

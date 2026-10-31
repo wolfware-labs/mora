@@ -412,3 +412,81 @@ fn void_as_a_type_is_reported() {
     // `void?` and `void[]` are not `void` alone.
     assert_reports("let v: void? = none;", &[]);
 }
+
+#[test]
+fn positional_struct_is_not_an_error() {
+    assert_eq!(
+        parse_errors("struct Point(X: int, Y: int) { public Sum: int => X + Y; }\n"),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn primary_constructor_fixes_to_fields_and_a_constructor() {
+    assert_eq!(
+        fixed("class Point(x: int, y: int) { }\n"),
+        "class Point {\n    x: int;\n    y: int;\n    public Point(x: int, y: int) { this.x = x; this.y = y; }\n}\n"
+    );
+    assert_eq!(
+        fixed("    class Point(x: int);\n"),
+        "    class Point\n    {\n        x: int;\n        public Point(x: int) { this.x = x; }\n    }\n"
+    );
+    assert_eq!(
+        fixed(
+            "class Bag<T>(items: Map<string, T>, n: int = Max(1, 2)) : IBag\n{\n    public Count: int => n;\n}\n"
+        ),
+        "class Bag<T> : IBag\n{\n    items: Map<string, T>;\n    n: int;\n    public Bag(items: Map<string, T>, n: int = Max(1, 2)) { this.items = items; this.n = n; }\n    public Count: int => n;\n}\n"
+    );
+    assert_eq!(fixed("class Unit() { }\n"), "class Unit { }\n");
+}
+
+#[test]
+fn primary_constructor_with_modifiers_has_no_fix() {
+    for text in [
+        "class Point(ref x: int) { }",
+        "class Point([Json] x: int) { }",
+        "class Point(int x) { }",
+        "class Point(x: int { }",
+    ] {
+        let parse = parse(text);
+        let error = parse
+            .errors()
+            .iter()
+            .find(|e| e.code == codes::MR0128)
+            .unwrap_or_else(|| panic!("{text}: {:#?}", parse.errors()));
+        assert!(error.fix.is_none(), "{text}");
+    }
+}
+
+#[test]
+fn record_fixes_to_struct() {
+    assert_eq!(fixed("record User(Id: int);\n"), "struct User(Id: int);\n");
+    assert_eq!(
+        fixed("public record class Tag(Value: string) { }\n"),
+        "public struct Tag(Value: string) { }\n"
+    );
+    assert_eq!(
+        fixed("record struct Money(Cents: long);\n"),
+        "struct Money(Cents: long);\n"
+    );
+}
+
+#[test]
+fn required_and_init_fix_away() {
+    assert_eq!(
+        fixed("class A { public required Host: string; }\n"),
+        "class A { public Host: string; }\n"
+    );
+    assert_eq!(
+        fixed("class A { public Port: int { get; init; } }\n"),
+        "class A { public Port: int { get; } }\n"
+    );
+    assert_eq!(
+        fixed("class A { public Port: int { init => x = value; get; } }\n"),
+        "class A { public Port: int { get; } }\n"
+    );
+    assert_eq!(
+        fixed("class A { public Port: int { init; } }\n"),
+        "class A { public Port: int { get; } }\n"
+    );
+}

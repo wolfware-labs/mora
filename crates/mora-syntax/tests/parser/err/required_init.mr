@@ -1,0 +1,6 @@
+public class Options
+{
+    public required Host: string;
+    public Port: int { get; init; }
+    public Name: string { init; }
+}

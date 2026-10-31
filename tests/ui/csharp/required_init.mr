@@ -1,0 +1,5 @@
+class Options
+{
+    public required Host: string; //~ ERROR MR0134
+    public Port: int { get; init; } //~ ERROR MR0134
+}
