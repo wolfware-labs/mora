@@ -363,3 +363,137 @@ fn ref_after_a_type_constraint_is_not_a_ref_struct_constraint() {
         K::RefStructConstraint,
     );
 }
+
+// `declaration` and `shape`: indexers, operators and properties are members
+// only; at the top level they are not declarations, whatever the order.
+
+#[test]
+fn an_indexer_is_a_member_only() {
+    for text in [
+        "static this[0];",
+        "static int this[int i] => 0;",
+        "static int IList.this[int i] => 0;",
+    ] {
+        assert!(!has(text, K::IndexerDecl), "{text:?}");
+        assert!(!messages(text).is_empty(), "{text:?}");
+    }
+}
+
+#[test]
+fn a_type_first_operator_is_a_member_only() {
+    let text = "static int operator +(A a) => a;";
+    assert!(!has(text, K::OperatorDecl));
+}
+
+#[test]
+fn a_type_first_property_is_a_member_only() {
+    let text = "static int X => 1;";
+    assert!(!has(text, K::PropertyDecl));
+    assert!(has(text, K::FieldDecl));
+}
+
+#[test]
+fn an_attributed_type_first_local_stays_a_statement() {
+    let text = "[Cfg(Debug = true)] int x = 1;";
+    assert_type_first_with(text, K::AttributedStmt);
+    assert!(!has(text, K::FieldDecl));
+}
+
+// `shape`: a type-first explicit indexer, and a dot that is not one.
+
+#[test]
+fn a_type_first_explicit_indexer() {
+    let text = "class A { int IList<int>.this[int i] => 0; }";
+    assert_eq!(
+        parse(text)
+            .errors()
+            .iter()
+            .map(|e| e.code)
+            .collect::<Vec<_>>(),
+        [codes::MR0135, codes::MR0135]
+    );
+    assert!(has(text, K::IndexerDecl));
+    assert_eq!(node(text, K::ExplicitImpl).text(), "IList<int>.");
+}
+
+#[test]
+fn a_dot_without_this_is_not_an_indexer() {
+    let text = "class A { int X.; }";
+    assert!(!has(text, K::IndexerDecl));
+    assert!(has(text, K::FieldDecl));
+}
+
+// `shape`: a splice as the name of a type-first member.
+
+#[test]
+fn a_spliced_name_after_a_type() {
+    let text = "class A { int $f() => 0; int $g; }";
+    assert_eq!(
+        parse(text)
+            .errors()
+            .iter()
+            .map(|e| e.code)
+            .collect::<Vec<_>>(),
+        [codes::MR0135, codes::MR0135]
+    );
+    assert_eq!(count(text, K::FunctionDecl), 1);
+    assert_eq!(count(text, K::FieldDecl), 1);
+    assert!(node(text, K::FunctionDecl).text().contains("$f"));
+}
+
+// `operator`: no return type, no annotation.
+
+#[test]
+fn an_operator_without_a_return_type() {
+    let text = "class A { static operator ++(a: A) => a; }";
+    assert_clean_with(text, K::OperatorDecl);
+    assert!(has(text, K::ExprBody));
+    assert!(!has(text, K::PredefinedType));
+}
+
+// `shape`: name first, a dot is an explicit indexer only before `this` and
+// in a type, and a name alone is a field that lacks its type.
+
+#[test]
+fn a_name_first_dot_without_this_is_not_an_indexer() {
+    assert!(!has("class A { X.; }", K::IndexerDecl));
+    assert!(!has("static IList.this[i: int]: int => 0;", K::IndexerDecl));
+}
+
+#[test]
+fn a_field_without_a_type() {
+    let text = "class A { Count; }";
+    assert!(has(text, K::FieldDecl));
+    assert_eq!(messages(text), ["expected `:` and a type"]);
+}
+
+// `at_function`: parentheses left open at the end of the file are a call.
+
+#[test]
+fn an_unclosed_call_at_the_end_is_not_a_function() {
+    let text = "F(a";
+    assert!(!has(text, K::FunctionDecl));
+    assert!(has(text, K::ExprStmt));
+}
+
+// `shape`: a tuple type first is a type, not a name, and a field has one
+// plain name where fields are allowed.
+
+#[test]
+fn a_tuple_return_type_written_first() {
+    let text = "class A { (int, int) F() => (1, 2); }";
+    let codes: Vec<_> = parse(text).errors().iter().map(|e| e.code).collect();
+    assert_eq!(codes, [codes::MR0135]);
+    assert!(has(text, K::FunctionDecl));
+    assert!(has(text, K::TupleType));
+}
+
+#[test]
+fn a_field_needs_a_plain_name_and_a_place_for_fields() {
+    // `IShape.` is skipped as an error; the field is `X` alone.
+    assert_eq!(
+        node("class A { IShape.X: int; }", K::FieldDecl).text(),
+        "X: int;"
+    );
+    assert!(!has("[A] x: int;", K::FieldDecl));
+}

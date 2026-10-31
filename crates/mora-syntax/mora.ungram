@@ -395,7 +395,7 @@ TupleType =
 TupleTypeElem =
   (Name ':')? Type
 
-// §10.7. `public weak Parent: Node;`
+// §10.7. `public Parent: weak Node;`
 WeakType =
   'weak' Type
 

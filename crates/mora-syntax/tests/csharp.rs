@@ -289,6 +289,15 @@ fn type_first_reports_the_type_and_the_name() {
     // A C# construct reported whole is not reported again.
     assert_reports("delegate int Transform(int x);", &[("MR0105", "delegate")]);
     assert_reports("class B { event Action Clicked; }", &[("MR0105", "event")]);
+    // Only what the event contains is withdrawn, not what came before it.
+    assert_reports(
+        "class B { int X; int Y; event Action Clicked; }",
+        &[
+            ("MR0135", "int X"),
+            ("MR0135", "int Y"),
+            ("MR0105", "event"),
+        ],
+    );
     assert_reports("using File f = Open();", &[("MR0121", "using")]);
     // Type patterns keep the C# order.
     assert_reports("let ok = s is Circle c;", &[]);

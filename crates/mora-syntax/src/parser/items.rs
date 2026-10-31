@@ -249,12 +249,11 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
         K::OperatorKw => operator(p, m, None),
         K::ThisKw if member && p.nth(1) == K::LBracket => indexer(p, m, 0, None),
         _ => {
-            // `[Cfg(Debug = true)] Log(x);` at the top level (§6.11).
+            // `[Cfg(Debug = true)] Log(x);` at the top level (§6.11). There,
+            // without modifiers, only a function has a shape.
             let statement = cx == Context::TopLevel && attributed && modifiers.is_empty();
             match shape(p, cx, !modifiers.is_empty()) {
-                Some(shape) if !statement || shape.kind == Kind::Function => {
-                    member_with_shape(p, m, shape);
-                }
+                Some(shape) => member_with_shape(p, m, shape),
                 _ if p.pos() == start => {
                     // Nothing taken: the caller reports and recovers.
                     m.abandon(p);
