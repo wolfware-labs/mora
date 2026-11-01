@@ -178,6 +178,7 @@ registry! {
     MR0612 = 612: "a generated member clashes with an existing one",
     MR0613 = 613: "a macro uses a capability or makes a `dyn` call",
     MR0614 = 614: "a macro depends on types that use it",
+    MR0615 = 615: "a macro's helper attribute outside a declaration that macro processes",
     MR2001 = 2001: "`T??` in source",
     MR2002 = 2002: "a discarded `Result`",
     MR2003 = 2003: "use of an `[Obsolete]` declaration",
