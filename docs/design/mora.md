@@ -1676,7 +1676,7 @@ public union AppError {
 }
 ```
 
-`@Error` gives each case its `Code`, `PublicMessage` and `HttpStatus` from the attributes `@Code("...")`, `@Public("...")` and `@Status(n)` on the case. A case without `@Code` gets the type's name and the case's name in snake case, joined by a dot: `app_error.not_found`. On a struct the attributes go on the type, and without `@Code` the code is the type's name in snake case. A code is one or more lowercase segments of letters, digits and `_`, joined by dots, and a status is from 100 to 599; `@Error` reports anything else as a compile error at the attribute. Cases without `@Public` are internal, so `Io` and `Json` above never show their text to a client.
+`@Error` gives each case its `Code`, `PublicMessage` and `HttpStatus` from the attributes `@Code("...")`, `@Public("...")` and `@Status(n)` on the case. A case without `@Code` gets the type's name and the case's name in snake case, joined by a dot: `app_error.not_found`. On a struct the attributes go on the type, and without `@Code` the code is the type's name in snake case. A code is one or more lowercase segments of letters, digits and `_`, joined by dots, and a status is an error status from 400 to 599; `@Error` reports anything else as a compile error at the attribute. Cases without `@Public` are internal, so `Io` and `Json` above never show their text to a client.
 
 ### 11.3 Conversions in `?`
 
@@ -2118,7 +2118,7 @@ The standard library takes its names from .NET where they fit, and drops what de
 
 ### 15.1 Prelude (`Std`)
 
-Visible in every file: primitives and their static members (`int.Parse`, `int.MaxValue`, `double.IsNaN`, ...), `string`, `Option<T>`, `Result<T, E>`, `Ok`, `Err`, `List<T>`, `Dictionary<TKey, TValue>`, `HashSet<T>`, `Span<T>`, `ReadOnlySpan<T>`, `Func`, `Action`, `Console`, `Math`, `MathF`, `Environment`, `Task`, `Future<T>`, `TimeSpan`, `Drop`, `ReferenceEquals`, `panic`, `Debug`, `Unreachable`, `Todo`, the interfaces of §8.5, `IError`, `Report`, `Literal`, `Log`, `Trace`, `Secret<T>`, and the LINQ operators of §15.5.
+Visible in every file: primitives and their static members (`int.Parse`, `int.MaxValue`, `double.IsNaN`, ...), `string`, `Option<T>`, `Result<T, E>`, `Ok`, `Err`, `List<T>`, `Dictionary<TKey, TValue>`, `HashSet<T>`, `Span<T>`, `ReadOnlySpan<T>`, `Func`, `Action`, `Console`, `Math`, `MathF`, `Environment`, `Task`, `Future<T>`, `TimeSpan`, `Drop`, `ReferenceEquals`, `panic`, `Debug`, `Unreachable`, `Todo`, the interfaces of §8.5, `IError`, `Report`, `Literal`, `Html`, `Url`, `Log`, `Trace`, `Secret<T>`, and the LINQ operators of §15.5.
 
 Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`, so `if (int.Parse(text) is Ok(let n)) { ... }` parses and tests in one step.
 
@@ -2270,7 +2270,7 @@ Log.Info($"created user {user.Id} for {req.Path}");
 
 - **The event** records the template, `created user {user.Id} for {req.Path}`, one field per hole named after the hole's source text (`user.Id = 7`, `req.Path = "/users"`), the level, the time and the current span. The field names come from the string itself, so they cannot drift away from the values. When the same source text appears twice in one message, the second field is named `name#2`, the third `name#3`, and so on.
 - **Levels.** `MORA_LOG` sets the lowest level written: `trace`, `debug`, `info` (the default), `warn` or `error`. A call below it costs one branch: the handler is not `Enabled`, so no hole is evaluated (§7.14).
-- **Output** goes to stderr, one line per event: `2026-10-26T20:15:03.120Z INFO created user 7 for /users`. With `MORA_LOG_FORMAT=json` each event is one JSON object per line, with the template, the fields, the level, the time and the span.
+- **Output** goes to stderr, one line per event: `2026-10-26T20:15:03.120Z INFO created user 7 for /users`. Field values are escaped as JSON string contents are, so a line break or control character in a value cannot start a new record or reach the terminal. With `MORA_LOG_FORMAT=json` each event is one JSON object per line, with the template, the fields, the level, the time and the span.
 - **No capability.** Logging is ambient: any code, libraries included, logs without a grant, and a log call or span adds nothing to the caller's effect set (§6.14), even though it reads the clock and writes to stderr, so a `uses none` function may log. A `Secret<T>` hole prints redacted (§15.11).
 - **Spans.** `Trace.Span($"...")` starts a span with the same template and fields and returns a move-only value. The span ends when that value is dropped, which happens on every exit path, `?` included (§10.8), and its end records the duration. Events and spans started while it is live belong to it, and a task inherits the span that is current where it is spawned (§12.4). Moving the value into a spawned task hands the span over on purpose.
 
@@ -2361,7 +2361,7 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
 
 **Responses for errors.** A handler's `Err(e)` becomes a response through `e`'s `IError` members, the same way for `HttpError` and for an application's errors (D-108):
 
-- An error with a `PublicMessage` gets the status `HttpStatus`, or 500 when that is `none` or outside 100 to 599 (the server then also logs a `Warn` event naming the error's code), and the body `{"error":"<PublicMessage>"}` with `Content-Type: application/json`, the message written as an escaped JSON string.
+- An error with a `PublicMessage` gets the status `HttpStatus`, or 500 when that is `none` or outside 400 to 599 (the server then also logs a `Warn` event naming the error's code), and the body `{"error":"<PublicMessage>"}` with `Content-Type: application/json`, the message written as an escaped JSON string.
 - An internal error, with no `PublicMessage`, gets status 500 and an `application/problem+json` body (RFC 9457) with the standard `type`, `title` and `status` members and, beyond them, only the code and the request's trace id: `{"type":"about:blank","title":"Internal Server Error","status":500,"code":"app_error.io","traceId":"4bf92f3577b34da6"}`. Its text never reaches the client.
 - An internal error is also logged as one `Error` event with the code, `ToString()` and the `Source` chain, in the request's span, so the trace id in the response finds the full story in the log.
 
