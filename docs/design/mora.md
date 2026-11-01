@@ -1649,7 +1649,7 @@ Any type can be an error type. The standard library's errors are unions or struc
 
 ```mora
 public interface IError : IDisplay {
-    Source: IError? => none;           // the underlying error, if any
+    Source: (any IError)? => none;     // the underlying error, if any; boxed, since its type varies (§8.4)
     Code: string;                      // stable and dotted: "checkout.card_declined"
     PublicMessage: string? => none;    // text safe to show a client; none means internal
     HttpStatus: int? => none;          // the status an HTTP response for it uses (§16.2)
