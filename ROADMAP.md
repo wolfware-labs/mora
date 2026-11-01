@@ -1120,7 +1120,7 @@ The `Literal` members, and the `Html` and `Url` handlers of §15.2 (D-105): esca
 Done when:
 
 - Escaping tests for text, quoted attributes, path segments, query names and values, and fragments, including non-ASCII text.
-- A hole inside `<script>` panics with the context; an `Html` hole is not escaped twice.
+- A hole inside `<script>` panics with the context; an `Html` hole in element text is not escaped twice, and one in an attribute value is escaped.
 - In `href`, a hole after `/users/` is percent-encoded, a hole at the start of the value that is not a `Url` panics, and a hole in `onclick` panics.
 
 ### M5.16 Logging and tracing
@@ -1154,7 +1154,7 @@ Spec: [§11.5](docs/design/mora.md#115-reports), [§11.2](docs/design/mora.md#11
 
 Done when:
 
-- A three-level chain prints the newest context first, then the error and its `Source` chain.
+- A three-level chain prints the newest context first, then the error and the chain of its `Source()`.
 - An `Ok` passed through `Context(() => ...)` never runs the lambda.
 
 ## M6: Async and HTTP

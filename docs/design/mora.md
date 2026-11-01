@@ -1649,14 +1649,14 @@ Any type can be an error type. The standard library's errors are unions or struc
 
 ```mora
 public interface IError : IDisplay {
-    Source: (any IError)? => none;     // the underlying error, if any; boxed, since its type varies (§8.4)
+    Source(): (any IError)? => none;   // the underlying error, if any; boxed, since its type varies (§8.4)
     Code: string;                      // stable and dotted: "checkout.card_declined"
     PublicMessage: string? => none;    // text safe to show a client; none means internal
     HttpStatus: int? => none;          // the status an HTTP response for it uses (§16.2)
 }
 ```
 
-One error serves three readers (D-108). `Code` is for programs: alerting, dashboards and clients branch on it, never on message text, so it stays the same when the message changes. `PublicMessage` is the only text that may reach an end user, and an error without one is internal. `ToString()` and the `Source` chain are for developers and go to the log (§15.10).
+One error serves three readers (D-108). `Code` is for programs: alerting, dashboards and clients branch on it, never on message text, so it stays the same when the message changes. `PublicMessage` is the only text that may reach an end user, and an error without one is internal. `ToString()` and the chain of `Source()` are for developers and go to the log (§15.10). `Source()` is a method rather than a getter because boxing an error allocates, which a getter may not do (§6.9).
 
 The MVP standard library defines `IoError`, `ParseError`, `FormatError`, `JsonError` and `HttpError` (§15, §16), whose codes start with `io.`, `parse.`, `format.`, `json.` and `http.`. An application usually declares one union per layer, with the standard-library macro `@Error` (§9.9):
 
@@ -1676,7 +1676,7 @@ public union AppError {
 }
 ```
 
-`@Error` gives each case its `Code`, `PublicMessage` and `HttpStatus` from the attributes `@Code("...")`, `@Public("...")` and `@Status(n)` on the case. A case without `@Code` gets the type's name and the case's name in snake case, joined by a dot: `app_error.not_found`. On a struct the attributes go on the type, and without `@Code` the code is the type's name in snake case. A code is one or more lowercase segments of letters, digits and `_`, joined by dots, and a status is an error status from 400 to 599; `@Error` reports anything else as a compile error at the attribute. Cases without `@Public` are internal, so `Io` and `Json` above never show their text to a client.
+`@Error` gives each case its `Code`, `PublicMessage` and `HttpStatus` from the attributes `@Code("...")`, `@Public("...")` and `@Status(n)` on the case. A case without `@Code` gets the type's name and the case's name in snake case, joined by a dot: `app_error.not_found`. On a struct the attributes go on the type, and without `@Code` the code is the type's name in snake case. A code is one or more lowercase segments of letters, digits and `_`, joined by dots, and a status is an error status from 400 to 599; `@Error` reports anything else as a compile error at the attribute. Cases without `@Public` are internal, so `Io` and `Json` above never show their text to a client. For a case whose field is marked `@From`, `Source()` returns that field, so the chain to the original error is kept.
 
 ### 11.3 Conversions in `?`
 
@@ -1727,7 +1727,7 @@ LoadConfig(path: string): Result<Config, Report> {
 }
 ```
 
-- `Report` holds the error as `any IError` and a list of context lines, and implements `IError`. Its `Source` is the wrapped error, and its `Code`, `PublicMessage` and `HttpStatus` are the wrapped error's. `ToString()` prints the newest context line first, then the older ones, then the error and its `Source` chain.
+- `Report` holds the error as `any IError` and a list of context lines, and implements `IError`. Its `Source()` is the wrapped error, and its `Code`, `PublicMessage` and `HttpStatus` are the wrapped error's. `ToString()` prints the newest context line first, then the older ones, then the error and the chain of its `Source()`.
 - `Context(message)` on a `Result<T, E>` with `E : IError` turns an `Err` into a `Report` with that line, and on a `Result<T, Report>` it adds a line. `Report()` converts without a line. Both do nothing to an `Ok`. `E` is copyable, as a type parameter is by default (§8.2), because a move-only value cannot be boxed (§8.4); a move-only error is converted by hand. A message that is a string literal costs nothing, and a message with holes is passed as a lambda, `() => $"..."`, so that it is built only when there is an error.
 - `?` never converts to `Report` by itself. Wrapping an error boxes it, and a conversion used implicitly does not allocate (§5.10), so `Report` does not implement `IFrom<E>`. A bare `?` on a `Result<T, IoError>` in a function that returns `Result<U, Report>` is error `MR0201`, with fixes that add `.Report()` or `.Context("...")`. The allocation is then written in the code, and it happens only on the error path.
 
@@ -2131,7 +2131,7 @@ Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`, so
 | `Formatter` | The sink `IDisplay.Format` writes to: `Write(ReadOnlySpan<byte>)`, `Write(char)`, `Write(value: IDisplay)`, padding and alignment helpers |
 | `char` | `IsDigit`, `IsLetter`, `IsWhiteSpace`, `IsUpper`, `IsLower`, `ToUpper`, `ToLower`, `ToString()`, `Utf8Length` |
 | `Literal` | Text the compiler knows (§7.14): `Length`, `AsSpan()`, `ToString()`, `IDisplay`. Only the compiler creates one |
-| `Html` | An interpolation handler (§7.14). Literal parts are trusted markup. A hole is escaped for where it stands, element text or a quoted attribute value, and a hole anywhere else (inside `<script>` or `<style>`, in an unquoted attribute, or in a tag or attribute name) panics with the context it found. Some quoted attributes need more than escaping: in an attribute that takes a URL (`href`, `src`, `action`, `formaction` and the others the HTML standard lists), a hole is allowed only after literal text that fixes the scheme or starts a relative path (`href="/users/{id}"`) and is percent-encoded as a URL component, or as the whole value when it is a `Url`; a hole in an event handler attribute (`on...`), in `style` or in `srcdoc` panics. Holes: any `IDisplay` value, whose text is escaped, and `Html`, which implements `IHole<Html>` and is inserted as it is. `Html.Unchecked(text: string)`, `ToString()` |
+| `Html` | An interpolation handler (§7.14). Literal parts are trusted markup. A hole is escaped for where it stands, element text or a quoted attribute value, and a hole anywhere else (inside `<script>` or `<style>`, in an unquoted attribute, or in a tag or attribute name) panics with the context it found. Some quoted attributes need more than escaping: in an attribute that takes a URL (`href`, `src`, `action`, `formaction` and the others the HTML standard lists), a hole is allowed only after literal text that fixes the scheme or starts a relative path (`href="/users/{id}"`) and is percent-encoded as a URL component, or as the whole value when it is a `Url`; a hole in an event handler attribute (`on...`), in `style` or in `srcdoc` panics. Holes: any `IDisplay` value, whose text is escaped, and `Html`, which implements `IHole<Html>` and is inserted as it is in element text; in an attribute value an `Html` hole is escaped like any text. `Html.Unchecked(text: string)`, `ToString()` |
 | `Url` | An interpolation handler (§7.14). Literal parts are the URL's structure. A hole is percent-encoded for its component: a path segment, a query name or value, or the fragment. A hole in the scheme or the host panics. Holes: any `IDisplay` value. `Url.Unchecked(text: string)`, `ToString()` |
 
 `Split` returns a lazy iterator struct, as the LINQ operators do, so `foreach (let field in csv.Split(','))` allocates only the pieces longer than 15 bytes (§13.4); `ToList()` on it builds a list.
@@ -2363,7 +2363,7 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
 
 - An error with a `PublicMessage` gets the status `HttpStatus`, or 500 when that is `none` or outside 400 to 599 (the server then also logs a `Warn` event naming the error's code), and the body `{"error":"<PublicMessage>"}` with `Content-Type: application/json`, the message written as an escaped JSON string.
 - An internal error, with no `PublicMessage`, gets status 500 and an `application/problem+json` body (RFC 9457) with the standard `type`, `title` and `status` members and, beyond them, only the code and the request's trace id: `{"type":"about:blank","title":"Internal Server Error","status":500,"code":"app_error.io","traceId":"4bf92f3577b34da6"}`. Its text never reaches the client.
-- An internal error is also logged as one `Error` event with the code, `ToString()` and the `Source` chain, in the request's span, so the trace id in the response finds the full story in the log.
+- An internal error is also logged as one `Error` event with the code, `ToString()` and the chain of `Source()`, in the request's span, so the trace id in the response finds the full story in the log.
 
 `RouteValue<int>("id")` on `abc` returns `BadRequest("route value 'id' is not a valid int")`. `ReadJsonAsync<T>()` returns `UnsupportedMediaType` when the request has a `Content-Type` other than `application/json` (a missing header is accepted), and `BadRequest` for malformed or mistyped JSON.
 
