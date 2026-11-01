@@ -737,7 +737,7 @@ Done when:
 
 Spec: [§8.1](docs/design/mora.md#81-generic-declarations), [§8.2](docs/design/mora.md#82-constraints). Crates: `mora-hir`. Blocked by: M3.1.
 
-Generic types, methods and local functions, the constraints of §8.2 including copyable-by-default and `where T : move` (D-23), C# method type inference, and `MR0234` for variance annotations.
+Generic types, methods and local functions, the constraints of §8.2 including copyable-by-default and `where T : move` (D-23), method type inference (§8.1), and `MR0234` for variance annotations.
 
 Done when:
 
@@ -1021,7 +1021,7 @@ The `string`, `StringBuilder`, `Formatter` and `char` members of §15.2, byte-of
 Done when:
 
 - Run tests for every member, including non-ASCII and astral-plane text.
-- Format specifier tests match .NET invariant-culture output for a table of values.
+- Format specifier tests match the culture-independent output of §15.2 for a table of values.
 
 ### M5.3 Number parsing and formatting
 
