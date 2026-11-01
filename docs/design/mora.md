@@ -793,7 +793,7 @@ public class Account {
 - **Getters.** `Name: T => expr;` computes a value on each read. The compiler checks that a getter is cheap: its body reads fields, constants and literals, and calls only functions that the analysis of §6.14 finds do not allocate on the heap, loop, mutate state or fail. Looping includes recursion; mutating is writing a field, an element or a `static mut`, or calling a `mut` method; failing is reaching `panic`, `Value`, `Expect`, `Unreachable` or `Todo` (§11.4), directly or through a call, while the checks of arithmetic, division and indexing do not count. A getter that breaks the rule is error `MR0251`, which names the call and how it breaks it: ``getter `Total` loops (through `Sum`, line 12); make it a method or `stored` ``. These four facts are computed together with effects but are not effects: `uses none` (§6.14) says nothing about them.
 - **Stored getters.** `stored Name: T => expr;` keeps a hidden field that the compiler recalculates whenever one of its inputs is written, so a read is one load and the body may allocate or loop. Its inputs are the fields the body reads, and each MUST be read-only or a field of this object writable only inside its type (`mut(private)` or `private mut`), so every recalculation happens inside the type's own constructors and methods, memberwise creation and `with`. Each input's type MUST also be immutable all the way down: a plain type (§10.2), `string`, or a struct, tuple, union or option made only of these. State that can change without a write to an input, such as the elements of a `List` held in a read-only field, would leave the stored value stale, so `stored Size: int => Items.Count` is `MR0252`; such a value is a method. The body MUST use no capability, reach no `dyn` call and read no `static mut` (§6.14). A broken rule is error `MR0252`, naming the input or call. Callers cannot tell a `stored` getter from a plain one, so changing one into the other never breaks them.
 - **No accessors on fields or getters.** A member is a field, a getter or a method: `{ get; }`, `{ get; set; }` and other accessor bodies are not Mora syntax (`MR0110`), and there are no setters. A write that validates, converts or notifies is a method, such as `SetEmail(value: string): Result<(), EmailError>`.
-- **Indexers** keep their accessors: `this[index: int]: T { get => ...; set => ...; }`, with `value` naming the assigned value in `set`. A `set` accessor on a struct is a `mut` member. Whether indexers move to the same model is OQ-27.
+- **Indexers** keep their accessors: `this[index: int]: T { get => ...; set => ...; }`, with `value` naming the assigned value in `set`. A `set` accessor on a struct is a `mut` member. A `get` accessor is checked like a getter (`MR0251`), so `list[i]` is as cheap as a field read. Replacing the accessors with a getter and a write method may be revisited after the MVP.
 - **Change notification** comes from the `@Observable` macro (§9.9), not from the language (D-104).
 - **Not in the MVP:** a getter computed on first read and cached (`memo`), which needs a way to invalidate it when a collection it read changes.
 
@@ -893,6 +893,7 @@ Attributes are compile-time only (D-10). An attribute is `@` and a name, with ar
 | `@Obsolete("message")` | any declaration | Using it warns `MR2003` with the message |
 | `@RequiresCapability("net.listen")` | function | Declares that calling it uses the capability (§6.14, §18.6) |
 | `@Blocking` | function | Declares that calling it blocks the executor thread (§6.14) |
+| `@SoleWriter("X")` | method | Makes the method the only code that assigns field `X` of its type, apart from the field's initializer, constructors and memberwise creation. Any other assignment, or passing `X` by `ref`, is error `MR0253`, with a fix that calls the method instead. Macros such as `@Observable` put it on the methods they generate (§9.9) |
 
 ### 6.12 Newtypes
 
@@ -1374,7 +1375,7 @@ These macros replace a fixed derive list; the compiler has no special knowledge 
 | `@Json` | `IJsonSerialize` and `IJsonDeserialize` (§16.3) | `IJsonSerialize` / `IJsonDeserialize` |
 | `@Error` | On a union or struct: `IError`, and for each case with a single field marked `@From`, `IFrom<F>` for that field's type `F`, wrapping the value in the case; never on an `indirect` case (§11.3) | `IDisplay` on the type |
 | `@Arithmetic` | On a newtype (§6.12): same-type `+` and `-`, and `*` and `/` by a value of the underlying type; on a refined newtype each result is checked against the refinement | The underlying type has those operators |
-| `@Observable` | On a class: for each `mut` field `X` of type `F`, a method `SetX(value: F)` that assigns the field and, when the value changed, emits on a generated field `XChanged: Signal<F>` (§15.8); a `stored` getter whose inputs include `X` gets its own signal, which `SetX` emits after the recalculation. Only `SetX` notifies: a direct assignment, inside the type or outside it, does not (OQ-28). It warns, through `Std.Meta.Warn`, on a `mut` field writable outside the type. Other macros never see the generated signals (§9.6), so `@Equatable`, `@Display` or `@Json` on the same class ignore them | `IEquatable` on `mut` fields |
+| `@Observable` | On a class: for each `mut` field `X` of type `F`, a method `SetX(value: F)`, marked `@SoleWriter("X")`, that assigns the field and, when the value changed, emits on a generated field `XChanged: Signal<F>` (§15.8); a `stored` getter whose inputs include `X` gets its own signal, which `SetX` emits after the recalculation. Because `SetX` is the field's sole writer, every other assignment to `X` is `MR0253` (§6.11), so no change goes unnotified. Other macros never see the generated signals (§9.6), so `@Equatable`, `@Display` or `@Json` on the same class ignore them | `IEquatable` on `mut` fields |
 | `#Assert(condition)` | An assertion that, on failure, prints the condition's source text and the values of its operands: `assertion failed: total > 0 (total = -3)` | |
 
 A `weak` field is skipped by `Equatable`, `Hashable` and `Comparable`, and printed as `<weak>` by `Display`. These macros read a type's `Fields`; getters are computed from fields, so they are not compared, hashed, printed or serialized.
@@ -2754,8 +2755,8 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-100 | `@From` never marks a field of an `indirect` case, because wrapping it would allocate in an implicit conversion | author | 11.3 |
 | D-101 | State lives in fields: visibility says who reads, `mut` who writes, and `mut(private)`, `mut(ns)` or `mut(internal)` narrows writes; auto-properties, accessor bodies and setters are removed, and a write that does work is a method | user | 6.3, 6.9, 9.5 |
 | D-102 | Effects are inferred per function from capability-marked std functions, charged to the code that performs them, and bounded where written with `uses`; `uses none` means no capability; lint `blocking-in-async` | user | 6.14, 9.7, 14.8, 18.6 |
-| D-103 | `=>` getters are checked to be cheap (no heap allocation, loop, mutation or failure, `MR0251`); a `stored` getter is recalculated when an input is written, and its inputs are writable only inside its type (`MR0252`) | user | 6.9 |
-| D-104 | Change notification is the `@Observable` macro over `Signal<T>`, not a language feature; cached `memo` getters are post-MVP | user | 9.9, 15.8 |
+| D-103 | `=>` getters and index `get` accessors are checked to be cheap (no heap allocation, loop, mutation or failure, `MR0251`), and indexers keep `get` and `set` accessors in the MVP; a `stored` getter is recalculated when an input is written, and its inputs are writable only inside its type (`MR0252`) | user | 6.9 |
+| D-104 | Change notification is the `@Observable` macro over `Signal<T>`, not a language feature; its generated `SetX` is marked `@SoleWriter`, so any other assignment to an observed field is `MR0253`; cached `memo` getters are post-MVP | user | 6.11, 9.9, 15.8 |
 
 ## 24. Open questions
 
@@ -2786,8 +2787,6 @@ Source: **user** means decided by the project owner in the design discussion; **
 | OQ-24 | Default hash function for `Dictionary` and `HashSet`: speed against resistance to hash flooding for string keys | Keyed fast hash, `Hasher.Strong` available | M5 |
 | OQ-25 | Is `scoped` a keyword that checks the fact, or only a hover annotation? | Hover only in the MVP | M7 |
 | OQ-26 | Is the boxed future spelled `Future<T>` or `any IFuture<T>`? | `Future<T>` | M6 |
-| OQ-27 | Do indexers move to the model of D-101, with a getter and a write method instead of `get` and `set` accessors? | Indexers keep accessors | M3 |
-| OQ-28 | Should a write to an `@Observable` field that bypasses `SetX` notify, through a write hook the compiler provides to macros, or be an error? | It does not notify | M5 |
 
 ## 25. References
 

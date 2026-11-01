@@ -936,7 +936,7 @@ Done when:
 | [M5.10](#m510-json-values-parser-and-writer) | JSON values, parser and writer | `std` | M5.5 |
 | [M5.11](#m511-the-json-macro) | The `@Json` macro | `std` | M5.10, M4.9 |
 | [M5.12](#m512-testing-library-and-mora-test) | Testing library and `mora test` | `cli` | M5.7 |
-| [M5.13](#m513-signals) | Signals | `std` | M5.4, M2.10 |
+| [M5.13](#m513-signals-and-observable) | Signals and `@Observable` | `std` | M5.4, M2.10, M4.9 |
 | [M5.14](#m514-standard-library-api-reference) | Standard library API reference | `docs` | M5.12 |
 
 ### M5.1 Standard library internals
@@ -1070,15 +1070,17 @@ Done when:
 
 - A project with a passing, a failing, a panicking and an ignored test prints `Passed: 1, Failed: 2, Ignored: 1` and exits 1.
 
-### M5.13 Signals
+### M5.13 Signals and `@Observable`
 
-Spec: [§15.8](docs/design/mora.md#158-events). Crates: `std`. Blocked by: M5.4, M2.10.
+Spec: [§15.8](docs/design/mora.md#158-events), [§9.9](docs/design/mora.md#99-standard-library-macros), [§6.11](docs/design/mora.md#611-attributes). Crates: `std`, `mora-hir`. Blocked by: M5.4, M2.10, M4.9.
 
-`Signal<T>`, `Subscribe(move Action<T>)` returning a unique `Subscription`, `SubscribeWeak`, and `Emit`.
+`Signal<T>`, `Subscribe(move handler: (T) => ())` returning a unique `Subscription`, `SubscribeWeak`, and `Emit`. The `@Observable` macro (D-104) and the `@SoleWriter` attribute with `MR0253`.
 
 Done when:
 
 - Dropping the subscription stops delivery; a weak subscriber that died is skipped and removed.
+- `SetX` on an `@Observable` class emits `XChanged` only when the value changed, and the signal of a `stored` getter that reads `X` after it.
+- UI test: assigning an observed field outside `SetX`, inside or outside the class, is `MR0253` with a fix that calls `SetX`.
 
 ### M5.14 Standard library API reference
 
