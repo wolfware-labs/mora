@@ -1114,7 +1114,7 @@ let status = switch (store.Find(id)) {
 | Member | `{ Name: "Ada", Age: > 18 }`, `{ } x` | Members match nested patterns; `{ }` matches any value other than `none` |
 | List | `[1, 2, .. let rest]`, `[_, _]` | Arrays, lists and spans by length and elements |
 
-`e is pattern` is a `bool` expression; bindings in it are definitely assigned where the expression is known to be true, as in C#.
+`e is pattern` is a `bool` expression; bindings in it are definitely assigned where the expression is known to be true.
 
 **Exhaustiveness.** A `switch` over a type with finitely many shapes (`bool`, enums without `@Flags`, unions, options, results, tuples of those) MUST cover every value. The compiler checks this with the usefulness algorithm of Maranget (§25). Error `MR0170` lists one missing value, for example `missing case: Rect(_, _)`. An arm that can never match is warning `MR2010`. Matching on integers or strings requires a `_` arm unless the patterns cover every value (for example all 256 `byte` values).
 
