@@ -783,8 +783,8 @@ Built-in attributes other than macros and `Test`: `@Cfg` with `Os`, `Arch`, `Deb
 
 Done when:
 
-- A `[Cfg(Os = "windows")]` function compiles only on Windows CI.
-- `[Deny("MR2002")]` turns the warning into an error.
+- A `@Cfg(Os = "windows")` function compiles only on Windows CI.
+- `@Deny("MR2002")` turns the warning into an error.
 
 ### M3.16 Platform capabilities and standard library layers
 
