@@ -85,6 +85,8 @@ fn identifiers() {
     assert_eq!(tokens("cafe\u{301}"), [(K::Ident, "cafe\u{301}")]);
     assert_eq!(ident_name("cafe\u{301}"), ident_name("caf\u{e9}"));
     assert!(matches!(ident_name("caf\u{e9}"), Cow::Borrowed(_)));
+    assert_eq!(ident_name("cafe\u{301}"), "caf\u{e9}");
+    assert_eq!(ident_name("_x9"), "_x9");
 }
 
 #[test]

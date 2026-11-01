@@ -433,3 +433,11 @@ fn a_parenthesized_lambda_is_not_a_cast() {
         "CallExpr(ParenExpr(LambdaExpr(LambdaParamList(LambdaParam(Name)), P)))"
     );
 }
+
+// scan_type: a named tuple element skips its name only before `:`.
+
+#[test]
+fn a_parenthesized_type_argument_opens_generic_arguments() {
+    // A comparison chain would be `BinExpr(BinExpr(P, ParenExpr(P)), ParenExpr(P))`.
+    assert_eq!(shape("F<(A)>(x)"), "CallExpr(P)");
+}
