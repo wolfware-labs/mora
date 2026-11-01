@@ -1,4 +1,4 @@
-SourceFile@0..387
+SourceFile@0..386
   StructDecl@0..42
     Modifier@0..6
       PublicKw@0..6 "public"
@@ -80,7 +80,7 @@ SourceFile@0..387
         PredefinedType@116..122
           StringKw@116..122 "string"
       RParen@122..123 ")"
-    Newline@123..124 "\n"
+    Whitespace@123..124 " "
     MemberList@124..162
       LBrace@124..125 "{"
       Newline@125..126 "\n"
@@ -109,7 +109,7 @@ SourceFile@0..387
       RBrace@161..162 "}"
   Newline@162..163 "\n"
   Newline@163..164 "\n"
-  UnionDecl@164..329
+  UnionDecl@164..328
     Modifier@164..170
       PublicKw@164..170 "public"
     Whitespace@170..171 " "
@@ -117,8 +117,8 @@ SourceFile@0..387
     Whitespace@176..177 " "
     Name@177..181
       Ident@177..181 "Json"
-    Newline@181..182 "\n"
-    UnionBody@182..329
+    Whitespace@181..182 " "
+    UnionBody@182..328
       LBrace@182..183 "{"
       Newline@183..184 "\n"
       Whitespace@184..188 "    "
@@ -144,130 +144,128 @@ SourceFile@0..387
       Comma@215..216 ","
       Newline@216..217 "\n"
       Whitespace@217..221 "    "
-      UnionCase@221..252
-        Attribute@221..230
-          LBracket@221..222 "["
-          AttributeItem@222..229
-            Path@222..229
-              PathSegment@222..229
-                NameRef@222..229
-                  Ident@222..229 "Default"
-          RBracket@229..230 "]"
-        Whitespace@230..231 " "
-        Name@231..237
-          Ident@231..237 "Number"
-        ParamList@237..252
-          LParen@237..238 "("
-          Param@238..251
-            Name@238..243
-              Ident@238..243 "Value"
-            Colon@243..244 ":"
-            Whitespace@244..245 " "
-            PredefinedType@245..251
-              DoubleKw@245..251 "double"
-          RParen@251..252 ")"
-      Comma@252..253 ","
-      Newline@253..254 "\n"
-      Whitespace@254..258 "    "
-      UnionCase@258..291
-        IndirectKw@258..266 "indirect"
-        Whitespace@266..267 " "
-        Name@267..272
-          Ident@267..272 "Array"
-        ParamList@272..291
-          LParen@272..273 "("
-          Param@273..290
-            Name@273..278
-              Ident@273..278 "Items"
-            Colon@278..279 ":"
-            Whitespace@279..280 " "
-            PathType@280..290
-              Path@280..290
-                PathSegment@280..290
-                  NameRef@280..284
-                    Ident@280..284 "List"
-                  GenericArgList@284..290
-                    Lt@284..285 "<"
-                    PathType@285..289
-                      Path@285..289
-                        PathSegment@285..289
-                          NameRef@285..289
-                            Ident@285..289 "Json"
-                    Gt@289..290 ">"
-          RParen@290..291 ")"
-      Semicolon@291..292 ";"
+      UnionCase@221..251
+        Attribute@221..229
+          At@221..222 "@"
+          Path@222..229
+            PathSegment@222..229
+              NameRef@222..229
+                Ident@222..229 "Default"
+        Whitespace@229..230 " "
+        Name@230..236
+          Ident@230..236 "Number"
+        ParamList@236..251
+          LParen@236..237 "("
+          Param@237..250
+            Name@237..242
+              Ident@237..242 "Value"
+            Colon@242..243 ":"
+            Whitespace@243..244 " "
+            PredefinedType@244..250
+              DoubleKw@244..250 "double"
+          RParen@250..251 ")"
+      Comma@251..252 ","
+      Newline@252..253 "\n"
+      Whitespace@253..257 "    "
+      UnionCase@257..290
+        IndirectKw@257..265 "indirect"
+        Whitespace@265..266 " "
+        Name@266..271
+          Ident@266..271 "Array"
+        ParamList@271..290
+          LParen@271..272 "("
+          Param@272..289
+            Name@272..277
+              Ident@272..277 "Items"
+            Colon@277..278 ":"
+            Whitespace@278..279 " "
+            PathType@279..289
+              Path@279..289
+                PathSegment@279..289
+                  NameRef@279..283
+                    Ident@279..283 "List"
+                  GenericArgList@283..289
+                    Lt@283..284 "<"
+                    PathType@284..288
+                      Path@284..288
+                        PathSegment@284..288
+                          NameRef@284..288
+                            Ident@284..288 "Json"
+                    Gt@288..289 ">"
+          RParen@289..290 ")"
+      Semicolon@290..291 ";"
+      Newline@291..292 "\n"
       Newline@292..293 "\n"
-      Newline@293..294 "\n"
-      Whitespace@294..298 "    "
-      PropertyDecl@298..327
-        Modifier@298..304
-          PublicKw@298..304 "public"
-        Whitespace@304..305 " "
-        Name@305..311
-          Ident@305..311 "IsNull"
-        Colon@311..312 ":"
-        Whitespace@312..313 " "
-        PredefinedType@313..317
-          BoolKw@313..317 "bool"
-        Whitespace@317..318 " "
-        ExprBody@318..326
-          FatArrow@318..320 "=>"
-          Whitespace@320..321 " "
-          LiteralExpr@321..326
-            FalseKw@321..326 "false"
-        Semicolon@326..327 ";"
-      Newline@327..328 "\n"
-      RBrace@328..329 "}"
+      Whitespace@293..297 "    "
+      PropertyDecl@297..326
+        Modifier@297..303
+          PublicKw@297..303 "public"
+        Whitespace@303..304 " "
+        Name@304..310
+          Ident@304..310 "IsNull"
+        Colon@310..311 ":"
+        Whitespace@311..312 " "
+        PredefinedType@312..316
+          BoolKw@312..316 "bool"
+        Whitespace@316..317 " "
+        ExprBody@317..325
+          FatArrow@317..319 "=>"
+          Whitespace@319..320 " "
+          LiteralExpr@320..325
+            FalseKw@320..325 "false"
+        Semicolon@325..326 ";"
+      Newline@326..327 "\n"
+      RBrace@327..328 "}"
+  Newline@328..329 "\n"
   Newline@329..330 "\n"
-  Newline@330..331 "\n"
-  EnumDecl@331..386
-    EnumKw@331..335 "enum"
-    Whitespace@335..336 " "
-    Name@336..341
-      Ident@336..341 "Color"
-    Whitespace@341..342 " "
-    EnumBase@342..348
-      Colon@342..343 ":"
-      Whitespace@343..344 " "
-      PredefinedType@344..348
-        ByteKw@344..348 "byte"
-    Whitespace@348..349 " "
-    EnumBody@349..386
-      LBrace@349..350 "{"
-      Whitespace@350..351 " "
-      EnumMember@351..354
-        Name@351..354
-          Ident@351..354 "Red"
-      Comma@354..355 ","
-      Whitespace@355..356 " "
-      EnumMember@356..365
-        Name@356..361
-          Ident@356..361 "Green"
-        Whitespace@361..362 " "
-        Eq@362..363 "="
-        Whitespace@363..364 " "
-        LiteralExpr@364..365
-          IntNumber@364..365 "2"
-      Comma@365..366 ","
-      Whitespace@366..367 " "
-      EnumMember@367..383
-        Name@367..371
-          Ident@367..371 "Blue"
-        Whitespace@371..372 " "
-        Eq@372..373 "="
-        Whitespace@373..374 " "
-        BinExpr@374..383
-          PathExpr@374..379
-            Path@374..379
-              PathSegment@374..379
-                NameRef@374..379
-                  Ident@374..379 "Green"
-          Whitespace@379..380 " "
-          Plus@380..381 "+"
-          Whitespace@381..382 " "
-          LiteralExpr@382..383
-            IntNumber@382..383 "1"
-      Comma@383..384 ","
-      Whitespace@384..385 " "
-      RBrace@385..386 "}"
-  Newline@386..387 "\n"
+  EnumDecl@330..385
+    EnumKw@330..334 "enum"
+    Whitespace@334..335 " "
+    Name@335..340
+      Ident@335..340 "Color"
+    Whitespace@340..341 " "
+    EnumBase@341..347
+      Colon@341..342 ":"
+      Whitespace@342..343 " "
+      PredefinedType@343..347
+        ByteKw@343..347 "byte"
+    Whitespace@347..348 " "
+    EnumBody@348..385
+      LBrace@348..349 "{"
+      Whitespace@349..350 " "
+      EnumMember@350..353
+        Name@350..353
+          Ident@350..353 "Red"
+      Comma@353..354 ","
+      Whitespace@354..355 " "
+      EnumMember@355..364
+        Name@355..360
+          Ident@355..360 "Green"
+        Whitespace@360..361 " "
+        Eq@361..362 "="
+        Whitespace@362..363 " "
+        LiteralExpr@363..364
+          IntNumber@363..364 "2"
+      Comma@364..365 ","
+      Whitespace@365..366 " "
+      EnumMember@366..382
+        Name@366..370
+          Ident@366..370 "Blue"
+        Whitespace@370..371 " "
+        Eq@371..372 "="
+        Whitespace@372..373 " "
+        BinExpr@373..382
+          PathExpr@373..378
+            Path@373..378
+              PathSegment@373..378
+                NameRef@373..378
+                  Ident@373..378 "Green"
+          Whitespace@378..379 " "
+          Plus@379..380 "+"
+          Whitespace@380..381 " "
+          LiteralExpr@381..382
+            IntNumber@381..382 "1"
+      Comma@382..383 ","
+      Whitespace@383..384 " "
+      RBrace@384..385 "}"
+  Newline@385..386 "\n"

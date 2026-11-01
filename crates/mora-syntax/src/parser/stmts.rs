@@ -58,16 +58,20 @@ fn statement_inner(p: &mut Parser<'_>) {
         K::BreakKw => keyword_stmt(p, K::BreakKw, K::BreakStmt),
         K::ContinueKw => keyword_stmt(p, K::ContinueKw, K::ContinueStmt),
         K::ReturnKw => return_stmt(p),
-        K::SwitchKw if p.nth(1) == K::LParen => switch_stmt(p),
+        K::SwitchKw => {
+            let m = p.start();
+            exprs::switch_head(p);
+            m.complete(p, K::SwitchStmt);
+        }
         K::UnsafeKw if p.nth(1) == K::LBrace => {
             let m = p.start();
             p.bump(K::UnsafeKw);
             block(p);
             m.complete(p, K::UnsafeStmt);
         }
-        K::LBracket if items::at_attribute(p) => {
+        K::At => {
             let m = p.start();
-            while p.at(K::LBracket) {
+            while p.at(K::At) {
                 items::attribute(p);
             }
             statement(p);
@@ -146,7 +150,7 @@ fn return_stmt(p: &mut Parser<'_>) {
 }
 
 /// `( condition )` after `if`, `while` and `switch`.
-fn parenthesized(p: &mut Parser<'_>) {
+pub(crate) fn parenthesized(p: &mut Parser<'_>) {
     p.expect(K::LParen);
     p.lambdas(true, exprs::expr);
     p.expect(K::RParen);
@@ -236,54 +240,4 @@ fn foreach_stmt(p: &mut Parser<'_>) {
     p.expect(K::RParen);
     statement(p);
     m.complete(p, K::ForeachStmt);
-}
-
-/// `switch (x) { case p when g: ... default: ... }` (§7.7).
-fn switch_stmt(p: &mut Parser<'_>) {
-    let m = p.start();
-    p.bump(K::SwitchKw);
-    parenthesized(p);
-    if p.expect(K::LBrace) {
-        while !p.at(K::RBrace) && !p.at_end() {
-            if !p.at(K::CaseKw) && !p.at(K::DefaultKw) {
-                // Statements before the first label: report them once.
-                let e = p.start();
-                p.error("expected `case` or `default`");
-                while !p.at_end() && !p.at_any(&[K::CaseKw, K::DefaultKw, K::RBrace]) {
-                    statement(p);
-                }
-                e.complete(p, K::Error);
-                continue;
-            }
-            switch_section(p);
-        }
-        p.expect(K::RBrace);
-    }
-    m.complete(p, K::SwitchStmt);
-}
-
-fn switch_section(p: &mut Parser<'_>) {
-    let m = p.start();
-    while p.at(K::CaseKw) || (p.at(K::DefaultKw) && p.nth(1) == K::Colon) {
-        let label = p.start();
-        if p.eat(K::DefaultKw) {
-            p.expect(K::Colon);
-            label.complete(p, K::DefaultLabel);
-        } else {
-            p.bump(K::CaseKw);
-            p.lambdas(false, patterns::pattern);
-            if p.at_contextual("when") {
-                patterns::when_clause(p);
-            }
-            p.expect(K::Colon);
-            label.complete(p, K::CaseLabel);
-        }
-    }
-    while !p.at_end()
-        && !p.at_any(&[K::CaseKw, K::RBrace])
-        && !(p.at(K::DefaultKw) && p.nth(1) == K::Colon)
-    {
-        statement(p);
-    }
-    m.complete(p, K::SwitchSection);
 }

@@ -1,5 +1,4 @@
-public class Counter
-{
+public class Counter {
     public Name: string { get; }
     public Step: int { get; private set; } = 1;
     public Doubled: int => Step * 2;
@@ -7,8 +6,7 @@ public class Counter
     mut _count: int;
     mut _peak: int = 0;
 
-    public Counter(name: string, step: int)
-    {
+    public Counter(name: string, step: int) {
         Name = name;
     }
 
@@ -26,13 +24,17 @@ public class Counter
 
     public Max<T>(a: T, b: T): T where T : IComparable<T> => a;
 
-    public Add(in other: Counter, ref total: int, out seen: int, params rest: ReadOnlySpan<int>, port: int = 80) { }
+    public Add(in other: Counter, ref total: int, params rest: ReadOnlySpan<int>, port: int = 80) { }
+
+    public Sort(compare: (int, int) => int, done: () => ()) { }
+
+    public OnTick: ((int) => ());
+
+    public Pair(): (int, int) => (1, 2);
 
     public static operator +(a: Counter, b: Counter): Counter => a;
 
-    public static operator >=(a: Counter, b: Counter): bool => true;
-
-    public static implicit operator string(c: Counter) => c.Name;
+    public static operator -(a: Counter): Counter => a;
 
     IShape.Area(): float => 0.0f;
 
@@ -43,7 +45,6 @@ public class Counter
     public async Load(id: UserId): Result<User, E> { }
 }
 
-public unique class Connection
-{
+public unique class Connection {
     public Close() { }
 }

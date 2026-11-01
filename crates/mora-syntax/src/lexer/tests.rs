@@ -46,7 +46,7 @@ fn every_keyword_and_punctuation_lexes_as_itself() {
         assert_eq!(tokens(text), [(kind, text)], "{text}");
         assert!(errors(text).is_empty(), "{text}");
     }
-    assert_eq!(SyntaxKind::KEYWORDS.len(), 73);
+    assert_eq!(SyntaxKind::KEYWORDS.len(), 70);
 }
 
 #[test]
@@ -62,20 +62,31 @@ fn contextual_keywords_are_identifiers() {
 #[test]
 fn identifiers() {
     assert_eq!(
-        tokens("_x9 @class café 𝑥 _"),
+        tokens("_x9 café 𝑥 _"),
         [
             (K::Ident, "_x9"),
-            (K::Ident, "@class"),
             (K::Ident, "café"),
             (K::Ident, "𝑥"),
             (K::Ident, "_"),
         ]
     );
-    assert_eq!(ident_name("@class"), "class");
+    // `@` is the attribute sign, never part of a name, so a keyword after
+    // it stays a keyword (§3.3).
+    assert_eq!(
+        tokens("@class @Json"),
+        [
+            (K::At, "@"),
+            (K::ClassKw, "class"),
+            (K::At, "@"),
+            (K::Ident, "Json")
+        ]
+    );
     // `é` precomposed and as `e` plus a combining acute accent.
     assert_eq!(tokens("cafe\u{301}"), [(K::Ident, "cafe\u{301}")]);
     assert_eq!(ident_name("cafe\u{301}"), ident_name("caf\u{e9}"));
     assert!(matches!(ident_name("caf\u{e9}"), Cow::Borrowed(_)));
+    assert_eq!(ident_name("cafe\u{301}"), "caf\u{e9}");
+    assert_eq!(ident_name("_x9"), "_x9");
 }
 
 #[test]

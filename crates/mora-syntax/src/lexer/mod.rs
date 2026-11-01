@@ -134,15 +134,14 @@ impl Lexed {
     }
 }
 
-/// The name an identifier token declares or refers to: without its `@`
-/// prefix and in Unicode normalization form C, so that two spellings that
-/// differ only in normalization name the same thing (§3.1, §3.3).
+/// The name an identifier token declares or refers to, in Unicode
+/// normalization form C, so that two spellings that differ only in
+/// normalization name the same thing (§3.1, §3.3).
 pub fn ident_name(text: &str) -> Cow<'_, str> {
-    let name = text.strip_prefix('@').unwrap_or(text);
-    if is_nfc(name) {
-        Cow::Borrowed(name)
+    if is_nfc(text) {
+        Cow::Borrowed(text)
     } else {
-        Cow::Owned(name.nfc().collect())
+        Cow::Owned(text.nfc().collect())
     }
 }
 
@@ -491,19 +490,12 @@ impl<'a> Lexer<'a> {
             self.block_comment();
             return;
         }
-        let ident_at = usize::from(c == '@');
-        if rest[ident_at..].chars().next().is_some_and(is_ident_start) {
-            let start = ident_at;
-            let len = start
-                + rest[start..]
-                    .char_indices()
-                    .find(|&(i, c)| i > 0 && !is_ident_continue(c))
-                    .map_or(rest.len() - start, |(i, _)| i);
-            let kind = if ident_at == 0 {
-                SyntaxKind::keyword(&rest[..len]).unwrap_or(SyntaxKind::Ident)
-            } else {
-                SyntaxKind::Ident
-            };
+        if is_ident_start(c) {
+            let len = rest
+                .char_indices()
+                .find(|&(i, c)| i > 0 && !is_ident_continue(c))
+                .map_or(rest.len(), |(i, _)| i);
+            let kind = SyntaxKind::keyword(&rest[..len]).unwrap_or(SyntaxKind::Ident);
             self.push(kind, len);
             return;
         }

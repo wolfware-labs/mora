@@ -1,12 +1,12 @@
 //! Expressions (§7), by Pratt parsing over the precedence table of §7.1.
 //!
 //! Each level has a binding power, tightest last. Binary operators,
-//! `is`/`as`, `switch`/`with`, ranges, the conditional operator and
+//! `is`/`as`, `with`, ranges, the conditional operator and
 //! assignment all go through [`expr_bp`]; unary operators, casts and
 //! `await` through [`unary`]; member access, calls, indexing, `++`/`--` and
 //! propagation through [`postfix`].
 
-use super::types::{self, PREDEFINED, scan_type};
+use super::types::{self, PREDEFINED, scan_type_no_fn};
 use super::{CompletedMarker, Input, Parser, items, patterns, stmts};
 use crate::SyntaxKind;
 
@@ -29,7 +29,7 @@ const ASSIGN: u8 = 1;
 const CONDITIONAL: u8 = 2;
 const COALESCE: u8 = 3;
 const RELATIONAL: u8 = 10;
-const SWITCH_WITH: u8 = 14;
+const WITH: u8 = 14;
 const RANGE: u8 = 15;
 
 /// Binary operators and their binding power. `??` associates to the
@@ -132,6 +132,7 @@ pub(crate) fn at_expr_start(p: &Parser<'_>) -> bool {
                 | K::DotDot
                 | K::AsyncKw
                 | K::StaticKw
+                | K::SwitchKw
         )
 }
 
@@ -173,13 +174,7 @@ fn expr_bp(p: &mut Parser<'_>, min: u8) -> Option<CompletedMarker> {
             is_range = true;
             continue;
         }
-        if min <= SWITCH_WITH && p.at(K::SwitchKw) {
-            let m = lhs.precede(p);
-            switch_expr_body(p);
-            lhs = m.complete(p, K::SwitchExpr);
-            continue;
-        }
-        if min <= SWITCH_WITH && p.at_contextual("with") && p.nth(1) == K::LBrace {
+        if min <= WITH && p.at_contextual("with") && p.nth(1) == K::LBrace {
             let m = lhs.precede(p);
             p.bump_remap(K::WithKw);
             object_initializer(p);
@@ -328,7 +323,7 @@ fn unary_with(p: &mut Parser<'_>, propagate: bool) -> Option<CompletedMarker> {
 fn at_cast(p: &Parser<'_>) -> bool {
     let input = p.input();
     let at = p.pos();
-    let Some(end) = scan_type(input, at + 1) else {
+    let Some(end) = scan_type_no_fn(input, at + 1) else {
         return false;
     };
     if input.kind(end) != K::RParen {
@@ -365,7 +360,7 @@ fn at_lambda(p: &Parser<'_>) -> bool {
         return false;
     }
     match p.current() {
-        K::Ident => p.nth(1) == K::FatArrow,
+        K::Ident => matches!(p.nth(1), K::FatArrow | K::ThinArrow),
         K::AsyncKw | K::StaticKw => true,
         K::LBracket => matches!(p.nth(1), K::WeakKw | K::MoveKw),
         K::LParen => {
@@ -378,7 +373,7 @@ fn at_lambda(p: &Parser<'_>) -> bool {
                     K::RParen => {
                         depth -= 1;
                         if depth == 0 {
-                            return input.kind(i + 1) == K::FatArrow;
+                            return matches!(input.kind(i + 1), K::FatArrow | K::ThinArrow);
                         }
                     }
                     _ if i >= input.len() => return false,
@@ -437,7 +432,7 @@ fn lambda(p: &mut Parser<'_>) -> CompletedMarker {
         types::name(p);
         param.complete(p, K::LambdaParam);
     }
-    p.expect(K::FatArrow);
+    types::arrow(p);
     if p.at(K::LBrace) {
         stmts::block(p);
     } else {
@@ -449,7 +444,7 @@ fn lambda(p: &mut Parser<'_>) -> CompletedMarker {
 /// `x: int`, `x`, `ref x: int`, `x: int = 0`.
 fn lambda_param(p: &mut Parser<'_>) {
     let m = p.start();
-    while p.at_any(&[K::RefKw, K::InKw, K::OutKw, K::MoveKw, K::ParamsKw]) {
+    while p.at_any(&[K::RefKw, K::InKw, K::MoveKw, K::ParamsKw]) {
         let modifier = p.start();
         p.bump_any();
         modifier.complete(p, K::Modifier);
@@ -531,6 +526,10 @@ fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
             }
             m.complete(p, K::DefaultExpr)
         }
+        K::SwitchKw => {
+            switch_head(p);
+            m.complete(p, K::SwitchExpr)
+        }
         K::SizeofKw => {
             p.bump(K::SizeofKw);
             p.expect(K::LParen);
@@ -569,7 +568,7 @@ fn quote(p: &mut Parser<'_>) {
     p.bump(K::LParen);
     let input = p.input();
     let at = p.pos();
-    let is_type = scan_type(input, at).is_some_and(|end| {
+    let is_type = scan_type_no_fn(input, at).is_some_and(|end| {
         input.kind(end) == K::RParen
             && (PREDEFINED.contains(&input.kind(at))
                 || input.kind(at) == K::LParen
@@ -671,26 +670,36 @@ fn propagation(p: &mut Parser<'_>, mut lhs: CompletedMarker) -> CompletedMarker 
     lhs
 }
 
-/// `{ arms }` after `switch` in an expression (§7.7).
-fn switch_expr_body(p: &mut Parser<'_>) {
+/// `switch (x) { arms }`, the same in a statement and in an expression
+/// (§7.7). An arm's value is an expression or a block; a comma separates
+/// arms, and after a block it may be left out.
+pub(crate) fn switch_head(p: &mut Parser<'_>) {
     p.bump(K::SwitchKw);
-    if !p.expect(K::LBrace) {
-        return;
-    }
-    while !p.at(K::RBrace) && !p.at_end() {
-        let arm = p.start();
-        patterns::pattern(p);
-        if p.at_contextual("when") {
-            patterns::when_clause(p);
+    stmts::parenthesized(p);
+    let list = p.start();
+    if p.expect(K::LBrace) {
+        while !p.at(K::RBrace) && !p.at_end() {
+            let arm = p.start();
+            patterns::pattern(p);
+            if p.at_contextual("when") {
+                patterns::when_clause(p);
+            }
+            types::arrow(p);
+            let block = p.at(K::LBrace);
+            if block {
+                stmts::block(p);
+                arm.complete(p, K::SwitchBlockArm);
+            } else {
+                expr(p);
+                arm.complete(p, K::SwitchArm);
+            }
+            if !p.eat(K::Comma) && !block {
+                break;
+            }
         }
-        p.expect(K::FatArrow);
-        expr(p);
-        arm.complete(p, K::SwitchArm);
-        if !p.eat(K::Comma) {
-            break;
-        }
+        p.expect(K::RBrace);
     }
-    p.expect(K::RBrace);
+    list.complete(p, K::SwitchArmList);
 }
 
 pub(crate) fn arg_list(p: &mut Parser<'_>) {
@@ -719,34 +728,11 @@ fn arg_inner(p: &mut Parser<'_>) {
         types::name_ref(p);
         p.bump(K::Colon);
     }
-    let mut mode = false;
-    if p.at_any(&[K::RefKw, K::OutKw, K::InKw, K::MoveKw]) {
+    if p.at_any(&[K::RefKw, K::InKw, K::MoveKw]) {
         p.bump_any();
-        mode = true;
     }
-    if mode && at_decl_expr(p) {
-        decl_expr(p);
-    } else {
-        expr(p);
-    }
+    expr(p);
     m.complete(p, K::Arg);
-}
-
-/// After `out` or `ref`: `var y`, `let y` or `let y: int`, a variable
-/// declared by the call (§7.2, §10.3).
-fn at_decl_expr(p: &Parser<'_>) -> bool {
-    p.at(K::LetKw) || p.at(K::VarKw)
-}
-
-/// At `let` or `var`.
-fn decl_expr(p: &mut Parser<'_>) {
-    let m = p.start();
-    p.bump_any();
-    types::name(p);
-    if p.at(K::Colon) {
-        types::annotation(p);
-    }
-    m.complete(p, K::DeclExpr);
 }
 
 /// `(e)`, `()`, `(a, b)`, `(Id: 1, Name: "a")`. A parenthesized

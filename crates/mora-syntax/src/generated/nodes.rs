@@ -196,7 +196,7 @@ impl AstNode for GenericArgList {
 }
 
 /// ```text
-/// Type = PathType | PredefinedType | ArrayType | OptionalType | TupleType | WeakType | AnyType | SpliceType
+/// Type = PathType | PredefinedType | ArrayType | OptionalType | TupleType | FnType | WeakType | AnyType | SpliceType
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
@@ -205,6 +205,7 @@ pub enum Type {
     ArrayType(ArrayType),
     OptionalType(OptionalType),
     TupleType(TupleType),
+    FnType(FnType),
     WeakType(WeakType),
     AnyType(AnyType),
     SpliceType(SpliceType),
@@ -217,6 +218,7 @@ impl AstNode for Type {
             || ArrayType::can_cast(kind)
             || OptionalType::can_cast(kind)
             || TupleType::can_cast(kind)
+            || FnType::can_cast(kind)
             || WeakType::can_cast(kind)
             || AnyType::can_cast(kind)
             || SpliceType::can_cast(kind)
@@ -239,6 +241,9 @@ impl AstNode for Type {
         if TupleType::can_cast(kind) {
             return TupleType::cast(node).map(Self::TupleType);
         }
+        if FnType::can_cast(kind) {
+            return FnType::cast(node).map(Self::FnType);
+        }
         if WeakType::can_cast(kind) {
             return WeakType::cast(node).map(Self::WeakType);
         }
@@ -258,6 +263,7 @@ impl AstNode for Type {
             Self::ArrayType(it) => it.syntax(),
             Self::OptionalType(it) => it.syntax(),
             Self::TupleType(it) => it.syntax(),
+            Self::FnType(it) => it.syntax(),
             Self::WeakType(it) => it.syntax(),
             Self::AnyType(it) => it.syntax(),
             Self::SpliceType(it) => it.syntax(),
@@ -1125,7 +1131,7 @@ impl AstNode for TypeDecl {
 }
 
 /// ```text
-/// Modifier = kind:('public' | 'internal' | 'private' | 'file' | 'static' | 'mut' | 'unique' | 'shared' | 'ref' | 'async' | 'lazy' | 'const' | 'indirect' | 'extern' | 'move' | 'in' | 'out' | 'params' | 'this' | 'abstract')
+/// Modifier = kind:('public' | 'internal' | 'private' | 'file' | 'static' | 'mut' | 'unique' | 'shared' | 'ref' | 'async' | 'lazy' | 'const' | 'indirect' | 'extern' | 'move' | 'in' | 'params' | 'this' | 'abstract')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Modifier {
@@ -1153,7 +1159,6 @@ impl Modifier {
                 SyntaxKind::ExternKw,
                 SyntaxKind::MoveKw,
                 SyntaxKind::InKw,
-                SyntaxKind::OutKw,
                 SyntaxKind::ParamsKw,
                 SyntaxKind::ThisKw,
                 SyntaxKind::AbstractKw,
@@ -1177,7 +1182,7 @@ impl AstNode for Modifier {
 }
 
 /// ```text
-/// Attribute = '[' AttributeItem (',' AttributeItem)* ','? ']'
+/// Attribute = '@' Path AttributeArgList?
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Attribute {
@@ -1185,46 +1190,9 @@ pub struct Attribute {
 }
 
 impl Attribute {
-    pub fn l_bracket_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::LBracket])
+    pub fn at_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::At])
     }
-    pub fn attribute_item(&self) -> Option<AttributeItem> {
-        support::child(&self.syntax)
-    }
-    pub fn attribute_items(&self) -> AstChildren<AttributeItem> {
-        support::children(&self.syntax)
-    }
-    pub fn comma_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Comma])
-    }
-    pub fn r_bracket_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::RBracket])
-    }
-}
-
-impl AstNode for Attribute {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::Attribute
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// AttributeItem = Path AttributeArgList?
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AttributeItem {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl AttributeItem {
     pub fn path(&self) -> Option<Path> {
         support::child(&self.syntax)
     }
@@ -1233,9 +1201,9 @@ impl AttributeItem {
     }
 }
 
-impl AstNode for AttributeItem {
+impl AstNode for Attribute {
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::AttributeItem
+        kind == SyntaxKind::Attribute
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -1736,7 +1704,7 @@ impl AstNode for MemberList {
 }
 
 /// ```text
-/// Member = FieldDecl | PropertyDecl | IndexerDecl | FunctionDecl | ConstructorDecl | DestructorDecl | OperatorDecl | ConversionOperatorDecl | AssocTypeDecl | StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl | SpliceMember
+/// Member = FieldDecl | PropertyDecl | IndexerDecl | FunctionDecl | ConstructorDecl | DestructorDecl | OperatorDecl | AssocTypeDecl | StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl | SpliceMember
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Member {
@@ -1747,7 +1715,6 @@ pub enum Member {
     ConstructorDecl(ConstructorDecl),
     DestructorDecl(DestructorDecl),
     OperatorDecl(OperatorDecl),
-    ConversionOperatorDecl(ConversionOperatorDecl),
     AssocTypeDecl(AssocTypeDecl),
     StructDecl(StructDecl),
     ClassDecl(ClassDecl),
@@ -1766,7 +1733,6 @@ impl AstNode for Member {
             || ConstructorDecl::can_cast(kind)
             || DestructorDecl::can_cast(kind)
             || OperatorDecl::can_cast(kind)
-            || ConversionOperatorDecl::can_cast(kind)
             || AssocTypeDecl::can_cast(kind)
             || StructDecl::can_cast(kind)
             || ClassDecl::can_cast(kind)
@@ -1798,9 +1764,6 @@ impl AstNode for Member {
         }
         if OperatorDecl::can_cast(kind) {
             return OperatorDecl::cast(node).map(Self::OperatorDecl);
-        }
-        if ConversionOperatorDecl::can_cast(kind) {
-            return ConversionOperatorDecl::cast(node).map(Self::ConversionOperatorDecl);
         }
         if AssocTypeDecl::can_cast(kind) {
             return AssocTypeDecl::cast(node).map(Self::AssocTypeDecl);
@@ -1835,7 +1798,6 @@ impl AstNode for Member {
             Self::ConstructorDecl(it) => it.syntax(),
             Self::DestructorDecl(it) => it.syntax(),
             Self::OperatorDecl(it) => it.syntax(),
-            Self::ConversionOperatorDecl(it) => it.syntax(),
             Self::AssocTypeDecl(it) => it.syntax(),
             Self::StructDecl(it) => it.syntax(),
             Self::ClassDecl(it) => it.syntax(),
@@ -2404,61 +2366,6 @@ impl OperatorDecl {
 impl AstNode for OperatorDecl {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::OperatorDecl
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// ConversionOperatorDecl = Attribute* Modifier* kind:('implicit' | 'explicit') 'operator' Type ParamList (Block | ExprBody ';' | ';')
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ConversionOperatorDecl {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl ConversionOperatorDecl {
-    pub fn attributes(&self) -> AstChildren<Attribute> {
-        support::children(&self.syntax)
-    }
-    pub fn modifiers(&self) -> AstChildren<Modifier> {
-        support::children(&self.syntax)
-    }
-    pub fn kind(&self) -> Option<SyntaxToken> {
-        support::token(
-            &self.syntax,
-            &[SyntaxKind::ImplicitKw, SyntaxKind::ExplicitKw],
-        )
-    }
-    pub fn operator_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::OperatorKw])
-    }
-    pub fn ty(&self) -> Option<Type> {
-        support::child(&self.syntax)
-    }
-    pub fn param_list(&self) -> Option<ParamList> {
-        support::child(&self.syntax)
-    }
-    pub fn block(&self) -> Option<Block> {
-        support::child(&self.syntax)
-    }
-    pub fn expr_body(&self) -> Option<ExprBody> {
-        support::child(&self.syntax)
-    }
-    pub fn semicolon_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Semicolon])
-    }
-}
-
-impl AstNode for ConversionOperatorDecl {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::ConversionOperatorDecl
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -3250,6 +3157,40 @@ impl AstNode for TupleType {
 }
 
 /// ```text
+/// FnType = params:TupleType '=>' ret:Type
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FnType {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl FnType {
+    pub fn params(&self) -> Option<TupleType> {
+        support::child(&self.syntax)
+    }
+    pub fn fat_arrow_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::FatArrow])
+    }
+    pub fn ret(&self) -> Option<Type> {
+        support::child(&self.syntax)
+    }
+}
+
+impl AstNode for FnType {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FnType
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
 /// WeakType = 'weak' Type
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -3858,7 +3799,7 @@ impl AstNode for ReturnStmt {
 }
 
 /// ```text
-/// SwitchStmt = 'switch' '(' scrutinee:Expr ')' '{' SwitchSection* '}'
+/// SwitchStmt = 'switch' '(' scrutinee:Expr ')' SwitchArmList
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SwitchStmt {
@@ -3878,14 +3819,8 @@ impl SwitchStmt {
     pub fn r_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::RParen])
     }
-    pub fn l_brace_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::LBrace])
-    }
-    pub fn switch_sections(&self) -> AstChildren<SwitchSection> {
-        support::children(&self.syntax)
-    }
-    pub fn r_brace_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::RBrace])
+    pub fn switch_arm_list(&self) -> Option<SwitchArmList> {
+        support::child(&self.syntax)
     }
 }
 
@@ -4268,98 +4203,34 @@ impl AstNode for ForInitExprs {
 }
 
 /// ```text
-/// SwitchSection = SwitchLabel SwitchLabel* Stmt*
+/// SwitchArmList = '{' (SwitchArm ',' | SwitchBlockArm ','?)* SwitchArm? '}'
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SwitchSection {
+pub struct SwitchArmList {
     pub(crate) syntax: SyntaxNode,
 }
 
-impl SwitchSection {
-    pub fn switch_label(&self) -> Option<SwitchLabel> {
-        support::child(&self.syntax)
+impl SwitchArmList {
+    pub fn l_brace_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::LBrace])
     }
-    pub fn switch_labels(&self) -> AstChildren<SwitchLabel> {
+    pub fn switch_arms(&self) -> AstChildren<SwitchArm> {
         support::children(&self.syntax)
     }
-    pub fn stmts(&self) -> AstChildren<Stmt> {
+    pub fn switch_block_arms(&self) -> AstChildren<SwitchBlockArm> {
         support::children(&self.syntax)
     }
-}
-
-impl AstNode for SwitchSection {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SwitchSection
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// SwitchLabel = CaseLabel | DefaultLabel
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum SwitchLabel {
-    CaseLabel(CaseLabel),
-    DefaultLabel(DefaultLabel),
-}
-
-impl AstNode for SwitchLabel {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        CaseLabel::can_cast(kind) || DefaultLabel::can_cast(kind)
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        let kind = node.kind();
-        if CaseLabel::can_cast(kind) {
-            return CaseLabel::cast(node).map(Self::CaseLabel);
-        }
-        if DefaultLabel::can_cast(kind) {
-            return DefaultLabel::cast(node).map(Self::DefaultLabel);
-        }
-        None
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        match self {
-            Self::CaseLabel(it) => it.syntax(),
-            Self::DefaultLabel(it) => it.syntax(),
-        }
-    }
-}
-
-/// ```text
-/// CaseLabel = 'case' Pattern WhenClause? ':'
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CaseLabel {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl CaseLabel {
-    pub fn case_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::CaseKw])
-    }
-    pub fn pattern(&self) -> Option<Pattern> {
+    pub fn switch_arm(&self) -> Option<SwitchArm> {
         support::child(&self.syntax)
     }
-    pub fn when_clause(&self) -> Option<WhenClause> {
-        support::child(&self.syntax)
-    }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Colon])
+    pub fn r_brace_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::RBrace])
     }
 }
 
-impl AstNode for CaseLabel {
+impl AstNode for SwitchArmList {
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::CaseLabel
+        kind == SyntaxKind::SwitchArmList
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -4368,143 +4239,6 @@ impl AstNode for CaseLabel {
 
     fn syntax(&self) -> &SyntaxNode {
         &self.syntax
-    }
-}
-
-/// ```text
-/// DefaultLabel = 'default' ':'
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DefaultLabel {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl DefaultLabel {
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::DefaultKw])
-    }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Colon])
-    }
-}
-
-impl AstNode for DefaultLabel {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::DefaultLabel
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// Pattern = ConstantPattern | TypePattern | DeclarationPattern | BindingPattern | DiscardPattern | RelationalPattern | NotPattern | BinPattern | ParenPattern | CasePattern | PositionalPattern | PropertyPattern | ListPattern | SlicePattern
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Pattern {
-    ConstantPattern(ConstantPattern),
-    TypePattern(TypePattern),
-    DeclarationPattern(DeclarationPattern),
-    BindingPattern(BindingPattern),
-    DiscardPattern(DiscardPattern),
-    RelationalPattern(RelationalPattern),
-    NotPattern(NotPattern),
-    BinPattern(BinPattern),
-    ParenPattern(ParenPattern),
-    CasePattern(CasePattern),
-    PositionalPattern(PositionalPattern),
-    PropertyPattern(PropertyPattern),
-    ListPattern(ListPattern),
-    SlicePattern(SlicePattern),
-}
-
-impl AstNode for Pattern {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        ConstantPattern::can_cast(kind)
-            || TypePattern::can_cast(kind)
-            || DeclarationPattern::can_cast(kind)
-            || BindingPattern::can_cast(kind)
-            || DiscardPattern::can_cast(kind)
-            || RelationalPattern::can_cast(kind)
-            || NotPattern::can_cast(kind)
-            || BinPattern::can_cast(kind)
-            || ParenPattern::can_cast(kind)
-            || CasePattern::can_cast(kind)
-            || PositionalPattern::can_cast(kind)
-            || PropertyPattern::can_cast(kind)
-            || ListPattern::can_cast(kind)
-            || SlicePattern::can_cast(kind)
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        let kind = node.kind();
-        if ConstantPattern::can_cast(kind) {
-            return ConstantPattern::cast(node).map(Self::ConstantPattern);
-        }
-        if TypePattern::can_cast(kind) {
-            return TypePattern::cast(node).map(Self::TypePattern);
-        }
-        if DeclarationPattern::can_cast(kind) {
-            return DeclarationPattern::cast(node).map(Self::DeclarationPattern);
-        }
-        if BindingPattern::can_cast(kind) {
-            return BindingPattern::cast(node).map(Self::BindingPattern);
-        }
-        if DiscardPattern::can_cast(kind) {
-            return DiscardPattern::cast(node).map(Self::DiscardPattern);
-        }
-        if RelationalPattern::can_cast(kind) {
-            return RelationalPattern::cast(node).map(Self::RelationalPattern);
-        }
-        if NotPattern::can_cast(kind) {
-            return NotPattern::cast(node).map(Self::NotPattern);
-        }
-        if BinPattern::can_cast(kind) {
-            return BinPattern::cast(node).map(Self::BinPattern);
-        }
-        if ParenPattern::can_cast(kind) {
-            return ParenPattern::cast(node).map(Self::ParenPattern);
-        }
-        if CasePattern::can_cast(kind) {
-            return CasePattern::cast(node).map(Self::CasePattern);
-        }
-        if PositionalPattern::can_cast(kind) {
-            return PositionalPattern::cast(node).map(Self::PositionalPattern);
-        }
-        if PropertyPattern::can_cast(kind) {
-            return PropertyPattern::cast(node).map(Self::PropertyPattern);
-        }
-        if ListPattern::can_cast(kind) {
-            return ListPattern::cast(node).map(Self::ListPattern);
-        }
-        if SlicePattern::can_cast(kind) {
-            return SlicePattern::cast(node).map(Self::SlicePattern);
-        }
-        None
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        match self {
-            Self::ConstantPattern(it) => it.syntax(),
-            Self::TypePattern(it) => it.syntax(),
-            Self::DeclarationPattern(it) => it.syntax(),
-            Self::BindingPattern(it) => it.syntax(),
-            Self::DiscardPattern(it) => it.syntax(),
-            Self::RelationalPattern(it) => it.syntax(),
-            Self::NotPattern(it) => it.syntax(),
-            Self::BinPattern(it) => it.syntax(),
-            Self::ParenPattern(it) => it.syntax(),
-            Self::CasePattern(it) => it.syntax(),
-            Self::PositionalPattern(it) => it.syntax(),
-            Self::PropertyPattern(it) => it.syntax(),
-            Self::ListPattern(it) => it.syntax(),
-            Self::SlicePattern(it) => it.syntax(),
-        }
     }
 }
 
@@ -5138,7 +4872,7 @@ impl AstNode for RangeExpr {
 }
 
 /// ```text
-/// SwitchExpr = scrutinee:Expr 'switch' '{' (SwitchArm (',' SwitchArm)* ','?)? '}'
+/// SwitchExpr = 'switch' '(' scrutinee:Expr ')' SwitchArmList
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SwitchExpr {
@@ -5146,26 +4880,20 @@ pub struct SwitchExpr {
 }
 
 impl SwitchExpr {
-    pub fn scrutinee(&self) -> Option<Expr> {
-        support::child(&self.syntax)
-    }
     pub fn switch_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::SwitchKw])
     }
-    pub fn l_brace_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::LBrace])
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::LParen])
     }
-    pub fn switch_arm(&self) -> Option<SwitchArm> {
+    pub fn scrutinee(&self) -> Option<Expr> {
         support::child(&self.syntax)
     }
-    pub fn switch_arms(&self) -> AstChildren<SwitchArm> {
-        support::children(&self.syntax)
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::RParen])
     }
-    pub fn comma_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Comma])
-    }
-    pub fn r_brace_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::RBrace])
+    pub fn switch_arm_list(&self) -> Option<SwitchArmList> {
+        support::child(&self.syntax)
     }
 }
 
@@ -6087,7 +5815,7 @@ impl AstNode for CollectionElem {
 }
 
 /// ```text
-/// Arg = (name:NameRef ':')? mode:('ref' | 'out' | 'in' | 'move')? (Expr | DeclExpr)
+/// Arg = (name:NameRef ':')? mode:('ref' | 'in' | 'move')? Expr
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Arg {
@@ -6104,18 +5832,10 @@ impl Arg {
     pub fn mode(&self) -> Option<SyntaxToken> {
         support::token(
             &self.syntax,
-            &[
-                SyntaxKind::RefKw,
-                SyntaxKind::OutKw,
-                SyntaxKind::InKw,
-                SyntaxKind::MoveKw,
-            ],
+            &[SyntaxKind::RefKw, SyntaxKind::InKw, SyntaxKind::MoveKw],
         )
     }
     pub fn expr(&self) -> Option<Expr> {
-        support::child(&self.syntax)
-    }
-    pub fn decl_expr(&self) -> Option<DeclExpr> {
         support::child(&self.syntax)
     }
 }
@@ -6123,43 +5843,6 @@ impl Arg {
 impl AstNode for Arg {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::Arg
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// DeclExpr = kw:('let' | 'var') Name (':' Type)?
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DeclExpr {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl DeclExpr {
-    pub fn kw(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::LetKw, SyntaxKind::VarKw])
-    }
-    pub fn name(&self) -> Option<Name> {
-        support::child(&self.syntax)
-    }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Colon])
-    }
-    pub fn ty(&self) -> Option<Type> {
-        support::child(&self.syntax)
-    }
-}
-
-impl AstNode for DeclExpr {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::DeclExpr
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -6205,6 +5888,149 @@ impl AstNode for SwitchArm {
 
     fn syntax(&self) -> &SyntaxNode {
         &self.syntax
+    }
+}
+
+/// ```text
+/// SwitchBlockArm = Pattern WhenClause? '=>' Block
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SwitchBlockArm {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl SwitchBlockArm {
+    pub fn pattern(&self) -> Option<Pattern> {
+        support::child(&self.syntax)
+    }
+    pub fn when_clause(&self) -> Option<WhenClause> {
+        support::child(&self.syntax)
+    }
+    pub fn fat_arrow_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::FatArrow])
+    }
+    pub fn block(&self) -> Option<Block> {
+        support::child(&self.syntax)
+    }
+}
+
+impl AstNode for SwitchBlockArm {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SwitchBlockArm
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
+/// Pattern = ConstantPattern | TypePattern | DeclarationPattern | BindingPattern | DiscardPattern | RelationalPattern | NotPattern | BinPattern | ParenPattern | CasePattern | PositionalPattern | PropertyPattern | ListPattern | SlicePattern
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Pattern {
+    ConstantPattern(ConstantPattern),
+    TypePattern(TypePattern),
+    DeclarationPattern(DeclarationPattern),
+    BindingPattern(BindingPattern),
+    DiscardPattern(DiscardPattern),
+    RelationalPattern(RelationalPattern),
+    NotPattern(NotPattern),
+    BinPattern(BinPattern),
+    ParenPattern(ParenPattern),
+    CasePattern(CasePattern),
+    PositionalPattern(PositionalPattern),
+    PropertyPattern(PropertyPattern),
+    ListPattern(ListPattern),
+    SlicePattern(SlicePattern),
+}
+
+impl AstNode for Pattern {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        ConstantPattern::can_cast(kind)
+            || TypePattern::can_cast(kind)
+            || DeclarationPattern::can_cast(kind)
+            || BindingPattern::can_cast(kind)
+            || DiscardPattern::can_cast(kind)
+            || RelationalPattern::can_cast(kind)
+            || NotPattern::can_cast(kind)
+            || BinPattern::can_cast(kind)
+            || ParenPattern::can_cast(kind)
+            || CasePattern::can_cast(kind)
+            || PositionalPattern::can_cast(kind)
+            || PropertyPattern::can_cast(kind)
+            || ListPattern::can_cast(kind)
+            || SlicePattern::can_cast(kind)
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        let kind = node.kind();
+        if ConstantPattern::can_cast(kind) {
+            return ConstantPattern::cast(node).map(Self::ConstantPattern);
+        }
+        if TypePattern::can_cast(kind) {
+            return TypePattern::cast(node).map(Self::TypePattern);
+        }
+        if DeclarationPattern::can_cast(kind) {
+            return DeclarationPattern::cast(node).map(Self::DeclarationPattern);
+        }
+        if BindingPattern::can_cast(kind) {
+            return BindingPattern::cast(node).map(Self::BindingPattern);
+        }
+        if DiscardPattern::can_cast(kind) {
+            return DiscardPattern::cast(node).map(Self::DiscardPattern);
+        }
+        if RelationalPattern::can_cast(kind) {
+            return RelationalPattern::cast(node).map(Self::RelationalPattern);
+        }
+        if NotPattern::can_cast(kind) {
+            return NotPattern::cast(node).map(Self::NotPattern);
+        }
+        if BinPattern::can_cast(kind) {
+            return BinPattern::cast(node).map(Self::BinPattern);
+        }
+        if ParenPattern::can_cast(kind) {
+            return ParenPattern::cast(node).map(Self::ParenPattern);
+        }
+        if CasePattern::can_cast(kind) {
+            return CasePattern::cast(node).map(Self::CasePattern);
+        }
+        if PositionalPattern::can_cast(kind) {
+            return PositionalPattern::cast(node).map(Self::PositionalPattern);
+        }
+        if PropertyPattern::can_cast(kind) {
+            return PropertyPattern::cast(node).map(Self::PropertyPattern);
+        }
+        if ListPattern::can_cast(kind) {
+            return ListPattern::cast(node).map(Self::ListPattern);
+        }
+        if SlicePattern::can_cast(kind) {
+            return SlicePattern::cast(node).map(Self::SlicePattern);
+        }
+        None
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            Self::ConstantPattern(it) => it.syntax(),
+            Self::TypePattern(it) => it.syntax(),
+            Self::DeclarationPattern(it) => it.syntax(),
+            Self::BindingPattern(it) => it.syntax(),
+            Self::DiscardPattern(it) => it.syntax(),
+            Self::RelationalPattern(it) => it.syntax(),
+            Self::NotPattern(it) => it.syntax(),
+            Self::BinPattern(it) => it.syntax(),
+            Self::ParenPattern(it) => it.syntax(),
+            Self::CasePattern(it) => it.syntax(),
+            Self::PositionalPattern(it) => it.syntax(),
+            Self::PropertyPattern(it) => it.syntax(),
+            Self::ListPattern(it) => it.syntax(),
+            Self::SlicePattern(it) => it.syntax(),
+        }
     }
 }
 

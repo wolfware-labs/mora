@@ -180,8 +180,6 @@ pub enum SyntaxKind {
     BreakKw,
     /// The keyword `byte`.
     ByteKw,
-    /// The keyword `case`.
-    CaseKw,
     /// The keyword `char`.
     CharKw,
     /// The keyword `class`.
@@ -200,8 +198,6 @@ pub enum SyntaxKind {
     ElseKw,
     /// The keyword `enum`.
     EnumKw,
-    /// The keyword `explicit`.
-    ExplicitKw,
     /// The keyword `extern`.
     ExternKw,
     /// The keyword `false`.
@@ -214,8 +210,6 @@ pub enum SyntaxKind {
     ForeachKw,
     /// The keyword `if`.
     IfKw,
-    /// The keyword `implicit`.
-    ImplicitKw,
     /// The keyword `import`.
     ImportKw,
     /// The keyword `in`.
@@ -416,8 +410,6 @@ pub enum SyntaxKind {
     Modifier,
     /// A `Attribute` node.
     Attribute,
-    /// A `AttributeItem` node.
-    AttributeItem,
     /// A `AttributeArgList` node.
     AttributeArgList,
     /// A `AttributeArg` node.
@@ -456,8 +448,6 @@ pub enum SyntaxKind {
     DestructorDecl,
     /// A `OperatorDecl` node.
     OperatorDecl,
-    /// A `ConversionOperatorDecl` node.
-    ConversionOperatorDecl,
     /// A `AssocTypeDecl` node.
     AssocTypeDecl,
     /// A `SpliceMember` node.
@@ -498,6 +488,8 @@ pub enum SyntaxKind {
     OptionalType,
     /// A `TupleType` node.
     TupleType,
+    /// A `FnType` node.
+    FnType,
     /// A `WeakType` node.
     WeakType,
     /// A `AnyType` node.
@@ -552,12 +544,8 @@ pub enum SyntaxKind {
     ForUpdate,
     /// A `ForInitExprs` node.
     ForInitExprs,
-    /// A `SwitchSection` node.
-    SwitchSection,
-    /// A `CaseLabel` node.
-    CaseLabel,
-    /// A `DefaultLabel` node.
-    DefaultLabel,
+    /// A `SwitchArmList` node.
+    SwitchArmList,
     /// A `WhenClause` node.
     WhenClause,
     /// A `LiteralExpr` node.
@@ -638,10 +626,10 @@ pub enum SyntaxKind {
     CollectionElem,
     /// A `Arg` node.
     Arg,
-    /// A `DeclExpr` node.
-    DeclExpr,
     /// A `SwitchArm` node.
     SwitchArm,
+    /// A `SwitchBlockArm` node.
+    SwitchBlockArm,
     /// A `ObjectInitializer` node.
     ObjectInitializer,
     /// A `CaptureList` node.
@@ -779,7 +767,6 @@ impl SyntaxKind {
         BoolKw,
         BreakKw,
         ByteKw,
-        CaseKw,
         CharKw,
         ClassKw,
         ConstKw,
@@ -789,14 +776,12 @@ impl SyntaxKind {
         DoubleKw,
         ElseKw,
         EnumKw,
-        ExplicitKw,
         ExternKw,
         FalseKw,
         FloatKw,
         ForKw,
         ForeachKw,
         IfKw,
-        ImplicitKw,
         ImportKw,
         InKw,
         IndirectKw,
@@ -897,7 +882,6 @@ impl SyntaxKind {
         FieldDecl,
         Modifier,
         Attribute,
-        AttributeItem,
         AttributeArgList,
         AttributeArg,
         BaseList,
@@ -917,7 +901,6 @@ impl SyntaxKind {
         ConstructorDecl,
         DestructorDecl,
         OperatorDecl,
-        ConversionOperatorDecl,
         AssocTypeDecl,
         SpliceMember,
         ExprBody,
@@ -938,6 +921,7 @@ impl SyntaxKind {
         ArrayType,
         OptionalType,
         TupleType,
+        FnType,
         WeakType,
         AnyType,
         SpliceType,
@@ -965,9 +949,7 @@ impl SyntaxKind {
         ElseClause,
         ForUpdate,
         ForInitExprs,
-        SwitchSection,
-        CaseLabel,
-        DefaultLabel,
+        SwitchArmList,
         WhenClause,
         LiteralExpr,
         InterpString,
@@ -1008,8 +990,8 @@ impl SyntaxKind {
         TupleElem,
         CollectionElem,
         Arg,
-        DeclExpr,
         SwitchArm,
+        SwitchBlockArm,
         ObjectInitializer,
         CaptureList,
         LambdaParam,
@@ -1103,7 +1085,6 @@ impl SyntaxKind {
         BoolKw,
         BreakKw,
         ByteKw,
-        CaseKw,
         CharKw,
         ClassKw,
         ConstKw,
@@ -1113,14 +1094,12 @@ impl SyntaxKind {
         DoubleKw,
         ElseKw,
         EnumKw,
-        ExplicitKw,
         ExternKw,
         FalseKw,
         FloatKw,
         ForKw,
         ForeachKw,
         IfKw,
-        ImplicitKw,
         ImportKw,
         InKw,
         IndirectKw,
@@ -1282,7 +1261,6 @@ impl SyntaxKind {
             BoolKw => "bool",
             BreakKw => "break",
             ByteKw => "byte",
-            CaseKw => "case",
             CharKw => "char",
             ClassKw => "class",
             ConstKw => "const",
@@ -1292,14 +1270,12 @@ impl SyntaxKind {
             DoubleKw => "double",
             ElseKw => "else",
             EnumKw => "enum",
-            ExplicitKw => "explicit",
             ExternKw => "extern",
             FalseKw => "false",
             FloatKw => "float",
             ForKw => "for",
             ForeachKw => "foreach",
             IfKw => "if",
-            ImplicitKw => "implicit",
             ImportKw => "import",
             InKw => "in",
             IndirectKw => "indirect",
@@ -1392,7 +1368,6 @@ impl SyntaxKind {
             "bool" => BoolKw,
             "break" => BreakKw,
             "byte" => ByteKw,
-            "case" => CaseKw,
             "char" => CharKw,
             "class" => ClassKw,
             "const" => ConstKw,
@@ -1402,14 +1377,12 @@ impl SyntaxKind {
             "double" => DoubleKw,
             "else" => ElseKw,
             "enum" => EnumKw,
-            "explicit" => ExplicitKw,
             "extern" => ExternKw,
             "false" => FalseKw,
             "float" => FloatKw,
             "for" => ForKw,
             "foreach" => ForeachKw,
             "if" => IfKw,
-            "implicit" => ImplicitKw,
             "import" => ImportKw,
             "in" => InKw,
             "indirect" => IndirectKw,
