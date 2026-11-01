@@ -110,7 +110,7 @@ registry! {
     MR0144 = 144: "memberwise `new T { ... }` where a field without an initializer is not visible",
     MR0145 = 145: "`[Test]` outside a `test` section",
     MR0150 = 150: "a union contains itself without `indirect`",
-    MR0151 = 151: "`@From` on a field of an `indirect` case",
+    MR0151 = 151: "`@From` on a field of an `indirect` case or of a case of an `indirect union`",
     MR0161 = 161: "`r?.Name` on a `Result`: member access after propagation needs parentheses",
     MR0162 = 162: "member access on an optional value",
     MR0170 = 170: "a switch that is not exhaustive",
