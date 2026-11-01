@@ -96,16 +96,6 @@ pub enum ItemKind {
     Field,
 }
 
-impl ItemKind {
-    /// Whether the item is a type, which can contain other items.
-    pub fn is_type(self) -> bool {
-        matches!(
-            self,
-            Self::Struct | Self::Class | Self::Union | Self::Enum | Self::Interface
-        )
-    }
-}
-
 /// Who can see a declaration (§4.5), narrowest first, so the effective
 /// visibility of a nested item is the minimum along its parents.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

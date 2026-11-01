@@ -612,9 +612,13 @@ fn entry_points() {
             codes(diagnostics(&db, project)),
         )
     };
-    let (point, reported) = entry(&[("src/Program.mr", "let x = 1;\n")]);
+    let (point, reported) = entry(&[("src/Program.mr", "let x = 1;\nHelper() {}\n")]);
     assert!(matches!(point, EntryPoint::Statements(_)), "{point:?}");
     assert!(reported.is_empty());
+
+    // Only a function counts, not a type named `Main`.
+    let (point, _) = entry(&[("src/Program.mr", "let x = 1;\nclass Main {}\n")]);
+    assert!(matches!(point, EntryPoint::Statements(_)), "{point:?}");
 
     let (point, reported) = entry(&[("src/App.mr", "class App {\n    static Main() {}\n}\n")]);
     assert!(matches!(point, EntryPoint::Main(_)), "{point:?}");
@@ -664,4 +668,193 @@ fn the_fix_for_a_hidden_item_marks_it_internal() {
     let edit = &fix.edits[0];
     assert_eq!(edit.replacement, "internal ");
     assert_eq!(u32::from(edit.span.range.start()), 6);
+}
+
+/// The text a diagnostic's primary span covers.
+fn primary_text(db: &TestDb, project: Project, diagnostic: &Diagnostic) -> String {
+    let file = project
+        .files(db)
+        .iter()
+        .find(|file| file.id(db) == diagnostic.primary.span.file)
+        .unwrap();
+    file.text(db)[diagnostic.primary.span.range].to_owned()
+}
+
+#[test]
+fn a_misplaced_statement_is_reported_where_it_starts() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[
+            ("src/Program.mr", "let x = 1;\n"),
+            ("src/Util.mr", "class A {}\n\nSetup();\nlet y = 2;\n"),
+        ],
+    );
+    let reported = diagnostics(&db, project);
+    assert_eq!(codes(reported), ["MR0125"]);
+    assert_eq!(primary_text(&db, project, &reported[0]), "Setup();");
+}
+
+#[test]
+fn duplicate_declarations_are_named_with_their_kind() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[
+            ("src/Program.mr", "using UsersApi.Store.Item;\n"),
+            ("src/Store/A.mr", "internal struct Item {}\n"),
+            ("src/Store/B.mr", "internal class Item {}\n"),
+        ],
+    );
+    let reported = diagnostics(&db, project);
+    assert_eq!(codes(reported), ["MR0128"]);
+    assert_eq!(reported[0].message, "`Item` is ambiguous");
+    assert_eq!(
+        reported[0].note.as_deref(),
+        Some(
+            "it could be the struct `UsersApi.Store.Item` or the class `UsersApi.Store.Item`; \
+             rename one of them"
+        )
+    );
+    assert_eq!(reported[0].secondary.len(), 2);
+}
+
+#[test]
+fn an_unknown_member_names_what_it_was_looked_up_in() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[
+            (
+                "src/Program.mr",
+                "using UsersApi.Store.UserStore.Missing;\nusing UsersApi.Run.X;\n",
+            ),
+            (
+                "src/Store/UserStore.mr",
+                "internal class UserStore {\n    internal class Entry {}\n}\n",
+            ),
+            ("src/Run.mr", "Run() {}\n"),
+        ],
+    );
+    let messages: Vec<_> = diagnostics(&db, project)
+        .iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(
+        messages,
+        [
+            "cannot find `Missing` in `UsersApi.Store.UserStore`",
+            "cannot find `X` in `UsersApi.Run`",
+        ]
+    );
+    assert_eq!(
+        resolve(&db, project, "src/Program.mr", "Store.UserStore.Entry"),
+        Ok("UsersApi.Store.Entry".into())
+    );
+}
+
+#[test]
+fn using_static_opens_the_nested_types() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[
+            ("src/Program.mr", "using static UsersApi.Store.UserStore;\n"),
+            (
+                "src/Store/UserStore.mr",
+                "internal class UserStore {\n    internal class Entry {}\n}\n",
+            ),
+        ],
+    );
+    assert_eq!(
+        resolve(&db, project, "src/Program.mr", "Entry"),
+        Ok("UsersApi.Store.Entry".into())
+    );
+}
+
+#[test]
+fn an_alias_to_overloads_keeps_only_the_visible_ones() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[
+            ("src/Program.mr", ""),
+            ("src/A/Run.mr", "internal Run() {}\n"),
+            (
+                "src/A/Other.mr",
+                "global using R = UsersApi.A.Run;\nglobal using H = UsersApi.A.Hide;\n\
+                 file Run(x: int) {}\nfile Hide() {}\n",
+            ),
+        ],
+    );
+    assert_eq!(
+        resolve(&db, project, "src/Program.mr", "R"),
+        Ok("1 functions".into())
+    );
+    assert_eq!(
+        resolve(&db, project, "src/Program.mr", "H"),
+        Err("hidden: UsersApi.A.Hide".into())
+    );
+}
+
+#[test]
+fn the_fix_replaces_a_narrower_modifier() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[
+            (
+                "src/Program.mr",
+                "using UsersApi.Store.Open.Inner;\nusing UsersApi.Store.Open.Local;\n",
+            ),
+            (
+                "src/Store/Types.mr",
+                "internal class Open {\n    class Inner {}\n    file class Local {}\n}\n",
+            ),
+        ],
+    );
+    let reported = diagnostics(&db, project);
+    assert_eq!(codes(reported), ["MR0129", "MR0129"]);
+    let edit = |index: usize| {
+        let edit = &reported[index].fixes[0].edits[0];
+        (edit.replacement.as_str(), edit.span.range.len().into())
+    };
+    assert_eq!(edit(0), ("internal ", 0u32));
+    assert_eq!(edit(1), ("internal", 4u32));
+    assert_eq!(
+        reported[0].message,
+        "`Inner` is visible only in `UsersApi.Store`, not in `UsersApi`"
+    );
+    assert_eq!(
+        reported[1].message,
+        "`Local` is visible only in `src/Store/Types.mr`"
+    );
+}
+
+#[test]
+fn a_dependency_item_that_is_not_public_gets_a_public_fix() {
+    let db = TestDb::new();
+    let core = db.project(
+        "core",
+        ProjectKind::Lib,
+        &[("src/Text/Lexer.mr", "internal class Lexer {}\n")],
+        Vec::new(),
+    );
+    let project = db.project(
+        "users-api",
+        ProjectKind::App,
+        &[("src/Program.mr", "using Core.Text.Lexer;\n")],
+        vec![Dependency {
+            name: "Core".into(),
+            project: core,
+        }],
+    );
+    let reported = diagnostics(&db, project);
+    assert_eq!(codes(reported), ["MR0129"]);
+    assert_eq!(
+        reported[0].message,
+        "`Lexer` is not public, so `UsersApi` cannot see it"
+    );
+    assert_eq!(reported[0].fixes[0].message, "mark `Lexer` `public`");
+    assert_eq!(reported[0].fixes[0].edits[0].replacement, "public");
 }

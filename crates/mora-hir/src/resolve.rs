@@ -171,11 +171,10 @@ fn member(
 ) -> Result<Resolved, ResolveErrorKind> {
     let found = match current {
         Resolved::Namespace(namespace) => namespace_members(db, *namespace, name, true),
-        Resolved::Item(item) if item_data(db, *item).kind.is_type() => {
-            type_members(db, *item, name)
-        }
+        // Only types have members, so this is empty for any other item.
+        Resolved::Item(item) => type_members(db, *item, name),
         Resolved::External => return Ok(Resolved::External),
-        Resolved::Item(_) | Resolved::Functions(_) => Vec::new(),
+        Resolved::Functions(_) => Vec::new(),
     };
     let mut hidden = None;
     match pick(db, scope, found, &mut hidden)? {
@@ -262,7 +261,8 @@ fn namespace_members(
     found
 }
 
-/// The nested types and functions named `name` in a type.
+/// The nested types and functions named `name` in a type; none for an
+/// item that is not a type.
 fn type_members(db: &dyn Db, ty: ItemId, name: &str) -> Vec<Resolved> {
     let tree = item_tree(db, ty.file);
     tree.item(ty.item)
@@ -338,9 +338,8 @@ pub(crate) fn imports(db: &dyn Db, project: Project, file: SourceFile) -> Import
                 (None, false, Resolved::Namespace(namespace)) => {
                     imports.namespaces.push(namespace);
                 }
-                (None, true, Resolved::Item(ty)) if item_data(db, ty).kind.is_type() => {
-                    imports.types.push(ty);
-                }
+                // An item that is not a type has no members, so it opens nothing.
+                (None, true, Resolved::Item(ty)) => imports.types.push(ty),
                 _ => {}
             }
         }

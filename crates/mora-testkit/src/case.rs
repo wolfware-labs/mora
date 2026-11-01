@@ -98,18 +98,16 @@ pub fn split(path: &str, text: &str) -> Result<Case, String> {
             }
         }
     }
-    match current {
-        Some(file) => case.files.push(file),
-        None if case.files.is_empty() => {
-            case.files.push(CaseFile {
-                shown: path.to_owned(),
-                path: case.entry.clone(),
-                text: text.to_owned(),
-            });
-            return Ok(case);
-        }
-        None => {}
-    }
+    // Once a `//@ file` line is seen, a file is always open.
+    let Some(last) = current else {
+        case.files.push(CaseFile {
+            shown: path.to_owned(),
+            path: case.entry.clone(),
+            text: text.to_owned(),
+        });
+        return Ok(case);
+    };
+    case.files.push(last);
     let preamble_has_code = text
         .lines()
         .take_while(|line| !line.trim().starts_with(FILE))
@@ -187,6 +185,20 @@ mod tests {
                 ("src/Store/A.mr", "class A {}\n")
             ]
         );
+    }
+
+    #[test]
+    fn every_project_key_is_read() {
+        let text = "//@ project kind=lib\n//@ project kind=app namespace=Acme.Users\n";
+        let case = split("a.mr", text).unwrap();
+        assert_eq!(case.kind, ProjectKind::App);
+        assert_eq!(case.namespace.as_deref(), Some("Acme.Users"));
+    }
+
+    #[test]
+    fn problems_name_their_line() {
+        let error = split("a.mr", "// one\n// two\n//@ file A.mr\n").unwrap_err();
+        assert!(error.starts_with("line 3: "), "{error}");
     }
 
     #[test]

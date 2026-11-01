@@ -171,31 +171,20 @@ fn not_visible(db: &dyn Db, scope: Scope, name: &str, span: Span, item: ItemId) 
         .with_note(note)
         .with_fix(Fix::new(
             format!("mark `{name}` `{keyword}`"),
-            widen(db, item, wanted),
+            vec![widen(db, item, wanted)],
         ))
 }
 
-/// The edits that give `item` and each type around it at least `wanted`.
-fn widen(db: &dyn Db, item: ItemId, wanted: Visibility) -> Vec<TextEdit> {
-    let tree = item_tree(db, item.file);
-    let map = item_source_map(db, item.file);
+/// The edit that gives `item` the visibility `wanted`. Only the item needs
+/// it: a type around it that the use cannot see fails the lookup first.
+fn widen(db: &dyn Db, item: ItemId, wanted: Visibility) -> TextEdit {
+    let source = item_source_map(db, item.file).item(item.item);
     let file = item.file.id(db);
     let keyword = wanted.keyword().unwrap_or_default();
-    let mut edits = Vec::new();
-    let mut at = Some(item.item);
-    while let Some(idx) = at {
-        let data = tree.item(idx);
-        if data.visibility < wanted {
-            let source = map.item(idx);
-            edits.push(match source.visibility {
-                Some(range) => TextEdit::replace(Span::new(file, range), keyword),
-                None => TextEdit::insert(file, source.modifiers_start, format!("{keyword} ")),
-            });
-        }
-        at = data.parent;
+    match source.visibility {
+        Some(range) => TextEdit::replace(Span::new(file, range), keyword),
+        None => TextEdit::insert(file, source.modifiers_start, format!("{keyword} ")),
     }
-    edits.reverse();
-    edits
 }
 
 fn item_name_span(db: &dyn Db, item: ItemId) -> Span {
