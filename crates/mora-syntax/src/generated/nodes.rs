@@ -3033,7 +3033,7 @@ impl AstNode for KindConstraint {
 }
 
 /// ```text
-/// AllowsConstraint = 'allows' 'move'? 'ref'? 'struct'?
+/// AllowsConstraint = 'allows' ('move' | 'ref' 'struct')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AllowsConstraint {

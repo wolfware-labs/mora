@@ -97,7 +97,7 @@ pub(crate) fn at_type_start(p: &Parser<'_>) -> bool {
 
 /// Whether `any` at `at` starts an `any I` type: the word `any` followed by
 /// a name.
-fn at_any(input: &Input<'_>, at: usize) -> bool {
+pub(crate) fn at_any(input: &Input<'_>, at: usize) -> bool {
     input.text(at) == "any" && input.kind(at + 1) == K::Ident
 }
 

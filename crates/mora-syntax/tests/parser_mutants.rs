@@ -182,6 +182,11 @@ fn a_quote_holds_a_type_only_when_it_cannot_be_an_expression() {
         shape("code(int.MaxValue)"),
         "QuoteExpr(MemberExpr(PredefinedTypeExpr(PredefinedType), NameRef))"
     );
+    assert_eq!(
+        shape("code(any IShape)"),
+        "QuoteExpr(AnyType(PathType(Path(PathSegment(NameRef)))))"
+    );
+    assert_eq!(errors("let t = code(any IShape);"), Vec::<String>::new());
 }
 
 // array_size and new_expr: an array is created with a size, never with

@@ -573,6 +573,7 @@ fn quote(p: &mut Parser<'_>) {
         input.kind(end) == K::RParen
             && (PREDEFINED.contains(&input.kind(at))
                 || input.kind(at) == K::LParen
+                || types::at_any(input, at)
                 || (at..end).any(|i| matches!(input.kind(i), K::Lt | K::Question | K::LBracket)))
     });
     if is_type {

@@ -335,7 +335,7 @@ KindConstraint =
 
 // `where T : allows move`, `where T : allows ref struct`: a widening (§8.2)
 AllowsConstraint =
-  'allows' 'move'? 'ref'? 'struct'?
+  'allows' ('move' | 'ref' 'struct')
 
 //*************************//
 //      Types (§5)         //
