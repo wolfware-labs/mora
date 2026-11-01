@@ -144,7 +144,7 @@ fn first_segment(
             found.extend(namespace_members(db, namespace, name, false));
         }
         for &ty in &imports.types {
-            found.extend(type_members(db, ty, name));
+            found.extend(static_members(db, ty, name));
         }
         if let Some(found) = pick(db, scope, found, &mut hidden)? {
             return Ok(found);
@@ -273,8 +273,24 @@ fn type_members(db: &dyn Db, ty: ItemId, name: &str) -> Vec<Resolved> {
         .collect()
 }
 
+/// What `using static` opens of a type (§4.3): its nested types and its
+/// `static` functions, never its instance methods.
+fn static_members(db: &dyn Db, ty: ItemId, name: &str) -> Vec<Resolved> {
+    let tree = item_tree(db, ty.file);
+    tree.item(ty.item)
+        .members
+        .iter()
+        .filter(|&&member| {
+            let data = tree.item(member);
+            data.name == name && (data.kind != ItemKind::Function || data.is_static)
+        })
+        .map(|&member| Resolved::Item(ItemId { item: member, ..ty }))
+        .collect()
+}
+
 /// The global names that match: the first segment of the project's root
-/// namespace, a dependency, or `Std` while the standard library is not loaded.
+/// namespace, a dependency, or `Std` while the standard library is not
+/// loaded and the project is not the standard library itself.
 fn global_names(db: &dyn Db, project: Project, name: &str) -> Vec<Resolved> {
     let map = def_map(db, project);
     let mut found = Vec::new();
@@ -286,7 +302,8 @@ fn global_names(db: &dyn Db, project: Project, name: &str) -> Vec<Resolved> {
     }
     if let Some(namespace) = dependency(db, project, name) {
         found.push(Resolved::Namespace(namespace));
-    } else if name == STD {
+    } else if name == STD && found.is_empty() {
+        // The standard library's own root namespace is `Std` too.
         found.push(Resolved::External);
     }
     found

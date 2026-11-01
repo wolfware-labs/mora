@@ -773,6 +773,26 @@ fn using_static_opens_the_nested_types() {
 }
 
 #[test]
+fn using_static_opens_static_functions_but_not_instance_methods() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[
+            ("src/Program.mr", "using static UsersApi.Store.UserStore;\n"),
+            (
+                "src/Store/UserStore.mr",
+                "internal class UserStore {\n    internal static Create() {}\n    internal Add() {}\n}\n",
+            ),
+        ],
+    );
+    assert_eq!(
+        resolve(&db, project, "src/Program.mr", "Create"),
+        Ok("1 functions".into())
+    );
+    assert!(resolve(&db, project, "src/Program.mr", "Add").is_err());
+}
+
+#[test]
 fn an_alias_to_overloads_keeps_only_the_visible_ones() {
     let db = TestDb::new();
     let project = app(
@@ -857,4 +877,194 @@ fn a_dependency_item_that_is_not_public_gets_a_public_fix() {
     );
     assert_eq!(reported[0].fixes[0].message, "mark `Lexer` `public`");
     assert_eq!(reported[0].fixes[0].edits[0].replacement, "public");
+}
+
+#[test]
+fn a_dotted_root_namespace_is_a_chain() {
+    let db = TestDb::new();
+    let file = db.file("src/Store/A.mr", "internal class A {}\n");
+    let project = Project::new(
+        &db,
+        "users".into(),
+        vec![file],
+        "Acme.Users".into(),
+        ProjectKind::Lib,
+        "src/Program.mr".into(),
+        Vec::new(),
+    );
+    let map = def_map(&db, project);
+    assert_eq!(map.namespace(map.outermost()).name, "Acme");
+    assert_eq!(map.namespace_path(map.root()), "Acme.Users");
+    assert_eq!(
+        resolve(&db, project, "src/Store/A.mr", "Acme.Users.Store.A"),
+        Ok("Acme.Users.Store.A".into())
+    );
+}
+
+#[test]
+fn the_standard_library_names_itself() {
+    let db = TestDb::new();
+    let std = db.project(
+        "std",
+        ProjectKind::Lib,
+        &[("src/Text/Builder.mr", "public class Builder {}\n")],
+        Vec::new(),
+    );
+    assert_eq!(
+        resolve(&db, std, "src/Text/Builder.mr", "Std.Text.Builder"),
+        Ok("Std.Text.Builder".into())
+    );
+}
+
+#[test]
+fn item_trees_keep_every_kind_of_declaration() {
+    let db = TestDb::new();
+    let file = db.file(
+        "src/A.mr",
+        "union Shape { Circle(r: float), Square(side: float); static Unit(): Shape => Circle(1.0); }\n\
+         interface IShape {\n    Area(): float;\n}\n\
+         macro Log(x: Expr) {\n}\n\
+         extension (s: Shape) {\n}\n\
+         class Square {\n    IShape.Area(): float => 1.0;\n    X: int;\n}\n",
+    );
+    let tree = item_tree(&db, file);
+    let summary: Vec<_> = tree
+        .items()
+        .map(|(_, item)| (item.name.as_str(), item.kind))
+        .collect();
+    assert_eq!(
+        summary,
+        [
+            ("Shape", ItemKind::Union),
+            ("Unit", ItemKind::Function),
+            ("IShape", ItemKind::Interface),
+            ("Area", ItemKind::Function),
+            ("Log", ItemKind::Macro),
+            ("Square", ItemKind::Class),
+        ]
+    );
+}
+
+#[test]
+fn broken_usings_keep_what_they_name() {
+    let db = TestDb::new();
+    let file = db.file("src/A.mr", "using;\nusing A.;\nusing B.1;\nusing C;\n");
+    let paths: Vec<_> = item_tree(&db, file)
+        .usings()
+        .iter()
+        .map(|using| using.path.join("."))
+        .collect();
+    assert_eq!(paths, ["A", "B", "C"]);
+}
+
+#[test]
+fn an_empty_path_does_not_resolve() {
+    let db = TestDb::new();
+    let project = app(&db, &[("src/Program.mr", "")]);
+    let scope = Scope {
+        project,
+        file: file_named(&db, project, "src/Program.mr"),
+    };
+    let error = resolve_path(&db, scope, &[]).unwrap_err();
+    assert_eq!(error.segment, 0);
+    assert_eq!(error.kind, ResolveErrorKind::Unresolved { within: None });
+}
+
+#[test]
+fn duplicates_in_the_own_namespace_are_ambiguous() {
+    let db = TestDb::new();
+    let project = app(&db, &[("src/Program.mr", "class A {}\nstruct A {}\n")]);
+    assert_eq!(
+        resolve(&db, project, "src/Program.mr", "A"),
+        Err("ambiguous: 2".into())
+    );
+}
+
+#[test]
+fn usings_that_fail_or_name_the_wrong_kind_open_nothing() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[
+            (
+                "src/Program.mr",
+                "using UsersApi.Missing;\nusing UsersApi.Store.Box;\nusing static UsersApi.Store;\n",
+            ),
+            ("src/Store/Box.mr", "internal class Box {}\n"),
+        ],
+    );
+    assert_eq!(codes(diagnostics(&db, project)), ["MR0127"]);
+    assert_eq!(
+        resolve(&db, project, "src/Program.mr", "Box"),
+        Err("unresolved at 0".into())
+    );
+}
+
+#[test]
+fn every_kind_is_named_in_an_ambiguity() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[
+            (
+                "src/Program.mr",
+                "using UsersApi.K.U;\nusing UsersApi.K.I;\nusing UsersApi.K.C;\nusing UsersApi.K.F;\n",
+            ),
+            (
+                "src/K/A.mr",
+                "internal union U { A }\ninternal interface I {}\ninternal const C: int = 1;\n\
+                 internal class F {}\n",
+            ),
+            (
+                "src/K/B.mr",
+                "internal enum U { A }\ninternal macro I(x: Expr) {\n}\ninternal class C {}\n\
+                 internal F() {}\n",
+            ),
+        ],
+    );
+    let notes: Vec<_> = diagnostics(&db, project)
+        .iter()
+        .map(|d| d.note.clone().unwrap())
+        .collect();
+    let prefix = |note: &str| note.split(';').next().unwrap().to_owned();
+    assert_eq!(
+        notes.iter().map(|note| prefix(note)).collect::<Vec<_>>(),
+        [
+            "it could be the union `UsersApi.K.U` or the enum `UsersApi.K.U`",
+            "it could be the interface `UsersApi.K.I` or the macro `UsersApi.K.I`",
+            "it could be the value `UsersApi.K.C` or the class `UsersApi.K.C`",
+            "it could be the class `UsersApi.K.F` or the function `UsersApi.K.F`",
+        ]
+    );
+}
+
+#[test]
+fn different_declarations_ask_for_more_of_the_path() {
+    let db = TestDb::new();
+    let core = db.project(
+        "core",
+        ProjectKind::Lib,
+        &[("src/Text/Parser.mr", "")],
+        Vec::new(),
+    );
+    // A dependency bound to the project's own root name; the manifest
+    // rejects this (MR0501), but resolution must still say something.
+    let project = db.project(
+        "users-api",
+        ProjectKind::App,
+        &[("src/Program.mr", "using UsersApi.Text;\n")],
+        vec![Dependency {
+            name: "UsersApi".into(),
+            project: core,
+        }],
+    );
+    let reported = diagnostics(&db, project);
+    assert_eq!(codes(reported), ["MR0128"]);
+    assert_eq!(
+        reported[0].note.as_deref(),
+        Some(
+            "it could be the namespace `UsersApi` or the namespace `Core`; \
+             write more of the path to choose one"
+        )
+    );
 }

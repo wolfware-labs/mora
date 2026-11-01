@@ -211,6 +211,7 @@ mod tests {
             ("//@ file src/A.mr\n//@ project kind=lib\n", "comes before"),
             ("//@ project kind=exe\n", "`kind` is"),
             ("//@ project color=red\n", "unknown key"),
+            ("//@ project kind\n", "is not `key=value`"),
             ("//@ files src/A.mr\n", "followed by"),
         ];
         for (text, problem) in bad {

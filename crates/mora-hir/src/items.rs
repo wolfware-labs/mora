@@ -112,19 +112,6 @@ pub enum Visibility {
     Public,
 }
 
-impl Visibility {
-    /// The modifier that gives this visibility, `None` for the folder default.
-    pub fn keyword(self) -> Option<&'static str> {
-        match self {
-            Self::Private => Some("private"),
-            Self::File => Some("file"),
-            Self::Folder => None,
-            Self::Internal => Some("internal"),
-            Self::Public => Some("public"),
-        }
-    }
-}
-
 /// A `using` directive (§4.3).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Using {
@@ -223,21 +210,22 @@ struct Decl {
 
 impl Lower {
     fn using(&mut self, using: &ast::UsingDirective) {
-        let Some(path) = using.path() else {
-            return;
-        };
-        let mut segments = Vec::new();
-        let mut ranges = Vec::new();
-        for segment in path.path_segments() {
-            let Some(token) = segment.name_ref().and_then(|name| name.ident_token()) else {
-                return;
-            };
-            segments.push(ident_name(token.text()).into_owned());
-            ranges.push(token.text_range());
-        }
-        if segments.is_empty() {
+        // A directive without a path leaves nothing to resolve; the parser
+        // has reported it.
+        let tokens: Vec<_> = using
+            .path()
+            .into_iter()
+            .flat_map(|path| path.path_segments())
+            .filter_map(|segment| segment.name_ref()?.ident_token())
+            .collect();
+        if tokens.is_empty() {
             return;
         }
+        let segments = tokens
+            .iter()
+            .map(|token| ident_name(token.text()).into_owned())
+            .collect();
+        let ranges = tokens.iter().map(|token| token.text_range()).collect();
         let alias = using
             .using_alias()
             .and_then(|alias| alias.name())
@@ -260,10 +248,7 @@ impl Lower {
         let mut visibility = Visibility::Folder;
         let mut visibility_range = None;
         let mut is_static = false;
-        for modifier in &decl.modifiers {
-            let Some(token) = modifier.kind() else {
-                continue;
-            };
+        for token in decl.modifiers.iter().filter_map(|modifier| modifier.kind()) {
             let written = match token.kind() {
                 SyntaxKind::PrivateKw => Visibility::Private,
                 SyntaxKind::FileKw => Visibility::File,

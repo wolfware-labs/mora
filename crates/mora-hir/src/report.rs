@@ -160,27 +160,22 @@ fn not_visible(db: &dyn Db, scope: Scope, name: &str, span: Span, item: ItemId) 
             "a `private` member is visible only inside its type".to_owned(),
         ),
     };
-    let wanted = if same_project {
-        Visibility::Internal
-    } else {
-        Visibility::Public
-    };
-    let keyword = wanted.keyword().unwrap_or_default();
+    let keyword = if same_project { "internal" } else { "public" };
     Diagnostic::error(codes::MR0129, message, Label::new(span, "not visible here"))
         .with_secondary(Label::new(item_name_span(db, item), "declared here"))
         .with_note(note)
         .with_fix(Fix::new(
             format!("mark `{name}` `{keyword}`"),
-            vec![widen(db, item, wanted)],
+            vec![widen(db, item, keyword)],
         ))
 }
 
-/// The edit that gives `item` the visibility `wanted`. Only the item needs
-/// it: a type around it that the use cannot see fails the lookup first.
-fn widen(db: &dyn Db, item: ItemId, wanted: Visibility) -> TextEdit {
+/// The edit that gives `item` the visibility modifier `keyword`. Only the
+/// item needs it: a type around it that the use cannot see fails the lookup
+/// first.
+fn widen(db: &dyn Db, item: ItemId, keyword: &str) -> TextEdit {
     let source = item_source_map(db, item.file).item(item.item);
     let file = item.file.id(db);
-    let keyword = wanted.keyword().unwrap_or_default();
     match source.visibility {
         Some(range) => TextEdit::replace(Span::new(file, range), keyword),
         None => TextEdit::insert(file, source.modifiers_start, format!("{keyword} ")),
@@ -196,12 +191,12 @@ fn item_name_span(db: &dyn Db, item: ItemId) -> Span {
 
 /// What kind of declaration a path resolved to, for messages.
 fn kind_name(db: &dyn Db, resolved: &Resolved) -> &'static str {
-    let item = match resolved {
+    let kind = match resolved {
         Resolved::Namespace(_) | Resolved::External => return "the namespace",
-        Resolved::Functions(_) => return "the function",
-        Resolved::Item(item) => *item,
+        Resolved::Functions(_) => ItemKind::Function,
+        Resolved::Item(item) => item_tree(db, item.file).item(item.item).kind,
     };
-    match item_tree(db, item.file).item(item.item).kind {
+    match kind {
         ItemKind::Struct => "the struct",
         ItemKind::Class => "the class",
         ItemKind::Union => "the union",

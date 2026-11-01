@@ -179,25 +179,21 @@ impl DefMap {
 #[salsa::tracked(returns(ref))]
 pub fn def_map(db: &dyn Db, project: Project) -> DefMap {
     let mut namespaces = Arena::new();
-    let mut parent = None;
-    let mut outermost = None;
-    for segment in project.root_namespace(db).split('.') {
-        let id = namespaces.alloc(Namespace {
-            name: segment.to_owned(),
-            parent,
-            children: BTreeMap::new(),
-            items: BTreeMap::new(),
-        });
-        if let Some(parent) = parent {
-            namespaces[parent].children.insert(segment.to_owned(), id);
-        }
-        outermost.get_or_insert(id);
-        parent = Some(id);
-    }
-    // `split` yields at least one segment, so both are set.
-    let (Some(outermost), Some(root)) = (outermost, parent) else {
-        unreachable!()
+    let mut segments = project.root_namespace(db).split('.');
+    let namespace = |name: &str, parent| Namespace {
+        name: name.to_owned(),
+        parent,
+        children: BTreeMap::new(),
+        items: BTreeMap::new(),
     };
+    // `split` yields at least one segment.
+    let outermost = namespaces.alloc(namespace(segments.next().unwrap_or_default(), None));
+    let mut root = outermost;
+    for segment in segments {
+        let id = namespaces.alloc(namespace(segment, Some(root)));
+        namespaces[root].children.insert(segment.to_owned(), id);
+        root = id;
+    }
     let mut builder = Builder {
         namespaces,
         folders: BTreeMap::new(),
