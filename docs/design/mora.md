@@ -70,12 +70,15 @@ These would make Mora a failure even if every test passed:
 
 The MVP is done when the program in §2.2, a REST API with JSON request and response bodies, builds with `mora build` into a native executable on Linux, macOS and Windows (x86_64 and aarch64 where §19.1 lists them), passes its integration tests in CI on all three, and a developer new to Mora can install the toolchain with one command, open the project in VS Code and get diagnostics, hover types and go-to-definition.
 
-Two release lines follow from that:
+The release lines follow from that:
 
 | Line | Milestones | Contents |
 |---|---|---|
 | **MVP (v0.1)** | M0 to M7 | Native compilation with Cranelift, the memory model, the expressive core, macros, the standard library core, async with a single-threaded executor, HTTP/1.1 server, JSON, LSP, VS Code extension, formatter, REPL, installers |
-| **Post-MVP (v0.2 and later)** | M8 onwards | WebAssembly target and `.wasm` libraries, packages and URL imports, capability enforcement, threads and `shared` classes, class inheritance, more macro kinds, arenas, registry and signing, LLVM release backend, Component Model, embedded targets |
+| **v0.2** | M8, M9, M16 | WebAssembly target and `.wasm` libraries, a stable plugin ABI, packages from URL and git sources, capability enforcement, semantic diff and semver checks (contracts join in v0.3), editions, `mora query`, `mora context` and `mora mcp` |
+| **v0.3** | M14, M15, M17 | Contract sections, property tests, unit algebra, compile-time evaluation, the simulated World, test caching, record and replay, hot reload, time zones, `@Config`, retry policies |
+| **v0.4** | M10, M11, M18 | Threads and `shared` classes, worker processes, class inheritance, `async?`, more macro kinds, arenas, `decimal`, general reuse, vector types, devirtualization |
+| **v0.5** | M12, M13 | Registry, registry dependencies and signing, LLVM release backend, Component Model, embedded targets |
 
 ### 1.6 How to read this document
 
@@ -923,7 +926,7 @@ The refinement is checked once, where a value is created (`From`, `Parse`, a con
 
 ### 6.13 Contract sections [post-MVP]
 
-A type states the rules of its members in a `contract` section, linked to each member by name, so the rules never sit on the signature line (D-63). The MVP reserves `contract` at section position; the checks arrive in v0.2.
+A type states the rules of its members in a `contract` section, linked to each member by name, so the rules never sit on the signature line (D-63). The MVP reserves `contract` at section position; the checks arrive in v0.3.
 
 ```mora
 public class Account {
@@ -2312,7 +2315,7 @@ test {
 - `Order.tests.mr` next to `Order.mr` is a test section in its entirety, for tests that outgrow the file.
 - Integration tests stay in `tests/*.mr` and see only `public` items (§17.5).
 
-A `@Test` function returns `()`, `Result<(), E>` or, if async, either one. In the MVP it takes no parameters. Parameters with generated inputs, shrinking and contract fuzzing come in v0.2 (§6.13), and the runner is designed for them. `Assert.Equal(expected, actual)`, `Assert.NotEqual`, `Assert.True`, `Assert.False`, `Assert.None`, `Assert.NotNone`, `Assert.Contains` and `Assert.Panics(() => ...)` are in `Std.Testing`. A failed assertion panics with a message that shows both values. `Assert.Panics` runs the closure in a child process (§17.5), since panics abort.
+A `@Test` function returns `()`, `Result<(), E>` or, if async, either one. In the MVP it takes no parameters. Parameters with generated inputs, shrinking and contract fuzzing come in v0.3 (§6.13), and the runner is designed for them. `Assert.Equal(expected, actual)`, `Assert.NotEqual`, `Assert.True`, `Assert.False`, `Assert.None`, `Assert.NotNone`, `Assert.Contains` and `Assert.Panics(() => ...)` are in `Std.Testing`. A failed assertion panics with a message that shows both values. `Assert.Panics` runs the closure in a child process (§17.5), since panics abort.
 
 **Snapshots** (D-114). `Assert.Snapshot(value)` takes a `T : IDisplay` and compares its display text with the file `tests/snapshots/<test>.snap`, where `<test>` is the test's qualified name (§17.5). `Assert.SnapshotJson(value)` takes a `T : IJsonSerialize` and compares its indented JSON (§16.3) instead, so a diff shows one field per line. When a test takes several snapshots, the n-th one from the second on uses `<test>.<n>.snap`. A missing or different file fails the test with a diff, and a `\r\n` line ending compares equal to `\n`. `mora test --bless` writes the files of the tests it runs instead of comparing them. Snapshot files are committed with the code.
 
@@ -2895,12 +2898,17 @@ Mora is built in thin vertical slices: each milestone runs real programs end to 
 | **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `@Json` macro, `Html` and `Url`, logging and tracing, `Secret<T>`, `Report`, `Std.Testing`, `mora test` and `test` sections, insertion-ordered hash tables, collection sizing, SIMD text kernels, bounds-check removal, `mora explain-cost` | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; chains of streaming LINQ operators meet §15.5 with no allocation |
 | **M6: Async and HTTP** | Async lowering, inline futures and pooled task blocks, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server with pooled buffers, routing, results, `HttpError` and error responses from `IError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
 | **M7: Developer experience and v0.1** | Language server with the cost lens, VS Code extension, formatter, REPL, `mora bench`, `mora new` templates, `mora explain` and error pages, documentation site with the language tour, installers, release workflow, budgets | v0.1.0 published on every channel of §19.3; §1.5 holds; budgets of §20.6 measured and either met or revised in this document |
-| M8: WebAssembly and libraries | §18.1 to §18.4 | post-MVP |
-| M9: Packages and capabilities | §18.5, §18.6 | post-MVP |
-| M10: Threads | §12.6, OQ-6, OQ-7 | post-MVP |
-| M11: Language growth | Inheritance, variance, iterators, retroactive implementations, arenas, unsafe, more macro kinds (OQ-3, 4, 5, 9, 11, 13; §9.10) | post-MVP |
-| M12: Registry and signing | §18.7 | post-MVP |
+| M8: WebAssembly and libraries | §18.1 to §18.4, OQ-15, a stable plugin ABI at an opt-in boundary | post-MVP |
+| M9: Packages and capabilities | §18.5 URL and git sources, §18.6, grants narrowed per dependency, sandboxed runs | post-MVP |
+| M10: Threads | §12.6, OQ-1, OQ-6, OQ-7, supervised worker processes | post-MVP |
+| M11: Language growth | Inheritance, variance, iterators, retroactive implementations, arenas, unsafe, `decimal`, `async?`, more macro kinds (OQ-3, 4, 5, 9, 10, 11, 12, 13; §9.10) | post-MVP |
+| M12: Registry and signing | §18.7, registry dependency sources | post-MVP |
 | M13: Backends and targets | LLVM release backend, Component Model, Windows debug info, embedded targets | post-MVP |
+| M14: Contracts and checked types | §6.13, `where` predicates, property tests, unit algebra, compile-time evaluation | post-MVP |
+| M15: Test and run tooling | Simulated World, test caching, record and replay, hot reload | post-MVP |
+| M16: Agent tooling and API evolution | `mora query`, `mora context` and `mora mcp`, JSON Schema, semantic diff and semver (contract changes from M14), editions | post-MVP |
+| M17: Standard library growth | Time zones, `@Config`, retry policies, `Task.Shield` | post-MVP |
+| M18: Optimizer | General reuse, MIR deduplication, vector types, devirtualization, `@NoAlloc` | post-MVP |
 
 ## 23. Decisions register
 
@@ -2970,7 +2978,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-60 | The MVP runtime is thread-ready, not threaded: reference counting has plain and atomic forms, the executor lives in a per-thread context, and `Std` keeps no global mutable state | user | 12.1, 13.3 |
 | D-61 | Values derived from object identity come from a per-process counter, never from an address | user | 6.3 |
 | D-62 | `newtype Name : T is pattern;` declares a new value type with `T`'s layout and an optional pattern refinement checked where values are created | user | 6.12 |
-| D-63 | Contracts live in `contract` sections linked to members by name, never on the signature line; the MVP reserves the word and v0.2 checks them | user | 6.13 |
+| D-63 | Contracts live in `contract` sections linked to members by name, never on the signature line; the MVP reserves the word and v0.3 checks them | user | 6.13 |
 | D-64 | Unit tests live in `test` sections or sibling `.tests.mr` files, compiled only under `mora test` | user | 15.9 |
 | D-65 | A lookup that can miss returns an option and a mutation that can conflict returns `bool`; `dict[key]` is `TValue?`, and `First`, `Last`, `Single` and `ElementAt` return `T?` | user | 15.3, 15.4 |
 | D-66 | One spelling per construct: `readonly`, `static readonly`, `#region`, `new[] { }`, array initializers, several declarators in one declaration, `where T : new()` and `TryParse` are removed | user | 3.2, 4.7, 5.4, 8.2, 15.1 |
@@ -3023,6 +3031,12 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-113 | Each fix carries an applicability, `safe`, `review` or `placeholder`; `mora fix` applies `safe` fixes unless told otherwise and checks again; `mora check --watch` streams diagnostics; JSON output carries a `schema` version and is deterministic; `mora query`, `mora context` and `mora mcp` are post-MVP | user | 17.1, 17.6, 17.10 |
 | D-114 | Doc-comment examples whose first line is `// expect:`, `// error:` or `// warning:` are tests that `mora test` runs; `Assert.Snapshot` compares output with files in `tests/snapshots/`, and `mora test --bless` rewrites them | user | 3.2, 15.9, 17.1, 17.5, 20.4 |
 | D-115 | Every construct parses without types, the ungrammar is the normative grammar and is fuzzed against the parser, the formatter writes the `?` forms of §7.4 one way, implicit steps show as inlay hints, and `mora check` warns about unformatted files (`MR2030`). Amends D-41 | user | 1.6, 14.4, 17.1, 17.7, 17.8, 20.1 |
+| D-116 | Rejected: algebraic effect handlers; resumable handlers need stack capture or CPS, which conflicts with state-machine futures (D-27, D-28) and drop elaboration, and the World plus effect inference cover testing and injection | user | 12.1 |
+| D-117 | Rejected: content-addressed code storage; code stays in text files, and per-definition semantic hashes give provenance and change detection | user | 18.5 |
+| D-118 | Rejected: LLM client, prompt and cost-budget types in the language or std; provider APIs change too often for std, and clients belong in packages | user | 15 |
+| D-119 | Rejected: model-backed or other non-deterministic steps inside the compiler or `mora fix`; a build is a pure function of its inputs, and `mora fix` applies only fixes the compiler generates | user | 17.1 |
+| D-120 | Rejected: database migrations and feature flags as language features; `@Config`, `@Cfg(Feature = ...)` and macros cover what the language owes them | user | 17.2 |
+| D-121 | Rejected: stackful green threads to remove async colouring; async stays stackless (D-27, D-28), and `async?`, `blocking-in-async` and structured concurrency reduce the cost | user | 12.1 |
 
 ## 24. Open questions
 
@@ -3048,7 +3062,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | OQ-19 | Which big-endian target, if any, gets a CI guard (s390x under QEMU is the candidate)? | None | M13 |
 | OQ-20 | Do structs also get generated ordering (`IComparable<T>`, by field order)? | No; `@Comparable` adds it (§9.9) | M4 |
 | OQ-21 | The rules by which the compiler stores a value inline, on the stack or in a heap cell (§6.1, §10.13) | A struct lives inline in its owner and is boxed only as §8.4 says; a class lives on the heap | M2 |
-| OQ-22 | Predicate refinements on newtypes (`where EmailAddress.IsValid(value)`): which functions may a predicate call, and how is that checked? | Only patterns in the MVP (§6.12) | v0.2 |
+| OQ-22 | Predicate refinements on newtypes (`where EmailAddress.IsValid(value)`): which functions may a predicate call, and how is that checked? | Only patterns in the MVP (§6.12) | M14 |
 | OQ-23 | Stack promotion limits: 1 KiB per object and 16 KiB per frame, and the limit inside async states | As in §10.13 | M2 |
 | OQ-24 | Default hash function for `Dictionary` and `HashSet`: speed against resistance to hash flooding for string keys | Keyed fast hash, `Hasher.Strong` available | M5 |
 | OQ-25 | Is `scoped` a keyword that checks the fact, or only a hover annotation? | Hover only in the MVP | M7 |

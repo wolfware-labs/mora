@@ -17,7 +17,12 @@ Companion to [`docs/design/mora.md`](docs/design/mora.md). The spec defines what
 | Line | Milestones | Meaning |
 |---|---|---|
 | **MVP (v0.1)** | M0 to M7 | The REST API of §2.2 builds into a native executable on Linux, macOS and Windows, with editor support and installers |
-| **Post-MVP** | M8 to M13 | Broken into deliverables when each milestone starts, after its spec sections are updated |
+| **v0.2** | M8, M9, M16 | Libraries and packages from URL and git sources, with capability grants, semantic diff and semver checks (contracts join in v0.3), and the rest of the agent toolchain |
+| **v0.3** | M14, M15, M17 | Contracts and property tests, the world simulator, record and replay, hot reload, and standard library growth |
+| **v0.4** | M10, M11, M18 | Threads, language growth and the optimizer passes left after the MVP |
+| **v0.5** | M12, M13 | The package registry with registry dependencies and signing, the LLVM backend and more targets |
+
+Post-MVP milestones are broken into deliverables when each one starts, after its spec sections are updated.
 
 ## M0: Foundations
 
@@ -1471,21 +1476,27 @@ Done when:
 
 Spec: [§1.5](docs/design/mora.md#15-what-the-mvp-is), [§22](docs/design/mora.md#22-roadmap). Crates: repository. Blocked by: M7.5, M7.6, M7.7, M7.9, M7.11, M7.12.
 
-Checks §1.5 end to end on fresh machines, revises the §20.6 budgets with measured values, updates the spec's status line, and publishes v0.1.0.
+Checks §1.5 end to end on fresh machines, revises the §20.6 budgets with measured values, updates the spec's status line, writes the edition policy into the spec, and publishes v0.1.0.
 
 Done when:
 
 - A developer who has not seen Mora installs it, opens §2.2 in VS Code and gets diagnostics, hover and go-to-definition (recorded in the issue).
 - Every channel of §19.3 serves v0.1.0.
+- The spec says what an edition may change, how an edition is chosen in `mora.toml`, and that every edition change ships with a `safe` fix.
 
 ## Post-MVP milestones
 
 | Milestone | Scope | Spec |
 |---|---|---|
-| M8: WebAssembly and libraries | Wasm targets, the `.wasm` library format with `mora.meta`, `mora.ir`, `mora.deps`, `mora.caps` and `mora.abi`, linking modes and ABI checks (OQ-15). | [§18.1](docs/design/mora.md#181-webassembly-target), [§18.2](docs/design/mora.md#182-the-library-format), [§18.3](docs/design/mora.md#183-linking-libraries), [§18.4](docs/design/mora.md#184-abi-stability), [§24](docs/design/mora.md#24-open-questions) |
-| M9: Packages and capabilities | URL, git and registry dependency sources, inline imports in scripts, lockfile hashes, `mora fetch`, and capability grants enforced on wasm and native targets. | [§18.5](docs/design/mora.md#185-imports-manifest-and-lockfile), [§18.6](docs/design/mora.md#186-capabilities) |
-| M10: Threads | `shared` classes with atomic counts, sendable checks, `Thread`, `Task.Run`, `Mutex`, `Atomic`, `Channel`, and a multi-threaded executor (OQ-6, OQ-7, OQ-1). | [§12.6](docs/design/mora.md#126-threads-post-mvp), [§24](docs/design/mora.md#24-open-questions) |
-| M11: Language growth | Class inheritance, variance, `yield return`, retroactive implementations, arenas, allocators, user `unsafe`, `decimal`, and more macro kinds (OQ-3, 4, 5, 9, 10, 11, 12, 13). | [§9.10](docs/design/mora.md#910-not-in-the-mvp), [§10.12](docs/design/mora.md#1012-arenas-post-mvp), [§24](docs/design/mora.md#24-open-questions) |
-| M12: Registry and signing | The package registry, Sigstore-signed publishing, the transparency log and mirrors (OQ-16). | [§18.7](docs/design/mora.md#187-registry), [§24](docs/design/mora.md#24-open-questions) |
+| M8: WebAssembly and libraries | Wasm targets, the `.wasm` library format with `mora.meta`, `mora.ir`, `mora.deps`, `mora.caps` and `mora.abi`, linking modes and ABI checks (OQ-15), and a stable plugin ABI at an opt-in boundary: `[abi] stable` interface packages, `@Frozen` types, and native and Wasm plugins loaded from one interface. | [§18.1](docs/design/mora.md#181-webassembly-target), [§18.2](docs/design/mora.md#182-the-library-format), [§18.3](docs/design/mora.md#183-linking-libraries), [§18.4](docs/design/mora.md#184-abi-stability), [§24](docs/design/mora.md#24-open-questions) |
+| M9: Packages and capabilities | URL and git dependency sources, inline imports in scripts, lockfile hashes, `mora fetch`, and capability grants enforced on wasm and native targets, narrowed per dependency, with sandboxed runs. | [§18.5](docs/design/mora.md#185-imports-manifest-and-lockfile), [§18.6](docs/design/mora.md#186-capabilities) |
+| M10: Threads | `shared` classes with atomic counts, sendable checks, `Thread`, `Task.Run`, `Mutex`, `Atomic`, `Channel`, a multi-threaded executor (OQ-6, OQ-7, OQ-1), and supervised worker processes as a framework option. | [§12.6](docs/design/mora.md#126-threads-post-mvp), [§24](docs/design/mora.md#24-open-questions) |
+| M11: Language growth | Class inheritance, variance, `yield return`, retroactive implementations, arenas, allocators, user `unsafe`, `decimal`, conditionally async higher-order functions (`async?`), and more macro kinds (OQ-3, 4, 5, 9, 10, 11, 12, 13). | [§9.10](docs/design/mora.md#910-not-in-the-mvp), [§10.12](docs/design/mora.md#1012-arenas-post-mvp), [§24](docs/design/mora.md#24-open-questions) |
+| M12: Registry and signing | The package registry and registry dependency sources, Sigstore-signed publishing, the transparency log and mirrors (OQ-16). | [§18.7](docs/design/mora.md#187-registry), [§24](docs/design/mora.md#24-open-questions) |
 | M13: Backends and targets | LLVM release backend, Component Model export, Windows debug information, embedded targets (OQ-2). | [§18.3](docs/design/mora.md#183-linking-libraries), [§19.1](docs/design/mora.md#191-targets), [§24](docs/design/mora.md#24-open-questions) |
+| M14: Contracts and checked types | `contract` sections with `requires`, `fails`, `ensures` and `invariant`, `where` predicates on newtypes, property tests generated from types and contracts, unit algebra, and compile-time evaluation of effect-free functions. | [§6.12](docs/design/mora.md#612-newtypes), [§6.13](docs/design/mora.md#613-contract-sections-post-mvp), [§14.6](docs/design/mora.md#146-constant-evaluation), [§15.9](docs/design/mora.md#159-testing) |
+| M15: Test and run tooling | The simulated World, sound test caching and flaky-test triage from effects, `mora run --record` and `mora replay`, and hot reload of function bodies in dev builds. | [§12.1](docs/design/mora.md#121-execution-model-in-the-mvp), [§15.9](docs/design/mora.md#159-testing), [§17.5](docs/design/mora.md#175-test-runner) |
+| M16: Agent tooling and API evolution | `mora query`, `mora context` and `mora mcp`, JSON Schema from types and `@Tool` signatures as MCP tools, semantic diff with compiler-checked semver (contract changes count once M14 lands), and editions with `mora migrate`. | [§6.14](docs/design/mora.md#614-effects), [§16.3](docs/design/mora.md#163-json-stdjson), [§17.1](docs/design/mora.md#171-commands), [§18.4](docs/design/mora.md#184-abi-stability) |
+| M17: Standard library growth | Time zones and the tz database, typed configuration with `@Config`, `Retry` policies, `@CancelSafe` and `Task.Shield`. | [§12.5](docs/design/mora.md#125-cancellation), [§15.6](docs/design/mora.md#156-console-environment-and-time), [§15.12](docs/design/mora.md#1512-what-is-not-in-the-mvp) |
+| M18: Optimizer | General reuse when unique, merging identical MIR bodies, `Vector128<T>`, closed-world devirtualization of `any I` and function values, and checked `@NoAlloc` and `scoped`. | [§10.13](docs/design/mora.md#1013-what-the-optimizer-guarantees), [§14.19](docs/design/mora.md#1419-reuse-when-unique), [§6.14](docs/design/mora.md#614-effects), [§13.1](docs/design/mora.md#131-the-runtime-library), [§14.14](docs/design/mora.md#1414-linking) |
 
