@@ -75,10 +75,10 @@ The release lines follow from that:
 | Line | Milestones | Contents |
 |---|---|---|
 | **MVP (v0.1)** | M0 to M7 | Native compilation with Cranelift, the memory model, the expressive core, macros, the standard library core, async with a single-threaded executor, HTTP/1.1 server, JSON, LSP, VS Code extension, formatter, REPL, installers |
-| **v0.2** | M8, M9, M16 | WebAssembly target and `.wasm` libraries, a stable plugin ABI, packages and URL imports, capability enforcement, semantic diff and semver checks, editions, `mora query`, `mora context` and `mora mcp` |
+| **v0.2** | M8, M9, M16 | WebAssembly target and `.wasm` libraries, a stable plugin ABI, packages from URL and git sources, capability enforcement, semantic diff and semver checks, editions, `mora query`, `mora context` and `mora mcp` |
 | **v0.3** | M14, M15, M17 | Contract sections, property tests, unit algebra, compile-time evaluation, the simulated World, test caching, record and replay, hot reload, time zones, `@Config`, retry policies |
 | **v0.4** | M10, M11, M18 | Threads and `shared` classes, worker processes, class inheritance, `async?`, more macro kinds, arenas, `decimal`, general reuse, vector types, devirtualization |
-| **v0.5** | M12, M13 | Registry and signing, LLVM release backend, Component Model, embedded targets |
+| **v0.5** | M12, M13 | Registry, registry dependencies and signing, LLVM release backend, Component Model, embedded targets |
 
 ### 1.6 How to read this document
 
@@ -2899,14 +2899,14 @@ Mora is built in thin vertical slices: each milestone runs real programs end to 
 | **M6: Async and HTTP** | Async lowering, inline futures and pooled task blocks, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server with pooled buffers, routing, results, `HttpError` and error responses from `IError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
 | **M7: Developer experience and v0.1** | Language server with the cost lens, VS Code extension, formatter, REPL, `mora bench`, `mora new` templates, `mora explain` and error pages, documentation site with the language tour, installers, release workflow, budgets | v0.1.0 published on every channel of §19.3; §1.5 holds; budgets of §20.6 measured and either met or revised in this document |
 | M8: WebAssembly and libraries | §18.1 to §18.4, OQ-15, a stable plugin ABI at an opt-in boundary | post-MVP |
-| M9: Packages and capabilities | §18.5, §18.6, grants narrowed per dependency, sandboxed runs | post-MVP |
+| M9: Packages and capabilities | §18.5 URL and git sources, §18.6, grants narrowed per dependency, sandboxed runs | post-MVP |
 | M10: Threads | §12.6, OQ-1, OQ-6, OQ-7, supervised worker processes | post-MVP |
 | M11: Language growth | Inheritance, variance, iterators, retroactive implementations, arenas, unsafe, `decimal`, `async?`, more macro kinds (OQ-3, 4, 5, 9, 10, 11, 12, 13; §9.10) | post-MVP |
-| M12: Registry and signing | §18.7 | post-MVP |
+| M12: Registry and signing | §18.7, registry dependency sources | post-MVP |
 | M13: Backends and targets | LLVM release backend, Component Model, Windows debug info, embedded targets | post-MVP |
 | M14: Contracts and checked types | §6.13, `where` predicates, property tests, unit algebra, compile-time evaluation | post-MVP |
 | M15: Test and run tooling | Simulated World, test caching, record and replay, hot reload | post-MVP |
-| M16: Agent tooling and API evolution | `mora query`, `mora context` and `mora mcp`, JSON Schema, semantic diff and semver, editions | post-MVP |
+| M16: Agent tooling and API evolution | `mora query`, `mora context` and `mora mcp`, JSON Schema, semantic diff and semver (contract changes from M14), editions | post-MVP |
 | M17: Standard library growth | Time zones, `@Config`, retry policies, `Task.Shield` | post-MVP |
 | M18: Optimizer | General reuse, MIR deduplication, vector types, devirtualization, `@NoAlloc` | post-MVP |
 
