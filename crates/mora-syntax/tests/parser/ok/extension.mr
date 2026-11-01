@@ -1,0 +1,16 @@
+public extension<T>(list: List<T>) where T : IEquatable<T> {
+    public IsEmpty: bool => list.Count == 0;
+
+    public Second(): T? {
+        if (list.Count < 2) {
+            return none;
+        }
+        return list[1];
+    }
+}
+
+extension(s: string) {
+    Shout(): string => s.ToUpper();
+}
+
+extension(names);

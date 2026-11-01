@@ -134,7 +134,6 @@ const PUNCTUATION: &[(&str, &str)] = &[
     ("DotDot", ".."),
     ("Comma", ","),
     ("Colon", ":"),
-    ("ColonColon", "::"),
     ("Semicolon", ";"),
     ("Question", "?"),
     ("QuestionQuestion", "??"),
@@ -1001,7 +1000,7 @@ mod tests {
     fn the_real_spec_has_both_keyword_lists() {
         let spec = std::fs::read_to_string(crate::root().join(crate::error_codes::SPEC)).unwrap();
         let tokens = Tokens::from_spec(&spec).unwrap();
-        assert_eq!(tokens.keywords.len(), 70);
+        assert_eq!(tokens.keywords.len(), 69);
         assert!(tokens.contextual.contains(&"adds".to_owned()));
     }
 

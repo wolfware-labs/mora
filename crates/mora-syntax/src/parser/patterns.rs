@@ -145,7 +145,7 @@ fn is_pattern_word(text: &str) -> bool {
 /// Whether the type at `at..end` is a dotted name without generic
 /// arguments, `?` or `[]`, which a case pattern starts with.
 fn is_plain_path(input: &super::Input<'_>, at: usize, end: usize) -> bool {
-    (at..end).all(|i| matches!(input.kind(i), K::Ident | K::Dot | K::ColonColon))
+    (at..end).all(|i| matches!(input.kind(i), K::Ident | K::Dot))
 }
 
 /// Whether the type at `at..end` can only be a type: a predefined type
