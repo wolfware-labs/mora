@@ -366,6 +366,8 @@ pub enum SyntaxKind {
     FailsKw,
     /// The contextual keyword `ensures`: an identifier the parser marks in position.
     EnsuresKw,
+    /// The contextual keyword `also`: an identifier the parser marks in position.
+    AlsoKw,
     /// The contextual keyword `old`: an identifier the parser marks in position.
     OldKw,
     /// The contextual keyword `result`: an identifier the parser marks in position.
@@ -874,6 +876,7 @@ impl SyntaxKind {
         RequiresKw,
         FailsKw,
         EnsuresKw,
+        AlsoKw,
         OldKw,
         ResultKw,
         Underscore,
@@ -1201,6 +1204,7 @@ impl SyntaxKind {
         RequiresKw,
         FailsKw,
         EnsuresKw,
+        AlsoKw,
         OldKw,
         ResultKw,
         Underscore,
@@ -1376,6 +1380,7 @@ impl SyntaxKind {
             RequiresKw => "requires",
             FailsKw => "fails",
             EnsuresKw => "ensures",
+            AlsoKw => "also",
             OldKw => "old",
             ResultKw => "result",
             Underscore => "_",
@@ -1492,6 +1497,7 @@ impl SyntaxKind {
             "requires" => RequiresKw,
             "fails" => FailsKw,
             "ensures" => EnsuresKw,
+            "also" => AlsoKw,
             "old" => OldKw,
             "result" => ResultKw,
             "_" => Underscore,

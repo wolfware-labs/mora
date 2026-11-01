@@ -322,7 +322,7 @@ sizeof stackalloc static string struct switch this true uint ulong union unique
 unsafe ushort using var weak where while yield
 ```
 
-Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows ref struct`, §8.2); `newtype` (declaration start, §6.12); `test` (section position, §15.9); `contract` (section position, §6.13), and inside a contract section `invariant`, `requires`, `fails`, `ensures`, `old` and `result`; `_` (discards in patterns and deconstruction, §7.8).
+Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows ref struct`, §8.2); `newtype` (declaration start, §6.12); `test` (section position, §15.9); `contract` (section position, §6.13), and inside a contract section `invariant`, `requires`, `fails`, `ensures`, `also`, `old` and `result`; `_` (discards in patterns and deconstruction, §7.8).
 
 The compiler knows only Mora's syntax (D-59). A word that is not a keyword is an identifier, and code written in another language's syntax gets the ordinary syntax error, `MR0110`.
 
@@ -652,6 +652,7 @@ public class Counter
 - A class is a shared reference type with identity: heap-allocated with a reference count (§10.4, §13.3).
 - **Fields are read-only unless marked `mut`** (D-15). A read-only field is assigned only in its initializer, a constructor or a memberwise `new` (§6.9). `readonly` is accepted as a redundant modifier. `{ get; set; }` and `{ get; private set; }` auto-properties have a mutable backing field; `{ get; }` does not.
 - A class gets no generated equality, hashing, printing or `with`: two objects with the same fields are still two objects. `==` on a class is error `MR0233` unless the class implements `IEquatable<T>`, by hand or with `[Equatable]` (§9.9). `ReferenceEquals(a, b)` compares identity.
+- An object's address is never observable. A value derived from identity, such as an identity hash or an object number in debug output, comes from a per-process counter and is assigned the first time it is asked for, so two runs that receive the same inputs in the same order, I/O completions and task scheduling included, produce the same values (D-61).
 - Mutating a `mut` field through any reference is allowed, as in C#. A `let` local of class type means the local cannot be reassigned; it does not freeze the object.
 - A class marked `shared` may be referenced from several threads (post-MVP, §12.6). In the MVP the modifier is parsed, checked for its field rules and otherwise has no effect.
 
@@ -820,7 +821,7 @@ Attributes are compile-time only (D-10). An attribute either names a macro (§9)
 | `[MustUse]` | type, function | Discarding a value of that type, or that function's result, warns `MR2002` |
 | `[NonExhaustive]` | union, enum | §6.6 |
 | `[Flags]` | enum | §6.7 |
-| `[Test]`, `[Test(Ignore = "reason")]` | function inside a `test` section | Test function for `mora test` (§15.9) |
+| `[Test]`, `[Test(Ignore = "reason")]` | function in a `test` section, or at file level in `tests/` | Test function for `mora test` (§15.9) |
 | `[Import(Lib = "c", Name = "strlen")]` | `extern` function | FFI import (§13.9) |
 | `[Export(Name = "...")]` | function | Exported with the C ABI under that name |
 | `[Layout(C)]` | struct | C field order and alignment, for FFI |
@@ -842,15 +843,15 @@ public newtype Slug : string is { Length: > 0 and <= 64 };
 
 - **Layout.** The same as `T`, with no tag and no header. `Port?` is laid out as every option of a value type is (§5.6).
 - **Into the underlying type.** A newtype converts implicitly to `T`, because every `Port` is an `int`.
-- **From the underlying type.** There is no implicit conversion back. `UserId.From(value: long): UserId` wraps a value of a newtype without a refinement. With a refinement, `Port.From(value: int): Port?` checks it and returns `none` when it fails. `Port.Parse` parses a `T` and then checks the refinement, and its `ParseError` names the refinement.
-- **Literals are checked at compile time.** A constant assigned to a newtype is checked by constant evaluation (§14.6): `let port: Port = 8080;` compiles, and `let port: Port = 70000;` is error `MR0260`, "70000 is not a valid `Port` (requires `>= 1 and <= 65535`)".
+- **From the underlying type.** A value of the underlying type never converts implicitly; only a constant does, as the next rule says. `UserId.From(value: long): UserId` wraps a value of the underlying type when the newtype has no refinement. With a refinement, `Port.From(value: int): Port?` checks it and returns `none` when it fails. `Port.Parse` parses a `T` and then checks the refinement, and its `ParseError` names the refinement.
+- **Constants are checked at compile time.** A constant of the underlying type assigned to a newtype is checked by constant evaluation (§14.6): `let port: Port = 8080;` compiles, and `let port: Port = 70000;` is error `MR0260`, "70000 is not a valid `Port` (requires `>= 1 and <= 65535`)".
 - **Distinct types.** A `UserId` is not an `OrderId`, though both are `long`: passing one where the other is expected is an ordinary type mismatch.
 - **Derived members.** Equality, hashing, ordering, printing and `[Json]` come from the underlying type, so a `UserId` is a JSON number. Deserializing runs the refinement and reports a `JsonError` that names it.
-- **No derived arithmetic.** `UserId + UserId` does not compile. `[Arithmetic]` opts in to same-type `+` and `-` and to `*` and `/` by a scalar of the underlying type.
+- **No derived arithmetic.** `UserId + UserId` does not compile. `[Arithmetic]` opts in to same-type `+` and `-` and to `*` and `/` by a scalar of the underlying type. On a refined newtype, each result is checked against the refinement in every profile, and a result outside it panics: `Port` 65535 plus 1 is not a `Port`.
 - **Members.** A newtype may have a body with members, as a struct does. Inside it, `value` names the underlying value and is read-only; a member that needs a different value builds one through `From`.
 - **Default value.** A newtype implements `IDefault` (§8.5) when its underlying type does and that default satisfies the refinement, which constant evaluation checks. `Port`'s underlying default, `0`, fails `>= 1`, so `default(Port)`, `new Port[4]` and a `[Default]` field of type `Port` are error `MR0190`, unless the body implements `IDefault` with a valid value.
 
-The refinement is checked once, where a value is created (`From`, `Parse`, a literal, deserialization, a default value), so code that receives a `Port` never checks it again. A predicate refinement that calls a function, `newtype Email : string where EmailAddress.IsValid(value);`, comes after the MVP, once effect inference can prove the predicate pure (OQ-22).
+The refinement is checked once, where a value is created (`From`, `Parse`, a constant, deserialization, a default value, an `[Arithmetic]` result), so code that receives a `Port` never checks it again. A predicate refinement that calls a function, `newtype Email : string where EmailAddress.IsValid(value);`, comes after the MVP, once effect inference can prove the predicate pure (OQ-22).
 
 ### 6.13 Contract sections [post-MVP]
 
@@ -1510,6 +1511,12 @@ A Mora program in the MVP runs all Mora code on **one OS thread**. A built-in ex
 
 Single-threaded execution is what lets reference counts be non-atomic in the MVP (§10.14). A blocking call (synchronous file I/O, a long computation) blocks every task; the documentation says so in the API reference for each blocking function. Worker threads, `Task.Run` and `shared` classes come after the MVP (§12.6).
 
+The runtime and the standard library are **thread-ready, not threaded** (D-60), so that threads arrive as an addition rather than a rewrite:
+
+- Every reference-count update goes through one lowering in the compiler and one slow path in the runtime, each with a plain and an atomic form (§13.3). The MVP emits only the plain form; the atomic form is built and tested with it.
+- The executor's state (task queue, wakers, timers, reactor registration) lives in a per-thread context, never in globals, so a second thread can run its own executor.
+- `Std` keeps no global mutable state: caches, buffers and counters live in values the program owns or in that per-thread context.
+
 ### 12.2 Async functions and futures
 
 - `async F(...): T` declares an async function returning `T`. Calling it returns a `Future<T>` (D-27). Inside it, `return v;` returns a `T`, and `await` may be used.
@@ -1571,7 +1578,7 @@ Together they provide:
 | Startup | The process entry symbol, `main`, called by the platform's C runtime: sets up the panic and stack-overflow handlers, collects arguments and environment, calls `int32_t __mora_main(void)`, which the compiler emits to run the program's `Main` and map its result to an exit code (§4.6), flushes stdout and returns that code |
 | Memory | Allocation through the platform allocator, the release slow path (destructor call, field drops, the iterative release work list), weak reference bookkeeping, debug-mode poisoning and leak tracking (§10.11) |
 | Panics | Message formatting, backtraces through the `backtrace` crate, abort |
-| Executor | Task queue, wakers, timers, `Task.*` primitives |
+| Executor | Task queue, wakers, timers, `Task.*` primitives, held in a per-thread context (§12.1) |
 | I/O | `mio` reactor; TCP sockets; synchronous files, directories and environment; stdin, stdout and stderr with buffering |
 | Text and numbers | UTF-8 validation, float formatting (shortest round-trip, as `ryu` does) and parsing, integer parsing, case mapping for ASCII and the Unicode simple case folding table |
 | Hashing | SipHash-1-3 with per-process random keys for `Dictionary` and `HashSet` |
@@ -1598,7 +1605,8 @@ Every shared class object, array, string, box and escaping closure environment s
 - `mora_rt_drop` runs the destructor, drops the fields (pushing shared children whose count falls to zero onto a thread-local work list instead of recursing), then decrements `weak` and frees the memory if it reaches zero.
 - **Weak load** returns a null pointer (`none`) if `strong == 0`, otherwise retains and returns the object.
 - String literals, `static readonly` objects and the empty array are immortal objects in read-only data.
-- In `shared` classes (post-MVP), `strong` and `weak` are updated with atomic operations: relaxed increments, release decrements and an acquire fence before the drop, as `Arc` does in Rust.
+- In `shared` classes (post-MVP), `strong` and `weak` are updated with atomic operations: relaxed increments, release decrements and an acquire fence before the drop, as `Arc` does in Rust. A weak load increments `strong` with a compare-and-swap loop that succeeds only while the count is nonzero, with acquire ordering, as `Weak::upgrade` does, so it never revives an object that a concurrent release is dropping.
+- The compiler emits retain and release from one lowering that has both forms, and `mora_rt_drop` and the weak-count paths exist in both forms. The MVP runtime test suite covers the atomic form, including a weak load racing the last release, though only the plain form is emitted (D-60).
 
 **Unique objects** have no header: a unique class reference points straight at its fields, because its type is always known statically and nothing counts it.
 
@@ -1852,7 +1860,7 @@ Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`. `i
 | `Span<T>`, `ReadOnlySpan<T>` | `Length`, indexing, slicing with ranges, `CopyTo`, `SequenceEqual`, `IndexOf`, `ToArray` |
 | `Memory<T>`, `ReadOnlyMemory<T>` | `Length`, `Span`, `Slice`, `ToArray`; created with `array.AsMemory()` and `text.AsMemory()` |
 
-`Dictionary` iterates in insertion order (D-29), unlike .NET's unspecified order. This makes program output reproducible.
+`Dictionary` and `HashSet` iterate in insertion order (D-29), unlike .NET's unspecified order. This makes program output reproducible, because no iteration order depends on the per-process hash keys.
 
 ### 15.4 Lookups never throw
 
@@ -2420,7 +2428,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-26 | A panic aborts the process with exit code 101; there is no unwinding | author | 11.4 |
 | D-27 | `async F(): T` declares the awaited type; futures are cold and unique. Spelled name-first since D-58 | draft, author | 12.2 |
 | D-28 | No borrows across `await`, so futures never point into themselves and need no pinning | author | 12.3 |
-| D-29 | `Dictionary` iterates in insertion order | author | 15.3 |
+| D-29 | `Dictionary` and `HashSet` iterate in insertion order | author | 15.3 |
 | D-30 | No class inheritance in the MVP; interfaces with default methods instead | author | 6.1 |
 | D-31 | The MVP is proven by a native REST API with JSON on Linux, macOS and Windows | user | 1.5, 2.2 |
 | D-32 | The project lives in a public repository, `wolfware-labs/mora-lang` (named `wolfware-labs/mora` until 2026-10-31), from day one, with the conventions of other Wolfware projects | user | 21 |
@@ -2451,6 +2459,8 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-57 | A type without a constructor is created memberwise with new T { ... }; required and init are removed. Amends D-51 | user | 6.2, 6.3, 6.9 |
 | D-58 | Declarations put the name first and the type after a colon (`Balance: decimal`, `Deposit(amount: decimal): decimal`, `let fee: decimal`); an omitted return type means `()` | user | 4.6, 5.2, 6.1, 6.9, 7.6, 7.10, 10.3, 12.2, 14.4 |
 | D-59 | The compiler knows only Mora syntax: code from other languages gets the ordinary syntax error, with no dedicated codes or fixes | user | 3.4, 17.6 |
+| D-60 | The MVP runtime is thread-ready, not threaded: reference counting has plain and atomic forms, the executor lives in a per-thread context, and `Std` keeps no global mutable state | user | 12.1, 13.3 |
+| D-61 | Values derived from object identity come from a per-process counter, never from an address | user | 6.3 |
 | D-62 | `newtype Name : T is pattern;` declares a new value type with `T`'s layout and an optional pattern refinement checked where values are created | user | 6.12 |
 | D-63 | Contracts live in `contract` sections linked to members by name, never on the signature line; the MVP reserves the word and v0.2 checks them | user | 6.13 |
 | D-64 | Unit tests live in `test` sections or sibling `.tests.mr` files, compiled only under `mora test` | user | 15.9 |
