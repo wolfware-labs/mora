@@ -1182,7 +1182,7 @@ Done when:
 
 Spec: [§12.2](docs/design/mora.md#122-async-functions-and-futures), [§10.3](docs/design/mora.md#103-parameter-modes), [§7.4](docs/design/mora.md#74-propagation-). Crates: `mora-hir`, `std`. Blocked by: M5.7.
 
-`async` functions, methods and lambdas, `Future<T>` as a unique `@MustUse` cold type (D-27), `await`, `MR0312`, `MR0313` and `MR0400` to `MR0404`, and the `await e?` rule.
+`async` functions, methods and lambdas, `Future<T>` as a unique `@MustUse` cold type (D-27), `await`, `MR0312`, `MR0313`, `MR0400`, `MR0401` and `MR0404`, and the `await e?` rule.
 
 Done when:
 

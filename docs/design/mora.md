@@ -1755,13 +1755,12 @@ The runtime and the standard library are **thread-ready, not threaded** (D-60), 
 ### 12.2 Async functions and futures
 
 - `async F(...): T` declares an async function returning `T`. Calling it returns a future whose result is `T` (D-27, described below). Inside it, `return v;` returns a `T`, and `await` may be used.
-- `async F(): void`, C#'s `async void`, is error `MR0402`; omit the return type if there is nothing to return.
-- Writing `async F(): Future<T>` or `async F(): Task<T>` is error `MR0401` with a fix that removes the wrapper, because the declared type is the awaited result in Mora.
+- An async function with nothing to return omits the return type, as any other function does.
+- Writing `async F(): Future<T>` is error `MR0401` with a fix that removes the wrapper, because the declared type is the awaited result.
 - Calling an async function returns a **future**: a value of a compiler-generated move-only type that implements `IFuture<T>`, as each lambda gets its own closure type (§10.9). A local takes that type (`let f = GetA();`), and the value is `@MustUse`. `Future<T>`, written in a type, is the boxed form: one unique block that holds a future of any type inline, with its `Poll` and drop functions (§13.3), for storing futures of different functions together (`List<Future<T>>`, a route table). Boxing is always explicit: `Future.Box(f)` moves a future `f` of any type implementing `IFuture<T>` into a new `Future<T>`, with one allocation (D-73, OQ-26). `Future<T>` does not implement `IFrom`, because an implicit conversion may not allocate (§5.10). It also implements `IFuture<T>` by forwarding `Poll` to the future it owns, so it can be awaited. The box moves the future in and erases its type inside `Std`, so it is not an `any` value and `MR0230` does not apply.
 - A future is **cold**: calling an async function only builds the state; nothing runs until the future is awaited or spawned. As a consequence, in `var a = GetA(); var b = GetB(); await a; await b;` the two operations run one after the other. `await Task.WhenAll(GetA(), GetB())` runs them concurrently.
 - `await e` requires `e` to implement `IFuture<T>` and is only allowed in an async function, an async lambda or top-level statements (`MR0400`).
 - `IFuture<T>.Poll(ref waker: Waker): Poll<T>` advances a future. `Poll<T>` is the standard union `Ready(Value: T)` / `Pending`. `Ready` gives the result, and a future that has returned `Ready` is not polled again. `Pending` means the future cannot continue yet and has arranged for `waker` to be woken when it can. `Waker` is a move-only handle with `Wake()`, which schedules its task to be polled again, and `Clone()`; in the MVP it is the index of a task on the current executor (§12.1), not a counted object. Code outside `Std` rarely calls `Poll`, because `await` does.
-- There is no `SynchronizationContext` and no `ConfigureAwait`. `ConfigureAwait(false)` is error `MR0403`, explaining that Mora never captures a context.
 
 ### 12.3 Lowering
 
