@@ -416,7 +416,7 @@ Done when:
 
 | ID | Deliverable | Area | Blocked by |
 |---|---|---|---|
-| [M2.1](#m21-classes-fields-properties-and-constructors) | Classes, fields, properties and constructors | `hir` | M1.16 |
+| [M2.1](#m21-classes-fields-getters-and-constructors) | Classes, fields, getters and constructors | `hir` | M1.16 |
 | [M2.2](#m22-positional-structs) | Positional structs | `hir` | M2.1 |
 | [M2.3](#m23-shared-objects-and-reference-counts-in-the-runtime) | Shared objects and reference counts in the runtime | `rt` | M2.1 |
 | [M2.4](#m24-parameter-modes-and-this) | Parameter modes and `this` | `mir` | M2.1 |
@@ -432,16 +432,19 @@ Done when:
 | [M2.14](#m214-debug-runtime-poisoning-and-leak-report) | Debug runtime: poisoning and leak report | `rt` | M2.3 |
 | [M2.15](#m215-memory-model-test-suite) | Memory-model test suite | `testkit` | M2.6, M2.9, M2.10, M2.13, M2.14 |
 
-### M2.1 Classes, fields, properties and constructors
+### M2.1 Classes, fields, getters and constructors
 
 Spec: [§6.3](docs/design/mora.md#63-classes), [§6.9](docs/design/mora.md#69-members). Crates: `mora-hir`, `mora-mir`. Blocked by: M1.16.
 
-Class declarations, read-only and `mut` fields (D-15), auto-properties with `get`, `set` and `private set`, computed properties, constructors with `: this(...)` chaining, definite initialization `MR0140`, memberwise creation (`MR0143`, `MR0144`), initializers after a constructor, and `new` producing a heap object (counting arrives in M2.3).
+Class declarations, read-only and `mut` fields (D-15), write scopes `mut(private)`, `mut(ns)` and `mut(internal)` with lint `redundant-mut-scope` (D-101), `=>` getters and `stored` getters with recalculation on write (`MR0252`), constructors with `: this(...)` chaining, definite initialization `MR0140`, memberwise creation (`MR0143`, `MR0144`), initializers after a constructor, and `new` producing a heap object (counting arrives in M2.3).
 
 Done when:
 
 - UI tests for `MR0140`, `MR0143`, `MR0144` and assigning a read-only field.
-- Run tests for every property form.
+- UI tests for writes outside a field's write scope, `redundant-mut-scope` and `MR0252`.
+- Run tests showing that a `stored` getter reads the value recalculated by the last write to each input.
+
+The getter cheapness check (`MR0251`) and the part of `MR0252` about capabilities and `dyn` calls need the effect analysis of §6.14 and arrive with it.
 
 ### M2.2 Positional structs
 
@@ -831,7 +834,7 @@ Done when:
 
 Spec: [§9.5](docs/design/mora.md#95-the-typed-model-stdmeta). Crates: `mora-hir`, `std`. Blocked by: M4.1.
 
-The read-only model of §9.5 built from HIR signatures (`Type`, `Field`, `Property`, `Method`, `Case`, `Attribute`, `Expr`), `Fail` and `Warn` with locations in user code.
+The read-only model of §9.5 built from HIR signatures (`Type`, `Field`, `Getter`, `Method`, `Case`, `Attribute`, `Expr`), `Fail` and `Warn` with locations in user code.
 
 Done when:
 
@@ -933,7 +936,7 @@ Done when:
 | [M5.10](#m510-json-values-parser-and-writer) | JSON values, parser and writer | `std` | M5.5 |
 | [M5.11](#m511-the-json-macro) | The `@Json` macro | `std` | M5.10, M4.9 |
 | [M5.12](#m512-testing-library-and-mora-test) | Testing library and `mora test` | `cli` | M5.7 |
-| [M5.13](#m513-signals) | Signals | `std` | M5.4, M2.10 |
+| [M5.13](#m513-signals-and-observable) | Signals and `@Observable` | `std` | M5.4, M2.10, M4.9 |
 | [M5.14](#m514-standard-library-api-reference) | Standard library API reference | `docs` | M5.12 |
 
 ### M5.1 Standard library internals
@@ -984,12 +987,13 @@ Done when:
 
 Spec: [§15.3](docs/design/mora.md#153-collections), [§15.4](docs/design/mora.md#154-lookups-never-throw). Crates: `std`, `mora-rt`. Blocked by: M5.4.
 
-Insertion-ordered `Dictionary` (D-29) with SipHash-1-3 and per-process keys, the members of §15.3 and §15.4 including `Get` returning `TValue?`, `HashSet`, `Queue` and `Stack`.
+Insertion-ordered `Dictionary` (D-29) with SipHash-1-3 and per-process keys, the members of §15.3 and §15.4 including `Get` returning `TValue?`, `HashSet`, `Queue` and `Stack`. The `Dictionary` index `get` and `Count`, and `HashSet.Contains` and `Count`, are marked `@Cheap` (D-103), and `@Cheap` outside `Std` is `MR0254`.
 
 Done when:
 
 - Iteration order equals insertion order after removals and re-insertions.
 - `Add` of a duplicate key panics; `TryAdd` returns `false`.
+- UI test: a getter that reads `dict[key]` passes the getter check, and `@Cheap` on a function outside `Std` is `MR0254`.
 
 ### M5.6 Enumeration protocol and foreach
 
@@ -1067,15 +1071,17 @@ Done when:
 
 - A project with a passing, a failing, a panicking and an ignored test prints `Passed: 1, Failed: 2, Ignored: 1` and exits 1.
 
-### M5.13 Signals
+### M5.13 Signals and `@Observable`
 
-Spec: [§15.8](docs/design/mora.md#158-events). Crates: `std`. Blocked by: M5.4, M2.10.
+Spec: [§15.8](docs/design/mora.md#158-events), [§9.9](docs/design/mora.md#99-standard-library-macros), [§6.11](docs/design/mora.md#611-attributes). Crates: `std`, `mora-hir`. Blocked by: M5.4, M2.10, M4.9.
 
-`Signal<T>`, `Subscribe(move Action<T>)` returning a unique `Subscription`, `SubscribeWeak`, and `Emit`.
+`Signal<T>`, `Subscribe(move handler: (T) => ())` returning a unique `Subscription`, `SubscribeWeak`, and `Emit`. The `@Observable` macro (D-104) and the `@SoleWriter` attribute with `MR0253`.
 
 Done when:
 
 - Dropping the subscription stops delivery; a weak subscriber that died is skipped and removed.
+- `SetX` on an `@Observable` class emits `XChanged` only when the value changed, and the signal of a `stored` getter that reads `X` after it.
+- UI test: assigning an observed field outside `SetX`, inside or outside the class, is `MR0253` with a fix that calls `SetX`.
 
 ### M5.14 Standard library API reference
 
