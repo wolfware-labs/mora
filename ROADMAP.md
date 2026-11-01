@@ -625,6 +625,7 @@ Done when:
 | [M3.14](#m314-local-path-dependencies-and-library-projects) | Local path dependencies and library projects | `driver` | M3.10 |
 | [M3.15](#m315-attributes-cfg-lint-levels-and-obsolete) | Attributes: `Cfg`, lint levels and `Obsolete` | `check` | M3.14 |
 | [M3.16](#m316-platform-capabilities-and-standard-library-layers) | Platform capabilities and standard library layers | `std` | M3.15 |
+| [M3.17](#m317-interpolation-handlers) | Interpolation handlers | `hir` | M3.10 |
 
 ### M3.1 Unions
 
@@ -696,7 +697,7 @@ Done when:
 
 Spec: [§4.6](docs/design/mora.md#46-entry-point), [§5.7](docs/design/mora.md#57-result-types), [§7.4](docs/design/mora.md#74-propagation-), [§11.1](docs/design/mora.md#111-two-kinds-of-failure), [§11.2](docs/design/mora.md#112-error-types), [§11.3](docs/design/mora.md#113-conversions-in-). Crates: `mora-hir`, `mora-mir`, `std`. Blocked by: M3.5, M3.6.
 
-`Result<T, E>`, `@MustUse` and `MR2002`, `IError`, the `?` operator with identity and `IFrom` conversions (`MR0201`, `MR0202`, `MR0161`), `@From` and `MR0151` (D-100), the implicit `Ok` conversion and `MR0132`, and return-type inference for top-level statements with the exit codes of §4.6.
+`Result<T, E>`, `@MustUse` and `MR2002`, `IError` with `Code`, `PublicMessage` and `HttpStatus` (D-108), the `?` operator with identity and `IFrom` conversions (`MR0201`, `MR0202`, `MR0161`), `@From` and `MR0151` (D-100), the implicit `Ok` conversion and `MR0132`, and return-type inference for top-level statements with the exit codes of §4.6.
 
 Done when:
 
@@ -802,6 +803,19 @@ Done when:
 - A program using `File` against a test target description without `fs` reports `MR0510` naming `File`, `fs` and the target.
 - `Std.Core` compiles for the 32-bit test description with no `heap` capability.
 
+### M3.17 Interpolation handlers
+
+Spec: [§7.14](docs/design/mora.md#714-interpolation-handlers), [§7.13](docs/design/mora.md#713-other-expressions), [§8.5](docs/design/mora.md#85-built-in-interfaces). Crates: `mora-hir`, `mora-mir`, `std`. Blocked by: M3.10.
+
+`IInterpolate`, `IHole<T>` and `Literal` (D-105): lowering an interpolated string whose target implements `IInterpolate` to `Begin`, `AppendLiteral`, and `AppendHole` for holes that implement `IHole<T>` or `AppendDisplay` for other `IDisplay` holes, skipping every part when `Enabled` is `false`, the hole's format and source text, and lint `unchecked-injection`. Lint `skipped-hole-effects` needs the effect analysis of §6.14 and arrives with it.
+
+Done when:
+
+- A test handler records its calls: literal parts and holes arrive in source order, with each hole's format and source text.
+- A hole with a side effect does not run when `Enabled` is `false`.
+- A hole type with only `IDisplay` goes to `AppendDisplay`, and one that also implements `IHole<T>` goes to `AppendHole`.
+- UI tests: a hole type with neither `IHole<T>` nor `IDisplay` is an error naming both; assigning a `string` to a handler type does not compile.
+
 ## M4: Macros
 
 **Goal.** Attribute and expression macros written in Mora, run at compile time on a typed model, plus the standard-library macros that replace a derive list.
@@ -900,7 +914,7 @@ Done when:
 
 Spec: [§9](docs/design/mora.md#9-macros), [§17.6](docs/design/mora.md#176-diagnostics). Crates: `docs`. Blocked by: M4.7.
 
-`docs/errors` pages for `MR0610` to `MR0614` and a guide `docs/guide/macros.md` that walks through writing, debugging and testing a macro, with every example executable.
+`docs/errors` pages for `MR0610` to `MR0615` and a guide `docs/guide/macros.md` that walks through writing, debugging and testing a macro, with every example executable.
 
 Done when:
 
@@ -910,7 +924,7 @@ Done when:
 
 Spec: [§9.1](docs/design/mora.md#91-a-complete-example), [§9.6](docs/design/mora.md#96-what-a-macro-sees), [§9.9](docs/design/mora.md#99-standard-library-macros), [§6.2](docs/design/mora.md#62-structs). Crates: `std`, `mora-hir`. Blocked by: M4.7.
 
-`@Equatable`, `@Hashable`, `@Comparable`, `@Display`, `@Default`, `@Clone` and `#Assert` with the behaviour of §9.9, and their automatic application to structs, tuples, enums and unions.
+`@Equatable`, `@Hashable`, `@Comparable`, `@Display`, `@Default`, `@Clone` and `#Assert` with the behaviour of §9.9, and their automatic application to structs, tuples, enums and unions. `@Error` on unions and structs, with `@Code`, `@Public` and `@Status` (D-108), and helper attributes with `MR0615`.
 
 Done when:
 
@@ -919,7 +933,7 @@ Done when:
 
 ## M5: Standard library core
 
-**Goal.** Text, collections, LINQ, console, environment, time, files, JSON and testing: enough standard library for real programs.
+**Goal.** Text, collections, LINQ, console, environment, time, files, JSON, logging, secrets and testing: enough standard library for real programs.
 
 **Exit criteria.** The std API reference builds from doc comments; JSONTestSuite parsing cases pass; LINQ chains meet §15.5 with no allocation.
 
@@ -938,7 +952,11 @@ Done when:
 | [M5.11](#m511-the-json-macro) | The `@Json` macro | `std` | M5.10, M4.9 |
 | [M5.12](#m512-testing-library-and-mora-test) | Testing library and `mora test` | `cli` | M5.7 |
 | [M5.13](#m513-signals-and-observable) | Signals and `@Observable` | `std` | M5.4, M2.10, M4.9 |
-| [M5.14](#m514-standard-library-api-reference) | Standard library API reference | `docs` | M5.12 |
+| [M5.14](#m514-standard-library-api-reference) | Standard library API reference | `docs` | M5.12, M5.15, M5.16, M5.17, M5.18 |
+| [M5.15](#m515-html-url-and-literal) | `Html`, `Url` and `Literal` | `std` | M5.2, M3.17 |
+| [M5.16](#m516-logging-and-tracing) | Logging and tracing | `std` | M5.8, M5.10, M3.17 |
+| [M5.17](#m517-secrett) | `Secret<T>` | `std` | M5.11, M5.16 |
+| [M5.18](#m518-report-and-context) | `Report` and `Context` | `std` | M5.2 |
 
 ### M5.1 Standard library internals
 
@@ -986,7 +1004,7 @@ Done when:
 
 ### M5.5 Dictionary, HashSet, Queue and Stack
 
-Spec: [§15.3](docs/design/mora.md#153-collections), [§15.4](docs/design/mora.md#154-lookups-never-throw). Crates: `std`, `mora-rt`. Blocked by: M5.4.
+Spec: [§15.3](docs/design/mora.md#153-collections), [§15.4](docs/design/mora.md#154-lookups-never-panic). Crates: `std`, `mora-rt`. Blocked by: M5.4.
 
 Insertion-ordered `Dictionary` (D-29) with SipHash-1-3 and per-process keys, the members of §15.3 and §15.4 including `Get` returning `TValue?`, `HashSet`, `Queue` and `Stack`. The `Dictionary` index `get` and `Count`, and `HashSet.Contains` and `Count`, are marked `@Cheap` (D-103), and `@Cheap` outside `Std` is `MR0254`.
 
@@ -1086,13 +1104,59 @@ Done when:
 
 ### M5.14 Standard library API reference
 
-Spec: [§15](docs/design/mora.md#15-standard-library-mvp-surface). Crates: `xtask`, `std`. Blocked by: M5.12.
+Spec: [§15](docs/design/mora.md#15-standard-library-mvp-surface). Crates: `xtask`, `std`. Blocked by: M5.12, M5.15, M5.16, M5.17, M5.18.
 
 `cargo xtask std-docs` generates HTML reference pages from `std/` doc comments, linking backtick symbol names, and checks that every member §15 lists exists.
 
 Done when:
 
 - The check fails when a member named in §15 is missing from `std/`.
+
+### M5.15 `Html`, `Url` and `Literal`
+
+Spec: [§15.2](docs/design/mora.md#152-strings-and-text), [§7.14](docs/design/mora.md#714-interpolation-handlers). Crates: `std`. Blocked by: M5.2, M3.17.
+
+The `Literal` members, and the `Html` and `Url` handlers of §15.2 (D-105): escaping by context for element text and quoted attribute values, percent-encoding by URL component, the panics for holes in other positions, nested `Html` holes, and `Unchecked`.
+
+Done when:
+
+- Escaping tests for text, quoted attributes, path segments, query names and values, and fragments, including non-ASCII text.
+- A hole inside `<script>` panics with the context; an `Html` hole in element text is not escaped twice, and one in an attribute value is escaped.
+- In `href`, a hole after `/users/` is percent-encoded, a hole at the start of the value that is not a `Url` panics, and a hole in `onclick` panics.
+
+### M5.16 Logging and tracing
+
+Spec: [§15.10](docs/design/mora.md#1510-logging-and-tracing), [§7.14](docs/design/mora.md#714-interpolation-handlers). Crates: `std`, `mora-rt`. Blocked by: M5.8, M5.10, M3.17.
+
+`Log.Trace` to `Log.Error` through one log message handler per level (D-107), fields named after each hole's source text with `#2` for repeats, `MORA_LOG` and `MORA_LOG_FORMAT=json`, and `Trace.Span` with its end on drop. Spawned tasks inheriting the current span come with M6.3, and redacted `Secret<T>` holes with M5.17.
+
+Done when:
+
+- A disabled level evaluates no hole.
+- JSON output has the template, one field per hole, the level, the time and the span; a span ends on an early `?` return with its duration.
+
+### M5.17 `Secret<T>`
+
+Spec: [§15.11](docs/design/mora.md#1511-secrets), [§16.3](docs/design/mora.md#163-json-stdjson), [§6.14](docs/design/mora.md#614-effects). Crates: `std`, `mora-hir`. Blocked by: M5.11, M5.16.
+
+`Secret<T>` for `string` and `byte[]` (D-106): redacted `IDisplay`, `Use` through a span view, zeroing in the destructor, `Clone`, lint `secret-copied`, and `@Json` reading secrets and writing them only with `@JsonSecret`, leaving them out otherwise. The `secret` fact in `mora explain-effects` needs the effect analysis of §6.14 and arrives with it.
+
+Done when:
+
+- Interpolating, logging and printing a secret show `Secret<string>(***)`.
+- With the debug runtime, a free hook sees the secret's bytes already zero when its buffer is released.
+- `Json.Serialize` of a type with a `Secret<T>` field and no `@JsonSecret` leaves the field out; with `@JsonSecret` it writes the plaintext.
+
+### M5.18 `Report` and `Context`
+
+Spec: [§11.5](docs/design/mora.md#115-reports), [§11.2](docs/design/mora.md#112-error-types). Crates: `std`. Blocked by: M5.2.
+
+`Report` over `any IError` with context lines (D-108), `Context(message)` with a string or a lambda, `Report()`, the printed chain, and `MR0201` with fixes that add `.Report()` or `.Context("...")` for a bare `?` into `Report`.
+
+Done when:
+
+- A three-level chain prints the newest context first, then the error and the chain of its `Source()`.
+- An `Ok` passed through `Context(() => ...)` never runs the lambda.
 
 ## M6: Async and HTTP
 
@@ -1104,11 +1168,11 @@ Done when:
 |---|---|---|---|
 | [M6.1](#m61-async-functions-and-futures-language-rules) | Async functions and futures: language rules | `async` | M5.7 |
 | [M6.2](#m62-async-lowering) | Async lowering | `async` | M6.1 |
-| [M6.3](#m63-executor-tasks-and-cancellation) | Executor, tasks and cancellation | `async` | M6.2 |
+| [M6.3](#m63-executor-tasks-and-cancellation) | Executor, tasks and cancellation | `async` | M6.2, M5.16 |
 | [M6.4](#m64-async-entry-points) | Async entry points | `async` | M6.3 |
 | [M6.5](#m65-reactor-tcp-and-timers) | Reactor, TCP and timers | `rt` | M6.3 |
 | [M6.6](#m66-http11-connections) | HTTP/1.1 connections | `http` | M6.5 |
-| [M6.7](#m67-webapp-routing-and-results) | WebApp, routing and results | `http` | M6.6, M5.11 |
+| [M6.7](#m67-webapp-routing-and-results) | WebApp, routing and results | `http` | M6.6, M5.11, M5.16 |
 | [M6.8](#m68-the-users-api-example-and-acceptance-test) | The users API example and acceptance test | `testkit` | M6.7 |
 
 ### M6.1 Async functions and futures: language rules
@@ -1135,14 +1199,15 @@ Done when:
 
 ### M6.3 Executor, tasks and cancellation
 
-Spec: [§12.4](docs/design/mora.md#124-tasks), [§12.5](docs/design/mora.md#125-cancellation). Crates: `mora-rt`, `std`. Blocked by: M6.2.
+Spec: [§12.4](docs/design/mora.md#124-tasks), [§12.5](docs/design/mora.md#125-cancellation), [§15.10](docs/design/mora.md#1510-logging-and-tracing). Crates: `mora-rt`, `std`. Blocked by: M6.2, M5.16.
 
-The single-threaded executor and wakers, `Task.WhenAll`, `WhenAny`, `Scope`, `Spawn`, `TaskHandle<T>`, `Delay`, `Yield` and `Timeout`, cancellation by drop, and cancellation of detached tasks when `Main` returns.
+The single-threaded executor and wakers, `Task.WhenAll`, `WhenAny`, `Scope`, `Spawn`, `TaskHandle<T>`, `Delay`, `Yield` and `Timeout`, cancellation by drop, cancellation of detached tasks when `Main` returns, and spawned tasks inheriting the current log span (§15.10).
 
 Done when:
 
 - `WhenAll` of two 100 ms delays completes in under 150 ms.
 - `Timeout` cancels its future and the future's destructors run.
+- An event logged inside a spawned task belongs to the span that was current where it was spawned.
 
 ### M6.4 Async entry points
 
@@ -1179,14 +1244,15 @@ Done when:
 
 ### M6.7 WebApp, routing and results
 
-Spec: [§16.1](docs/design/mora.md#161-http-server-stdnethttp), [§16.2](docs/design/mora.md#162-httperror). Crates: `std`. Blocked by: M6.6, M5.11.
+Spec: [§16.1](docs/design/mora.md#161-http-server-stdnethttp), [§16.2](docs/design/mora.md#162-httperror). Crates: `std`. Blocked by: M6.6, M5.11, M5.16.
 
-`WebApp`, `WebAppOptions`, `--urls` and `MORA_URLS`, `Map*` with `move` handlers, the routing rules of §16.1 (404, 405 with `Allow`, duplicate panics), `Request`, `RouteValue<T>`, `ReadTextAsync`, `ReadJsonAsync<T>`, `Response`, `Results`, `HttpError` with its conversions, request logging, and graceful shutdown on SIGINT, SIGTERM and Ctrl+Break.
+`WebApp`, `WebAppOptions`, `--urls` and `MORA_URLS`, `Map*` with `move` handlers generic over any copyable `E : IError` (D-108), the routing rules of §16.1 (404, 405 with `Allow`, duplicate panics), `Request`, `RouteValue<T>`, `ReadTextAsync`, `ReadJsonAsync<T>`, `Response`, `Results`, `HttpError` with its conversions and `IError` members, error responses from `PublicMessage` and `HttpStatus` with `application/problem+json` for internal errors, the request log as `Info` events in a span per request, and graceful shutdown on SIGINT, SIGTERM and Ctrl+Break.
 
 Done when:
 
 - Routing table tests for literal-before-parameter order and `{*rest}`.
 - Shutdown with an in-flight request completes it within 5 s.
+- An internal error returns 500 with a problem+json body holding only its code and trace id, and the log has the full chain under that trace id.
 
 ### M6.8 The users API example and acceptance test
 
