@@ -1138,13 +1138,13 @@ Done when:
 
 Spec: [§15.11](docs/design/mora.md#1511-secrets), [§16.3](docs/design/mora.md#163-json-stdjson), [§6.14](docs/design/mora.md#614-effects). Crates: `std`, `mora-hir`. Blocked by: M5.11, M5.16.
 
-`Secret<T>` for `string` and `byte[]` (D-106): redacted `IDisplay`, `Use` through a span view, zeroing in the destructor, `Clone`, lint `secret-copied`, and `@Json` reading secrets and writing them only with `@JsonSecret`. The `secret` fact in `mora explain-effects` needs the effect analysis of §6.14 and arrives with it.
+`Secret<T>` for `string` and `byte[]` (D-106): redacted `IDisplay`, `Use` through a span view, zeroing in the destructor, `Clone`, lint `secret-copied`, and `@Json` reading secrets and writing them only with `@JsonSecret`, leaving them out otherwise. The `secret` fact in `mora explain-effects` needs the effect analysis of §6.14 and arrives with it.
 
 Done when:
 
 - Interpolating, logging and printing a secret show `Secret<string>(***)`.
 - With the debug runtime, a free hook sees the secret's bytes already zero when its buffer is released.
-- UI test: `Json.Serialize` of a type with a `Secret<T>` field and no `@JsonSecret` is an error whose note names the field.
+- `Json.Serialize` of a type with a `Secret<T>` field and no `@JsonSecret` leaves the field out; with `@JsonSecret` it writes the plaintext.
 
 ### M5.18 `Report` and `Context`
 
