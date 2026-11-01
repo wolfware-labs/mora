@@ -1121,6 +1121,7 @@ Done when:
 
 - Escaping tests for text, quoted attributes, path segments, query names and values, and fragments, including non-ASCII text.
 - A hole inside `<script>` panics with the context; an `Html` hole is not escaped twice.
+- In `href`, a hole after `/users/` is percent-encoded, a hole at the start of the value that is not a `Url` panics, and a hole in `onclick` panics.
 
 ### M5.16 Logging and tracing
 
