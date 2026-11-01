@@ -1427,8 +1427,8 @@ Debug builds keep these guarantees too.
 Allocation and layout guarantees hold in every build profile, so a test that counts allocations (§15.9) gives the same answer in `dev` and `release`. The test suite checks each with MIR snapshots or allocation counts:
 
 1. **Stack promotion.** A class or unique object of at most 1 KiB, or an array of constant length within that size, never touches the heap when its reference is used only in locals of the creating function, as an `in` argument to a parameter that does not escape, as the receiver of a method whose `this` does not escape, or by a non-escaping closure, and when it does not outlive its loop iteration. A function's promoted objects total at most 16 KiB (§14.18, OQ-23).
-2. **Futures.** `await` on a call to an async function allocates nothing. `Task.Spawn` allocates once, converting to `Future<T>` allocates once, and an `await` that recurses into its own async function allocates once per call (§12.3).
-3. **LINQ and loops.** A chain of the standard operators over an array, span or `List<T>` compiles to one loop with no allocation and no calls into the operators' iterator types. `foreach` over an array, span or `List<T>`, and `for (var i = 0; i < a.Length; i++)` over an array or span local or parameter that the loop does not assign, have no per-element bounds check (§14.17).
+2. **Futures.** `await` on a call to an async function that is not recursive (§12.3) allocates nothing. `Task.Spawn` allocates once, converting to `Future<T>` allocates once, and an `await` that recurses into its own async function allocates once per call (§12.3).
+3. **LINQ and loops.** A chain of the standard operators over an array, span or `List<T>` compiles to one loop with no allocation and no calls into the operators' iterator types. `foreach` over an array or span, and `for (var i = 0; i < a.Length; i++)` over an array or span local or parameter that the loop does not assign, have no per-element bounds check (§14.17).
 4. **Strings.** A string of at most 15 bytes never allocates. `a + b + ...` and `$"..."` allocate at most once (§13.4).
 5. **In-place updates.** `with` on a value at its last use whose count is one updates it in place, and `+=` on a local string at its last use appends in place when its allocation has room; a loop of `+=` on an unaliased local string runs in amortized linear time (§14.19).
 6. **Options.** `T?` is the same size as `T` for every type §13.5 lists as having a niche.
@@ -1537,7 +1537,7 @@ The runtime and the standard library are **thread-ready, not threaded** (D-60), 
 
 ### 12.2 Async functions and futures
 
-- `async F(...): T` declares an async function returning `T`. Calling it returns a `Future<T>` (D-27). Inside it, `return v;` returns a `T`, and `await` may be used.
+- `async F(...): T` declares an async function returning `T`. Calling it returns a future whose result is `T` (D-27, described below). Inside it, `return v;` returns a `T`, and `await` may be used.
 - `async F(): void`, C#'s `async void`, is error `MR0402`; omit the return type if there is nothing to return.
 - Writing `async F(): Future<T>` or `async F(): Task<T>` is error `MR0401` with a fix that removes the wrapper, because the declared type is the awaited result in Mora.
 - Calling an async function returns a **future**: a value of a compiler-generated move-only type that implements `IFuture<T>`, as each lambda gets its own closure type (§10.9). A local takes that type (`let f = GetA();`), and the value is `[MustUse]`. `Future<T>`, written in a type, is the boxed form: a unique heap object that holds any `IFuture<T>`, for storing futures of different functions together (`List<Future<T>>`, a route table). Converting to it allocates once (D-73, OQ-26).
@@ -1627,8 +1627,8 @@ Every shared class object, array, heap string, box and escaping closure environm
 There is no type pointer. After monomorphization every retain, release and drop site knows the concrete type, and a dynamic interface value carries its drop function in its vtable (§13.6). Each concrete type gets a generated drop function, called directly, so it can be inlined. The debug runtime keeps a `meta` word (size, alignment, drop function, type id, type name) for the leak report and the cycle finder (§10.11), in a prefix before the header, so field offsets are the same in both builds. The identity number of D-61 lives in a side table keyed by the object, so it needs no header space.
 
 - **Retain** is `if strong & IMMORTAL == 0 { strong += 1 }`, emitted inline. A count that would reach 2^31 aborts with `reference count overflow`.
-- **Release** is `if strong & IMMORTAL == 0 { strong -= 1; if strong == 0 { mora_rt_drop(obj) } }`.
-- `mora_rt_drop` runs the type's drop function: the destructor, then the fields, pushing each shared child whose count falls to zero onto a thread-local work list as an (object, drop function) pair instead of recursing. It then decrements `weak` and frees the memory with its size if `weak` reaches zero.
+- **Release** is `if strong & IMMORTAL == 0 { strong -= 1; if strong == 0 { mora_rt_drop(obj, T_drop, size) } }`. The release site knows the concrete type, so it passes that type's generated drop function and the allocation size; for a heap string or array the size comes from the length. Releasing a dynamic interface value takes the drop function and size from its vtable (§13.6).
+- `mora_rt_drop(obj, drop, size)` calls `drop`: the destructor, then the fields. Each shared child whose count falls to zero is pushed onto a thread-local work list as an `(object, drop function, size)` entry instead of being dropped recursively. It then decrements `weak` and, if `weak` reaches zero, frees the memory with `mora_rt_free_sized(obj, size)`.
 - **Weak load** returns a null pointer (`none`) if `strong == 0`, otherwise retains and returns the object.
 - String literals, `static readonly` objects and the empty array are immortal objects in read-only data.
 - In `shared` classes (post-MVP), `strong` and `weak` are updated with atomic operations: relaxed increments, release decrements and an acquire fence before the drop, as `Arc` does in Rust. A weak load increments `strong` with a compare-and-swap loop that succeeds only while the count is nonzero, with acquire ordering, as `Weak::upgrade` does, so it never revives an object that a concurrent release is dropping.
@@ -1655,7 +1655,7 @@ There is no type pointer. After monomorphization every retain, release and drop 
 
 ### 13.6 Vtables and type ids
 
-For each pair of concrete type and interface used as a dynamic value, the compiler emits one read-only vtable: `[type meta pointer, drop function, method pointers in interface declaration order, default methods included]`. The **type id** in the type meta is the first 128 bits of BLAKE3 over the canonical name of the concrete type, including type arguments and the root namespace of the library that declares it. `is C c` compares type ids.
+For each pair of concrete type and interface used as a dynamic value, the compiler emits one read-only vtable: `[type meta pointer, drop function, allocation size, method pointers in interface declaration order, default methods included]`. The **type id** in the type meta is the first 128 bits of BLAKE3 over the canonical name of the concrete type, including type arguments and the root namespace of the library that declares it. `is C c` compares type ids.
 
 ### 13.7 Calling convention and symbols
 
@@ -1857,7 +1857,7 @@ One Cranelift function per MIR body. Scalar locals whose address is never taken 
 | macOS (aarch64, x86_64) | The system `ld` through `xcrun` (Xcode Command Line Tools) | `libSystem` (dynamic, the only supported way on macOS) | Executable depending only on `libSystem` |
 | Windows (x86_64, aarch64) | `lld-link` shipped in the toolchain | MinGW-w64 start files and import libraries from llvm-mingw, shipped in the toolchain; runtime built for the `gnullvm` targets | Executable depending only on system DLLs |
 
-`ld.lld` and `lld-link` run with `--icf=all`, which merges identical functions, so monomorphized copies that compile to the same code are stored once (D-82). This is safe because Mora function values have no equality and Mora code cannot take a function's address. A backtrace may then name a merged twin, `List<User>.Add` for `List<Order>.Add`. Merging identical MIR bodies before code generation is post-MVP.
+The linkers merge identical functions, so monomorphized copies that compile to the same code are stored once (D-82): `ld.lld` runs with `--icf=all` and `lld-link` with `/opt:icf`. The system `ld` on macOS gets no flag in the MVP [verify whether it folds identical code]. This is safe because Mora function values have no equality and Mora code cannot take a function's address. A backtrace may then name a merged twin, `List<User>.Add` for `List<Order>.Add`. Merging identical MIR bodies before code generation is post-MVP.
 
 No step requires Visual Studio or a C compiler on the user's machine except the Xcode Command Line Tools on macOS. When a required tool is missing, `mora build` stops with the exact command that installs it (`xcode-select --install`). Each row is [verify] until the cross-platform CI job of milestone M1 passes.
 
@@ -1875,7 +1875,7 @@ Cranelift optimizes one function at a time, so the inlining that LINQ chains and
 
 - **Inlining policy.** Always inline `[Inline]` functions, closure-struct calls whose closure has one call site, the `Next()` of standard iterator types, trivial accessors, and bodies under a small budget of MIR statements. Never inline `[Inline(Never)]` functions, members of a recursive cycle, or cold paths such as panic branches. Debug builds inline only the cases that affect allocation or reference counts (closure structs and accessors), so both profiles allocate the same.
 - **Scalar replacement** turns iterator structs and other small aggregates into separate locals that Cranelift keeps in registers.
-- **Bounds checks.** `foreach` over an array, span or `List<T>` checks no index, because the enumerator knows the length. `for (var i = 0; i < a.Length; i++)` over an array or span local or parameter that the loop does not assign checks no index either, because arrays and spans never change length. The same loop over a `List<T>` keeps its check unless the loop body's summaries show that it changes no `List<T>`, and the enumerator's version check (§10.10) is hoisted out of the loop under the same condition; both are best-effort.
+- **Bounds checks.** `foreach` over an array or span checks no index, because the enumerator knows the length. `for (var i = 0; i < a.Length; i++)` over an array or span local or parameter that the loop does not assign checks no index either, because arrays and spans never change length. The same loop over a `List<T>` keeps its check unless the loop body's summaries show that it changes no `List<T>`, and the enumerator's version check (§10.10) is hoisted out of the loop under the same condition; both are best-effort.
 
 ### 14.18 Stack promotion
 
