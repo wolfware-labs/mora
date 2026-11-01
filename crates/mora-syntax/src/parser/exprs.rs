@@ -583,35 +583,20 @@ fn quote(p: &mut Parser<'_>) {
     p.expect(K::RParen);
 }
 
-/// `stackalloc byte[256]`, `stackalloc int[] { 1, 2 }` (§5.9).
+/// `stackalloc byte[256]` (§5.9).
 fn stackalloc(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();
     p.bump(K::StackallocKw);
-    if types::at_type_start(p) {
-        types::element_ty(p);
-    }
-    p.expect(K::LBracket);
-    if !p.at(K::RBracket) {
-        expr(p);
-    }
-    p.expect(K::RBracket);
-    if p.at(K::LBrace) {
-        array_initializer(p);
-    }
+    types::element_ty(p);
+    array_size(p);
     m.complete(p, K::StackallocExpr)
 }
 
-fn array_initializer(p: &mut Parser<'_>) {
-    let init = p.start();
-    p.bump(K::LBrace);
-    while !p.at(K::RBrace) && !p.at_end() {
-        expr(p);
-        if !p.eat(K::Comma) {
-            break;
-        }
-    }
-    p.expect(K::RBrace);
-    init.complete(p, K::ArrayInitializer);
+/// `[size]` after the element type of `new` or `stackalloc`.
+fn array_size(p: &mut Parser<'_>) {
+    p.expect(K::LBracket);
+    expr(p);
+    p.expect(K::RBracket);
 }
 
 /// Member access, calls, indexing, `x++`, `x--` and, unless `propagate`
@@ -830,34 +815,16 @@ fn collection_inner(p: &mut Parser<'_>) -> CompletedMarker {
     m.complete(p, K::CollectionExpr)
 }
 
-/// `new T(args) { P = v }`, `new()`, `new T { P = v }`, `new int[10]`,
-/// `new[] { 1, 2 }`.
+/// `new T(args) { P = v }`, `new()`, `new T { P = v }`, `new int[10]`.
 fn new_expr(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();
     p.bump(K::NewKw);
-    let has_type = types::at_type_start(p) && !p.at(K::LParen);
-    if has_type {
+    if types::at_type_start(p) && !p.at(K::LParen) {
         types::element_ty(p);
-    }
-    if p.at(K::LBracket) {
-        p.bump(K::LBracket);
-        if !p.at(K::RBracket) {
-            expr(p);
+        if p.at(K::LBracket) {
+            array_size(p);
+            return m.complete(p, K::NewArrayExpr);
         }
-        p.expect(K::RBracket);
-        if p.at(K::LBrace) {
-            let init = p.start();
-            p.bump(K::LBrace);
-            while !p.at(K::RBrace) && !p.at_end() {
-                expr(p);
-                if !p.eat(K::Comma) {
-                    break;
-                }
-            }
-            p.expect(K::RBrace);
-            init.complete(p, K::ArrayInitializer);
-        }
-        return m.complete(p, K::NewArrayExpr);
     }
     if p.at(K::LParen) {
         arg_list(p);

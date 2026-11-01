@@ -29,8 +29,8 @@ pub(crate) fn ty(p: &mut Parser<'_>) {
     ty_with(p, true);
 }
 
-/// The element type of `new int[10]` and `new int[] { 1 }`: the brackets
-/// that follow belong to the allocation, not to the type.
+/// The element type of `new int[10]` and `stackalloc byte[256]`: the
+/// brackets that follow belong to the allocation, not to the type.
 pub(crate) fn element_ty(p: &mut Parser<'_>) {
     ty_with(p, false);
 }
@@ -41,6 +41,15 @@ fn ty_with(p: &mut Parser<'_>, arrays: bool) {
         return;
     }
     let mut lhs = match p.current() {
+        // `any IShape` (§8.4); `any` alone is an ordinary name.
+        K::Ident if at_any(p.input(), p.pos()) => {
+            let m = p.start();
+            p.bump_remap(K::AnyKw);
+            let t = p.start();
+            path(p, true);
+            t.complete(p, K::PathType);
+            m.complete(p, K::AnyType)
+        }
         kind if PREDEFINED.contains(&kind) => {
             let m = p.start();
             p.bump_any();
@@ -84,6 +93,12 @@ fn ty_with(p: &mut Parser<'_>, arrays: bool) {
 pub(crate) fn at_type_start(p: &Parser<'_>) -> bool {
     let kind = p.current();
     PREDEFINED.contains(&kind) || matches!(kind, K::Ident | K::LParen | K::WeakKw | K::Dollar)
+}
+
+/// Whether `any` at `at` starts an `any I` type: the word `any` followed by
+/// a name.
+fn at_any(input: &Input<'_>, at: usize) -> bool {
+    input.text(at) == "any" && input.kind(at + 1) == K::Ident
 }
 
 /// `()`, `(int, string)`, `(x: int, y: string)`.
@@ -227,6 +242,7 @@ pub(crate) fn scan_type(input: &Input<'_>, at: usize) -> Option<usize> {
     let mut i = match input.kind(at) {
         kind if PREDEFINED.contains(&kind) => at + 1,
         K::WeakKw => return scan_type(input, at + 1),
+        K::Ident if at_any(input, at) => return scan_type(input, at + 1),
         // `$t`, `$..ts`, `$(expr)` (§9.3).
         K::Dollar => scan_splice(input, at)?,
         // `()`, the unit type.

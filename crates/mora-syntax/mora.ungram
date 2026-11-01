@@ -8,7 +8,7 @@
 //   - A rule that is only an alternation of nodes becomes an enum.
 //   - Composite tokens the parser glues from adjacent pieces: '>=' '>>' '>>=' '>>>' '>>>=' '?['.
 //   - Contextual keywords are remapped by the parser in position (§3.4); extra ones used
-//     here: 'from' (imports), 'type' (associated types), 'allows' (constraint), '_' (discard).
+//     here: 'from' (imports), 'type' (associated types), 'allows' (constraint), 'any' (types), '_' (discard).
 
 //*************************//
 //      Names and paths    //
@@ -97,7 +97,7 @@ TypeDecl =
 Modifier =
   kind:(
     'public' | 'internal' | 'private' | 'file'
-  | 'static' | 'mut' | 'readonly' | 'unique' | 'shared' | 'ref'
+  | 'static' | 'mut' | 'unique' | 'shared' | 'ref'
   | 'async' | 'lazy' | 'const' | 'indirect' | 'extern'
   | 'move' | 'in' | 'out' | 'params' | 'this' | 'abstract'
   )
@@ -233,9 +233,9 @@ Param =
 // `public mut Count: int;`, `const Max: int = 5;`.
 FieldDecl =
   Attribute* Modifier*
-  VariableDeclarator (',' VariableDeclarator)* ';'
+  VariableDeclarator ';'
 
-// A field's declarators each have a type; a local's may leave it out.
+// A field's declarator has a type; a local's may leave it out.
 VariableDeclarator =
   (Name | Splice) (':' Type)? ('=' init:Expr)?
 
@@ -316,31 +316,26 @@ TypeParamList =
 TypeParam =
   Attribute* variance:('in' | 'out')? Name
 
-// §8.2. `where T : IComparable<T>, move`
+// §8.2. `where T : IComparable<T>, allows move`
 WhereClause =
   'where' NameRef ':' Constraint (',' Constraint)*
 
 Constraint =
   TypeConstraint
 | KindConstraint
-| NewConstraint
-| RefStructConstraint
+| AllowsConstraint
 
 // `where T : IFoo`
 TypeConstraint =
   Type
 
-// `where T : struct`, `class`, `unique`, `move`
+// `where T : struct`, `class`, `unique`
 KindConstraint =
-  kind:('struct' | 'class' | 'unique' | 'move')
+  kind:('struct' | 'class' | 'unique')
 
-// `where T : new()`
-NewConstraint =
-  'new' '(' ')'
-
-// `where T : ref struct` or `allows ref struct` (§8.2)
-RefStructConstraint =
-  'allows'? 'ref' 'struct'
+// `where T : allows move`, `where T : allows ref struct`: a widening (§8.2)
+AllowsConstraint =
+  'allows' 'move'? 'ref'? 'struct'?
 
 //*************************//
 //      Types (§5)         //
@@ -353,6 +348,7 @@ Type =
 | OptionalType
 | TupleType
 | WeakType
+| AnyType
 | SpliceType
 
 // `User`, `List<int>`, `Std.Json.JsonValue`, `Func<int, bool>` (§5.8).
@@ -385,6 +381,10 @@ TupleTypeElem =
 // §10.7. `public Parent: weak Node;`
 WeakType =
   'weak' Type
+
+// §8.4. `any IShape`: a boxed interface value.
+AnyType =
+  'any' PathType
 
 // `$t` in `code(List<$t>)` (§9.3).
 SpliceType =
@@ -429,7 +429,7 @@ LocalDeclStmt =
   LocalDecl ';'
 
 LocalDecl =
-  kw:('let' | 'var') VariableDeclarator (',' VariableDeclarator)*
+  kw:('let' | 'var') VariableDeclarator
 
 // §5.5, §6.5. `let (id, name) = pair;`
 DeconstructStmt =
@@ -743,16 +743,13 @@ ObjectInitializer =
 MemberInit =
   NameRef '=' Expr
 
-// §5.4. `new int[10]`, `new[] { 1, 2, 3 }`, `new int[] { 1, 2 }`.
+// §5.4. `new int[10]`; elements are given with a collection expression (§7.9).
 NewArrayExpr =
-  'new' elem:Type? '[' size:Expr? ']' ArrayInitializer?
+  'new' elem:Type '[' size:Expr ']'
 
-ArrayInitializer =
-  '{' (Expr (',' Expr)* ','?)? '}'
-
-// §5.9. `stackalloc byte[256]`, `stackalloc int[] { 1, 2 }`.
+// §5.9. `stackalloc byte[256]`.
 StackallocExpr =
-  'stackalloc' elem:Type? '[' size:Expr? ']' ArrayInitializer?
+  'stackalloc' elem:Type '[' size:Expr ']'
 
 // §7.13. `default`, `default(T)`.
 DefaultExpr =

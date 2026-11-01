@@ -1,5 +1,5 @@
-SourceFile@0..1153
-  ClassDecl@0..1093
+SourceFile@0..1151
+  ClassDecl@0..1091
     Modifier@0..6
       PublicKw@0..6 "public"
     Whitespace@6..7 " "
@@ -8,7 +8,7 @@ SourceFile@0..1153
     Name@13..20
       Ident@13..20 "Counter"
     Newline@20..21 "\n"
-    MemberList@21..1093
+    MemberList@21..1091
       LBrace@21..22 "{"
       Newline@22..23 "\n"
       Whitespace@23..27 "    "
@@ -95,823 +95,825 @@ SourceFile@0..1153
         Semicolon@139..140 ";"
       Newline@140..141 "\n"
       Whitespace@141..145 "    "
-      FieldDecl@145..182
-        Modifier@145..151
-          StaticKw@145..151 "static"
-        Whitespace@151..152 " "
-        Modifier@152..160
-          ReadonlyKw@152..160 "readonly"
-        Whitespace@160..161 " "
-        VariableDeclarator@161..181
-          Name@161..166
-            Ident@161..166 "Limit"
-          Colon@166..167 ":"
-          Whitespace@167..168 " "
-          PredefinedType@168..171
-            IntKw@168..171 "int"
-          Whitespace@171..172 " "
-          Eq@172..173 "="
-          Whitespace@173..174 " "
-          BinExpr@174..181
-            LiteralExpr@174..175
-              IntNumber@174..175 "1"
-            Whitespace@175..176 " "
-            Shl@176..178 "<<"
-            Whitespace@178..179 " "
-            LiteralExpr@179..181
-              IntNumber@179..181 "10"
-        Semicolon@181..182 ";"
-      Newline@182..183 "\n"
-      Whitespace@183..187 "    "
-      FieldDecl@187..219
-        Modifier@187..190
-          MutKw@187..190 "mut"
-        Whitespace@190..191 " "
-        VariableDeclarator@191..202
-          Name@191..197
-            Ident@191..197 "_count"
-          Colon@197..198 ":"
-          Whitespace@198..199 " "
-          PredefinedType@199..202
-            IntKw@199..202 "int"
-        Comma@202..203 ","
-        Whitespace@203..204 " "
-        VariableDeclarator@204..218
-          Name@204..209
-            Ident@204..209 "_peak"
-          Colon@209..210 ":"
-          Whitespace@210..211 " "
-          PredefinedType@211..214
-            IntKw@211..214 "int"
+      FieldDecl@145..172
+        Modifier@145..150
+          ConstKw@145..150 "const"
+        Whitespace@150..151 " "
+        VariableDeclarator@151..171
+          Name@151..156
+            Ident@151..156 "Limit"
+          Colon@156..157 ":"
+          Whitespace@157..158 " "
+          PredefinedType@158..161
+            IntKw@158..161 "int"
+          Whitespace@161..162 " "
+          Eq@162..163 "="
+          Whitespace@163..164 " "
+          BinExpr@164..171
+            LiteralExpr@164..165
+              IntNumber@164..165 "1"
+            Whitespace@165..166 " "
+            Shl@166..168 "<<"
+            Whitespace@168..169 " "
+            LiteralExpr@169..171
+              IntNumber@169..171 "10"
+        Semicolon@171..172 ";"
+      Newline@172..173 "\n"
+      Whitespace@173..177 "    "
+      FieldDecl@177..193
+        Modifier@177..180
+          MutKw@177..180 "mut"
+        Whitespace@180..181 " "
+        VariableDeclarator@181..192
+          Name@181..187
+            Ident@181..187 "_count"
+          Colon@187..188 ":"
+          Whitespace@188..189 " "
+          PredefinedType@189..192
+            IntKw@189..192 "int"
+        Semicolon@192..193 ";"
+      Newline@193..194 "\n"
+      Whitespace@194..198 "    "
+      FieldDecl@198..217
+        Modifier@198..201
+          MutKw@198..201 "mut"
+        Whitespace@201..202 " "
+        VariableDeclarator@202..216
+          Name@202..207
+            Ident@202..207 "_peak"
+          Colon@207..208 ":"
+          Whitespace@208..209 " "
+          PredefinedType@209..212
+            IntKw@209..212 "int"
+          Whitespace@212..213 " "
+          Eq@213..214 "="
           Whitespace@214..215 " "
-          Eq@215..216 "="
-          Whitespace@216..217 " "
-          LiteralExpr@217..218
-            IntNumber@217..218 "0"
-        Semicolon@218..219 ";"
-      Newline@219..220 "\n"
-      Newline@220..221 "\n"
-      Whitespace@221..225 "    "
-      ConstructorDecl@225..297
-        Modifier@225..231
-          PublicKw@225..231 "public"
-        Whitespace@231..232 " "
-        Name@232..239
-          Ident@232..239 "Counter"
-        ParamList@239..264
-          LParen@239..240 "("
-          Param@240..252
-            Name@240..244
-              Ident@240..244 "name"
-            Colon@244..245 ":"
-            Whitespace@245..246 " "
-            PredefinedType@246..252
-              StringKw@246..252 "string"
-          Comma@252..253 ","
-          Whitespace@253..254 " "
-          Param@254..263
-            Name@254..258
-              Ident@254..258 "step"
-            Colon@258..259 ":"
-            Whitespace@259..260 " "
-            PredefinedType@260..263
-              IntKw@260..263 "int"
-          RParen@263..264 ")"
-        Newline@264..265 "\n"
-        Whitespace@265..269 "    "
-        Block@269..297
-          LBrace@269..270 "{"
-          Newline@270..271 "\n"
-          Whitespace@271..279 "        "
-          ExprStmt@279..291
-            AssignExpr@279..290
-              PathExpr@279..283
-                Path@279..283
-                  PathSegment@279..283
-                    NameRef@279..283
-                      Ident@279..283 "Name"
+          LiteralExpr@215..216
+            IntNumber@215..216 "0"
+        Semicolon@216..217 ";"
+      Newline@217..218 "\n"
+      Newline@218..219 "\n"
+      Whitespace@219..223 "    "
+      ConstructorDecl@223..295
+        Modifier@223..229
+          PublicKw@223..229 "public"
+        Whitespace@229..230 " "
+        Name@230..237
+          Ident@230..237 "Counter"
+        ParamList@237..262
+          LParen@237..238 "("
+          Param@238..250
+            Name@238..242
+              Ident@238..242 "name"
+            Colon@242..243 ":"
+            Whitespace@243..244 " "
+            PredefinedType@244..250
+              StringKw@244..250 "string"
+          Comma@250..251 ","
+          Whitespace@251..252 " "
+          Param@252..261
+            Name@252..256
+              Ident@252..256 "step"
+            Colon@256..257 ":"
+            Whitespace@257..258 " "
+            PredefinedType@258..261
+              IntKw@258..261 "int"
+          RParen@261..262 ")"
+        Newline@262..263 "\n"
+        Whitespace@263..267 "    "
+        Block@267..295
+          LBrace@267..268 "{"
+          Newline@268..269 "\n"
+          Whitespace@269..277 "        "
+          ExprStmt@277..289
+            AssignExpr@277..288
+              PathExpr@277..281
+                Path@277..281
+                  PathSegment@277..281
+                    NameRef@277..281
+                      Ident@277..281 "Name"
+              Whitespace@281..282 " "
+              Eq@282..283 "="
               Whitespace@283..284 " "
-              Eq@284..285 "="
-              Whitespace@285..286 " "
-              PathExpr@286..290
-                Path@286..290
-                  PathSegment@286..290
-                    NameRef@286..290
-                      Ident@286..290 "name"
-            Semicolon@290..291 ";"
-          Newline@291..292 "\n"
-          Whitespace@292..296 "    "
-          RBrace@296..297 "}"
-      Newline@297..298 "\n"
-      Newline@298..299 "\n"
-      Whitespace@299..303 "    "
-      ConstructorDecl@303..351
-        Modifier@303..309
-          PublicKw@303..309 "public"
-        Whitespace@309..310 " "
-        Name@310..317
-          Ident@310..317 "Counter"
-        ParamList@317..331
-          LParen@317..318 "("
-          Param@318..330
-            Name@318..322
-              Ident@318..322 "name"
-            Colon@322..323 ":"
-            Whitespace@323..324 " "
-            PredefinedType@324..330
-              StringKw@324..330 "string"
-          RParen@330..331 ")"
-        Whitespace@331..332 " "
-        ConstructorInitializer@332..347
-          Colon@332..333 ":"
-          Whitespace@333..334 " "
-          ThisKw@334..338 "this"
-          ArgList@338..347
-            LParen@338..339 "("
-            Arg@339..343
-              PathExpr@339..343
-                Path@339..343
-                  PathSegment@339..343
-                    NameRef@339..343
-                      Ident@339..343 "name"
-            Comma@343..344 ","
-            Whitespace@344..345 " "
-            Arg@345..346
-              LiteralExpr@345..346
-                IntNumber@345..346 "1"
-            RParen@346..347 ")"
-        Whitespace@347..348 " "
-        Block@348..351
-          LBrace@348..349 "{"
-          Whitespace@349..350 " "
-          RBrace@350..351 "}"
-      Newline@351..352 "\n"
-      Newline@352..353 "\n"
-      Whitespace@353..357 "    "
-      DestructorDecl@357..371
-        Tilde@357..358 "~"
-        Name@358..365
-          Ident@358..365 "Counter"
-        LParen@365..366 "("
-        RParen@366..367 ")"
-        Whitespace@367..368 " "
-        Block@368..371
-          LBrace@368..369 "{"
-          Whitespace@369..370 " "
-          RBrace@370..371 "}"
-      Newline@371..372 "\n"
-      Newline@372..373 "\n"
-      Whitespace@373..377 "    "
-      FunctionDecl@377..392
-        Name@377..382
-          Ident@377..382 "Reset"
-        ParamList@382..384
-          LParen@382..383 "("
-          RParen@383..384 ")"
-        Colon@384..385 ":"
-        Whitespace@385..386 " "
-        TupleType@386..388
-          LParen@386..387 "("
-          RParen@387..388 ")"
-        Whitespace@388..389 " "
-        Block@389..392
-          LBrace@389..390 "{"
-          Whitespace@390..391 " "
-          RBrace@391..392 "}"
-      Newline@392..393 "\n"
-      Newline@393..394 "\n"
-      Whitespace@394..398 "    "
-      FunctionDecl@398..433
-        Name@398..402
-          Ident@398..402 "Pair"
-        ParamList@402..404
-          LParen@402..403 "("
-          RParen@403..404 ")"
-        Colon@404..405 ":"
-        Whitespace@405..406 " "
-        TupleType@406..420
-          LParen@406..407 "("
-          TupleTypeElem@407..410
-            PredefinedType@407..410
-              IntKw@407..410 "int"
-          Comma@410..411 ","
-          Whitespace@411..412 " "
-          TupleTypeElem@412..418
-            PredefinedType@412..418
-              StringKw@412..418 "string"
-          Comma@418..419 ","
-          RParen@419..420 ")"
-        Whitespace@420..421 " "
-        ExprBody@421..432
-          FatArrow@421..423 "=>"
-          Whitespace@423..424 " "
-          TupleExpr@424..432
-            LParen@424..425 "("
-            TupleElem@425..426
-              LiteralExpr@425..426
-                IntNumber@425..426 "1"
-            Comma@426..427 ","
-            Whitespace@427..428 " "
-            TupleElem@428..431
-              LiteralExpr@428..431
-                String@428..431 "\"a\""
-            RParen@431..432 ")"
-        Semicolon@432..433 ";"
-      Newline@433..434 "\n"
-      Newline@434..435 "\n"
-      Whitespace@435..439 "    "
-      FunctionDecl@439..486
-        Name@439..444
-          Ident@439..444 "Named"
-        ParamList@444..446
-          LParen@444..445 "("
-          RParen@445..446 ")"
-        Colon@446..447 ":"
-        Whitespace@447..448 " "
-        TupleType@448..467
-          LParen@448..449 "("
-          TupleTypeElem@449..455
-            Name@449..450
-              Ident@449..450 "x"
-            Colon@450..451 ":"
-            Whitespace@451..452 " "
-            PredefinedType@452..455
-              IntKw@452..455 "int"
-          Comma@455..456 ","
-          Whitespace@456..457 " "
-          TupleTypeElem@457..466
-            Name@457..458
-              Ident@457..458 "y"
-            Colon@458..459 ":"
-            Whitespace@459..460 " "
-            PredefinedType@460..466
-              StringKw@460..466 "string"
-          RParen@466..467 ")"
-        Whitespace@467..468 " "
-        ExprBody@468..485
-          FatArrow@468..470 "=>"
-          Whitespace@470..471 " "
-          TupleExpr@471..485
-            LParen@471..472 "("
-            TupleElem@472..476
-              NameRef@472..473
-                Ident@472..473 "x"
-              Colon@473..474 ":"
-              Whitespace@474..475 " "
-              LiteralExpr@475..476
-                IntNumber@475..476 "1"
-            Comma@476..477 ","
-            Whitespace@477..478 " "
-            TupleElem@478..484
-              NameRef@478..479
-                Ident@478..479 "y"
-              Colon@479..480 ":"
-              Whitespace@480..481 " "
-              LiteralExpr@481..484
-                String@481..484 "\"a\""
-            RParen@484..485 ")"
-        Semicolon@485..486 ";"
-      Newline@486..487 "\n"
-      Newline@487..488 "\n"
-      Whitespace@488..492 "    "
-      IndexerDecl@492..530
-        Modifier@492..498
-          PublicKw@492..498 "public"
-        Whitespace@498..499 " "
-        ThisKw@499..503 "this"
-        LBracket@503..504 "["
-        Param@504..510
-          Name@504..505
-            Ident@504..505 "i"
-          Colon@505..506 ":"
-          Whitespace@506..507 " "
-          PredefinedType@507..510
-            IntKw@507..510 "int"
-        RBracket@510..511 "]"
-        Colon@511..512 ":"
-        Whitespace@512..513 " "
-        PredefinedType@513..516
-          IntKw@513..516 "int"
-        Whitespace@516..517 " "
-        AccessorList@517..530
-          LBrace@517..518 "{"
-          Whitespace@518..519 " "
-          Accessor@519..528
-            GetKw@519..522 "get"
-            Whitespace@522..523 " "
-            ExprBody@523..527
-              FatArrow@523..525 "=>"
-              Whitespace@525..526 " "
-              PathExpr@526..527
-                Path@526..527
-                  PathSegment@526..527
-                    NameRef@526..527
-                      Ident@526..527 "i"
-            Semicolon@527..528 ";"
-          Whitespace@528..529 " "
-          RBrace@529..530 "}"
-      Newline@530..531 "\n"
-      Newline@531..532 "\n"
-      Whitespace@532..536 "    "
-      FunctionDecl@536..595
-        Modifier@536..542
-          PublicKw@536..542 "public"
-        Whitespace@542..543 " "
-        Name@543..546
-          Ident@543..546 "Max"
-        TypeParamList@546..549
-          Lt@546..547 "<"
-          TypeParam@547..548
-            Name@547..548
-              Ident@547..548 "T"
-          Gt@548..549 ">"
-        ParamList@549..561
-          LParen@549..550 "("
-          Param@550..554
-            Name@550..551
-              Ident@550..551 "a"
-            Colon@551..552 ":"
-            Whitespace@552..553 " "
-            PathType@553..554
-              Path@553..554
-                PathSegment@553..554
-                  NameRef@553..554
-                    Ident@553..554 "T"
-          Comma@554..555 ","
-          Whitespace@555..556 " "
-          Param@556..560
-            Name@556..557
-              Ident@556..557 "b"
-            Colon@557..558 ":"
-            Whitespace@558..559 " "
-            PathType@559..560
-              Path@559..560
-                PathSegment@559..560
-                  NameRef@559..560
-                    Ident@559..560 "T"
-          RParen@560..561 ")"
-        Colon@561..562 ":"
+              PathExpr@284..288
+                Path@284..288
+                  PathSegment@284..288
+                    NameRef@284..288
+                      Ident@284..288 "name"
+            Semicolon@288..289 ";"
+          Newline@289..290 "\n"
+          Whitespace@290..294 "    "
+          RBrace@294..295 "}"
+      Newline@295..296 "\n"
+      Newline@296..297 "\n"
+      Whitespace@297..301 "    "
+      ConstructorDecl@301..349
+        Modifier@301..307
+          PublicKw@301..307 "public"
+        Whitespace@307..308 " "
+        Name@308..315
+          Ident@308..315 "Counter"
+        ParamList@315..329
+          LParen@315..316 "("
+          Param@316..328
+            Name@316..320
+              Ident@316..320 "name"
+            Colon@320..321 ":"
+            Whitespace@321..322 " "
+            PredefinedType@322..328
+              StringKw@322..328 "string"
+          RParen@328..329 ")"
+        Whitespace@329..330 " "
+        ConstructorInitializer@330..345
+          Colon@330..331 ":"
+          Whitespace@331..332 " "
+          ThisKw@332..336 "this"
+          ArgList@336..345
+            LParen@336..337 "("
+            Arg@337..341
+              PathExpr@337..341
+                Path@337..341
+                  PathSegment@337..341
+                    NameRef@337..341
+                      Ident@337..341 "name"
+            Comma@341..342 ","
+            Whitespace@342..343 " "
+            Arg@343..344
+              LiteralExpr@343..344
+                IntNumber@343..344 "1"
+            RParen@344..345 ")"
+        Whitespace@345..346 " "
+        Block@346..349
+          LBrace@346..347 "{"
+          Whitespace@347..348 " "
+          RBrace@348..349 "}"
+      Newline@349..350 "\n"
+      Newline@350..351 "\n"
+      Whitespace@351..355 "    "
+      DestructorDecl@355..369
+        Tilde@355..356 "~"
+        Name@356..363
+          Ident@356..363 "Counter"
+        LParen@363..364 "("
+        RParen@364..365 ")"
+        Whitespace@365..366 " "
+        Block@366..369
+          LBrace@366..367 "{"
+          Whitespace@367..368 " "
+          RBrace@368..369 "}"
+      Newline@369..370 "\n"
+      Newline@370..371 "\n"
+      Whitespace@371..375 "    "
+      FunctionDecl@375..390
+        Name@375..380
+          Ident@375..380 "Reset"
+        ParamList@380..382
+          LParen@380..381 "("
+          RParen@381..382 ")"
+        Colon@382..383 ":"
+        Whitespace@383..384 " "
+        TupleType@384..386
+          LParen@384..385 "("
+          RParen@385..386 ")"
+        Whitespace@386..387 " "
+        Block@387..390
+          LBrace@387..388 "{"
+          Whitespace@388..389 " "
+          RBrace@389..390 "}"
+      Newline@390..391 "\n"
+      Newline@391..392 "\n"
+      Whitespace@392..396 "    "
+      FunctionDecl@396..431
+        Name@396..400
+          Ident@396..400 "Pair"
+        ParamList@400..402
+          LParen@400..401 "("
+          RParen@401..402 ")"
+        Colon@402..403 ":"
+        Whitespace@403..404 " "
+        TupleType@404..418
+          LParen@404..405 "("
+          TupleTypeElem@405..408
+            PredefinedType@405..408
+              IntKw@405..408 "int"
+          Comma@408..409 ","
+          Whitespace@409..410 " "
+          TupleTypeElem@410..416
+            PredefinedType@410..416
+              StringKw@410..416 "string"
+          Comma@416..417 ","
+          RParen@417..418 ")"
+        Whitespace@418..419 " "
+        ExprBody@419..430
+          FatArrow@419..421 "=>"
+          Whitespace@421..422 " "
+          TupleExpr@422..430
+            LParen@422..423 "("
+            TupleElem@423..424
+              LiteralExpr@423..424
+                IntNumber@423..424 "1"
+            Comma@424..425 ","
+            Whitespace@425..426 " "
+            TupleElem@426..429
+              LiteralExpr@426..429
+                String@426..429 "\"a\""
+            RParen@429..430 ")"
+        Semicolon@430..431 ";"
+      Newline@431..432 "\n"
+      Newline@432..433 "\n"
+      Whitespace@433..437 "    "
+      FunctionDecl@437..484
+        Name@437..442
+          Ident@437..442 "Named"
+        ParamList@442..444
+          LParen@442..443 "("
+          RParen@443..444 ")"
+        Colon@444..445 ":"
+        Whitespace@445..446 " "
+        TupleType@446..465
+          LParen@446..447 "("
+          TupleTypeElem@447..453
+            Name@447..448
+              Ident@447..448 "x"
+            Colon@448..449 ":"
+            Whitespace@449..450 " "
+            PredefinedType@450..453
+              IntKw@450..453 "int"
+          Comma@453..454 ","
+          Whitespace@454..455 " "
+          TupleTypeElem@455..464
+            Name@455..456
+              Ident@455..456 "y"
+            Colon@456..457 ":"
+            Whitespace@457..458 " "
+            PredefinedType@458..464
+              StringKw@458..464 "string"
+          RParen@464..465 ")"
+        Whitespace@465..466 " "
+        ExprBody@466..483
+          FatArrow@466..468 "=>"
+          Whitespace@468..469 " "
+          TupleExpr@469..483
+            LParen@469..470 "("
+            TupleElem@470..474
+              NameRef@470..471
+                Ident@470..471 "x"
+              Colon@471..472 ":"
+              Whitespace@472..473 " "
+              LiteralExpr@473..474
+                IntNumber@473..474 "1"
+            Comma@474..475 ","
+            Whitespace@475..476 " "
+            TupleElem@476..482
+              NameRef@476..477
+                Ident@476..477 "y"
+              Colon@477..478 ":"
+              Whitespace@478..479 " "
+              LiteralExpr@479..482
+                String@479..482 "\"a\""
+            RParen@482..483 ")"
+        Semicolon@483..484 ";"
+      Newline@484..485 "\n"
+      Newline@485..486 "\n"
+      Whitespace@486..490 "    "
+      IndexerDecl@490..528
+        Modifier@490..496
+          PublicKw@490..496 "public"
+        Whitespace@496..497 " "
+        ThisKw@497..501 "this"
+        LBracket@501..502 "["
+        Param@502..508
+          Name@502..503
+            Ident@502..503 "i"
+          Colon@503..504 ":"
+          Whitespace@504..505 " "
+          PredefinedType@505..508
+            IntKw@505..508 "int"
+        RBracket@508..509 "]"
+        Colon@509..510 ":"
+        Whitespace@510..511 " "
+        PredefinedType@511..514
+          IntKw@511..514 "int"
+        Whitespace@514..515 " "
+        AccessorList@515..528
+          LBrace@515..516 "{"
+          Whitespace@516..517 " "
+          Accessor@517..526
+            GetKw@517..520 "get"
+            Whitespace@520..521 " "
+            ExprBody@521..525
+              FatArrow@521..523 "=>"
+              Whitespace@523..524 " "
+              PathExpr@524..525
+                Path@524..525
+                  PathSegment@524..525
+                    NameRef@524..525
+                      Ident@524..525 "i"
+            Semicolon@525..526 ";"
+          Whitespace@526..527 " "
+          RBrace@527..528 "}"
+      Newline@528..529 "\n"
+      Newline@529..530 "\n"
+      Whitespace@530..534 "    "
+      FunctionDecl@534..593
+        Modifier@534..540
+          PublicKw@534..540 "public"
+        Whitespace@540..541 " "
+        Name@541..544
+          Ident@541..544 "Max"
+        TypeParamList@544..547
+          Lt@544..545 "<"
+          TypeParam@545..546
+            Name@545..546
+              Ident@545..546 "T"
+          Gt@546..547 ">"
+        ParamList@547..559
+          LParen@547..548 "("
+          Param@548..552
+            Name@548..549
+              Ident@548..549 "a"
+            Colon@549..550 ":"
+            Whitespace@550..551 " "
+            PathType@551..552
+              Path@551..552
+                PathSegment@551..552
+                  NameRef@551..552
+                    Ident@551..552 "T"
+          Comma@552..553 ","
+          Whitespace@553..554 " "
+          Param@554..558
+            Name@554..555
+              Ident@554..555 "b"
+            Colon@555..556 ":"
+            Whitespace@556..557 " "
+            PathType@557..558
+              Path@557..558
+                PathSegment@557..558
+                  NameRef@557..558
+                    Ident@557..558 "T"
+          RParen@558..559 ")"
+        Colon@559..560 ":"
+        Whitespace@560..561 " "
+        PathType@561..562
+          Path@561..562
+            PathSegment@561..562
+              NameRef@561..562
+                Ident@561..562 "T"
         Whitespace@562..563 " "
-        PathType@563..564
-          Path@563..564
-            PathSegment@563..564
-              NameRef@563..564
-                Ident@563..564 "T"
-        Whitespace@564..565 " "
-        WhereClause@565..589
-          WhereKw@565..570 "where"
+        WhereClause@563..587
+          WhereKw@563..568 "where"
+          Whitespace@568..569 " "
+          NameRef@569..570
+            Ident@569..570 "T"
           Whitespace@570..571 " "
-          NameRef@571..572
-            Ident@571..572 "T"
+          Colon@571..572 ":"
           Whitespace@572..573 " "
-          Colon@573..574 ":"
-          Whitespace@574..575 " "
-          TypeConstraint@575..589
-            PathType@575..589
-              Path@575..589
-                PathSegment@575..589
-                  NameRef@575..586
-                    Ident@575..586 "IComparable"
-                  GenericArgList@586..589
-                    Lt@586..587 "<"
-                    PathType@587..588
-                      Path@587..588
-                        PathSegment@587..588
-                          NameRef@587..588
-                            Ident@587..588 "T"
-                    Gt@588..589 ">"
-        Whitespace@589..590 " "
-        ExprBody@590..594
-          FatArrow@590..592 "=>"
-          Whitespace@592..593 " "
-          PathExpr@593..594
-            Path@593..594
-              PathSegment@593..594
-                NameRef@593..594
-                  Ident@593..594 "a"
-        Semicolon@594..595 ";"
-      Newline@595..596 "\n"
-      Newline@596..597 "\n"
-      Whitespace@597..601 "    "
-      FunctionDecl@601..713
-        Modifier@601..607
-          PublicKw@601..607 "public"
-        Whitespace@607..608 " "
-        Name@608..611
-          Ident@608..611 "Add"
-        ParamList@611..709
-          LParen@611..612 "("
-          Param@612..629
-            Modifier@612..614
-              InKw@612..614 "in"
-            Whitespace@614..615 " "
-            Name@615..620
-              Ident@615..620 "other"
-            Colon@620..621 ":"
-            Whitespace@621..622 " "
-            PathType@622..629
-              Path@622..629
-                PathSegment@622..629
-                  NameRef@622..629
-                    Ident@622..629 "Counter"
-          Comma@629..630 ","
-          Whitespace@630..631 " "
-          Param@631..645
-            Modifier@631..634
-              RefKw@631..634 "ref"
-            Whitespace@634..635 " "
-            Name@635..640
-              Ident@635..640 "total"
-            Colon@640..641 ":"
-            Whitespace@641..642 " "
-            PredefinedType@642..645
-              IntKw@642..645 "int"
-          Comma@645..646 ","
-          Whitespace@646..647 " "
-          Param@647..660
-            Modifier@647..650
-              OutKw@647..650 "out"
-            Whitespace@650..651 " "
-            Name@651..655
-              Ident@651..655 "seen"
-            Colon@655..656 ":"
-            Whitespace@656..657 " "
-            PredefinedType@657..660
-              IntKw@657..660 "int"
-          Comma@660..661 ","
-          Whitespace@661..662 " "
-          Param@662..692
-            Modifier@662..668
-              ParamsKw@662..668 "params"
-            Whitespace@668..669 " "
-            Name@669..673
-              Ident@669..673 "rest"
-            Colon@673..674 ":"
-            Whitespace@674..675 " "
-            PathType@675..692
-              Path@675..692
-                PathSegment@675..692
-                  NameRef@675..687
-                    Ident@675..687 "ReadOnlySpan"
-                  GenericArgList@687..692
-                    Lt@687..688 "<"
-                    PredefinedType@688..691
-                      IntKw@688..691 "int"
-                    Gt@691..692 ">"
-          Comma@692..693 ","
-          Whitespace@693..694 " "
-          Param@694..708
-            Name@694..698
-              Ident@694..698 "port"
-            Colon@698..699 ":"
-            Whitespace@699..700 " "
-            PredefinedType@700..703
-              IntKw@700..703 "int"
+          TypeConstraint@573..587
+            PathType@573..587
+              Path@573..587
+                PathSegment@573..587
+                  NameRef@573..584
+                    Ident@573..584 "IComparable"
+                  GenericArgList@584..587
+                    Lt@584..585 "<"
+                    PathType@585..586
+                      Path@585..586
+                        PathSegment@585..586
+                          NameRef@585..586
+                            Ident@585..586 "T"
+                    Gt@586..587 ">"
+        Whitespace@587..588 " "
+        ExprBody@588..592
+          FatArrow@588..590 "=>"
+          Whitespace@590..591 " "
+          PathExpr@591..592
+            Path@591..592
+              PathSegment@591..592
+                NameRef@591..592
+                  Ident@591..592 "a"
+        Semicolon@592..593 ";"
+      Newline@593..594 "\n"
+      Newline@594..595 "\n"
+      Whitespace@595..599 "    "
+      FunctionDecl@599..711
+        Modifier@599..605
+          PublicKw@599..605 "public"
+        Whitespace@605..606 " "
+        Name@606..609
+          Ident@606..609 "Add"
+        ParamList@609..707
+          LParen@609..610 "("
+          Param@610..627
+            Modifier@610..612
+              InKw@610..612 "in"
+            Whitespace@612..613 " "
+            Name@613..618
+              Ident@613..618 "other"
+            Colon@618..619 ":"
+            Whitespace@619..620 " "
+            PathType@620..627
+              Path@620..627
+                PathSegment@620..627
+                  NameRef@620..627
+                    Ident@620..627 "Counter"
+          Comma@627..628 ","
+          Whitespace@628..629 " "
+          Param@629..643
+            Modifier@629..632
+              RefKw@629..632 "ref"
+            Whitespace@632..633 " "
+            Name@633..638
+              Ident@633..638 "total"
+            Colon@638..639 ":"
+            Whitespace@639..640 " "
+            PredefinedType@640..643
+              IntKw@640..643 "int"
+          Comma@643..644 ","
+          Whitespace@644..645 " "
+          Param@645..658
+            Modifier@645..648
+              OutKw@645..648 "out"
+            Whitespace@648..649 " "
+            Name@649..653
+              Ident@649..653 "seen"
+            Colon@653..654 ":"
+            Whitespace@654..655 " "
+            PredefinedType@655..658
+              IntKw@655..658 "int"
+          Comma@658..659 ","
+          Whitespace@659..660 " "
+          Param@660..690
+            Modifier@660..666
+              ParamsKw@660..666 "params"
+            Whitespace@666..667 " "
+            Name@667..671
+              Ident@667..671 "rest"
+            Colon@671..672 ":"
+            Whitespace@672..673 " "
+            PathType@673..690
+              Path@673..690
+                PathSegment@673..690
+                  NameRef@673..685
+                    Ident@673..685 "ReadOnlySpan"
+                  GenericArgList@685..690
+                    Lt@685..686 "<"
+                    PredefinedType@686..689
+                      IntKw@686..689 "int"
+                    Gt@689..690 ">"
+          Comma@690..691 ","
+          Whitespace@691..692 " "
+          Param@692..706
+            Name@692..696
+              Ident@692..696 "port"
+            Colon@696..697 ":"
+            Whitespace@697..698 " "
+            PredefinedType@698..701
+              IntKw@698..701 "int"
+            Whitespace@701..702 " "
+            Eq@702..703 "="
             Whitespace@703..704 " "
-            Eq@704..705 "="
-            Whitespace@705..706 " "
-            LiteralExpr@706..708
-              IntNumber@706..708 "80"
-          RParen@708..709 ")"
-        Whitespace@709..710 " "
-        Block@710..713
-          LBrace@710..711 "{"
-          Whitespace@711..712 " "
-          RBrace@712..713 "}"
-      Newline@713..714 "\n"
-      Newline@714..715 "\n"
-      Whitespace@715..719 "    "
-      OperatorDecl@719..782
-        Modifier@719..725
-          PublicKw@719..725 "public"
-        Whitespace@725..726 " "
-        Modifier@726..732
-          StaticKw@726..732 "static"
-        Whitespace@732..733 " "
-        OperatorKw@733..741 "operator"
-        Whitespace@741..742 " "
-        Plus@742..743 "+"
-        ParamList@743..767
-          LParen@743..744 "("
-          Param@744..754
-            Name@744..745
-              Ident@744..745 "a"
-            Colon@745..746 ":"
-            Whitespace@746..747 " "
-            PathType@747..754
-              Path@747..754
-                PathSegment@747..754
-                  NameRef@747..754
-                    Ident@747..754 "Counter"
-          Comma@754..755 ","
-          Whitespace@755..756 " "
-          Param@756..766
-            Name@756..757
-              Ident@756..757 "b"
-            Colon@757..758 ":"
-            Whitespace@758..759 " "
-            PathType@759..766
-              Path@759..766
-                PathSegment@759..766
-                  NameRef@759..766
-                    Ident@759..766 "Counter"
-          RParen@766..767 ")"
-        Colon@767..768 ":"
-        Whitespace@768..769 " "
-        PathType@769..776
-          Path@769..776
-            PathSegment@769..776
-              NameRef@769..776
-                Ident@769..776 "Counter"
-        Whitespace@776..777 " "
-        ExprBody@777..781
-          FatArrow@777..779 "=>"
-          Whitespace@779..780 " "
-          PathExpr@780..781
-            Path@780..781
-              PathSegment@780..781
-                NameRef@780..781
-                  Ident@780..781 "a"
-        Semicolon@781..782 ";"
-      Newline@782..783 "\n"
-      Newline@783..784 "\n"
-      Whitespace@784..788 "    "
-      OperatorDecl@788..852
-        Modifier@788..794
-          PublicKw@788..794 "public"
-        Whitespace@794..795 " "
-        Modifier@795..801
-          StaticKw@795..801 "static"
-        Whitespace@801..802 " "
-        OperatorKw@802..810 "operator"
-        Whitespace@810..811 " "
-        GtEq@811..813 ">="
-        ParamList@813..837
-          LParen@813..814 "("
-          Param@814..824
-            Name@814..815
-              Ident@814..815 "a"
-            Colon@815..816 ":"
-            Whitespace@816..817 " "
-            PathType@817..824
-              Path@817..824
-                PathSegment@817..824
-                  NameRef@817..824
-                    Ident@817..824 "Counter"
-          Comma@824..825 ","
-          Whitespace@825..826 " "
-          Param@826..836
-            Name@826..827
-              Ident@826..827 "b"
-            Colon@827..828 ":"
-            Whitespace@828..829 " "
-            PathType@829..836
-              Path@829..836
-                PathSegment@829..836
-                  NameRef@829..836
-                    Ident@829..836 "Counter"
-          RParen@836..837 ")"
-        Colon@837..838 ":"
-        Whitespace@838..839 " "
-        PredefinedType@839..843
-          BoolKw@839..843 "bool"
-        Whitespace@843..844 " "
-        ExprBody@844..851
-          FatArrow@844..846 "=>"
-          Whitespace@846..847 " "
-          LiteralExpr@847..851
-            TrueKw@847..851 "true"
-        Semicolon@851..852 ";"
-      Newline@852..853 "\n"
-      Newline@853..854 "\n"
-      Whitespace@854..858 "    "
-      ConversionOperatorDecl@858..919
-        Modifier@858..864
-          PublicKw@858..864 "public"
-        Whitespace@864..865 " "
-        Modifier@865..871
-          StaticKw@865..871 "static"
-        Whitespace@871..872 " "
-        ImplicitKw@872..880 "implicit"
-        Whitespace@880..881 " "
-        OperatorKw@881..889 "operator"
-        Whitespace@889..890 " "
-        PredefinedType@890..896
-          StringKw@890..896 "string"
-        ParamList@896..908
-          LParen@896..897 "("
-          Param@897..907
-            Name@897..898
-              Ident@897..898 "c"
-            Colon@898..899 ":"
-            Whitespace@899..900 " "
-            PathType@900..907
-              Path@900..907
-                PathSegment@900..907
-                  NameRef@900..907
-                    Ident@900..907 "Counter"
-          RParen@907..908 ")"
-        Whitespace@908..909 " "
-        ExprBody@909..918
-          FatArrow@909..911 "=>"
-          Whitespace@911..912 " "
-          MemberExpr@912..918
-            PathExpr@912..913
-              Path@912..913
-                PathSegment@912..913
-                  NameRef@912..913
-                    Ident@912..913 "c"
-            Dot@913..914 "."
-            NameRef@914..918
-              Ident@914..918 "Name"
-        Semicolon@918..919 ";"
-      Newline@919..920 "\n"
-      Newline@920..921 "\n"
-      Whitespace@921..925 "    "
-      FunctionDecl@925..954
-        ExplicitImpl@925..932
-          Path@925..931
-            PathSegment@925..931
-              NameRef@925..931
-                Ident@925..931 "IShape"
-          Dot@931..932 "."
-        Name@932..936
-          Ident@932..936 "Area"
-        ParamList@936..938
-          LParen@936..937 "("
-          RParen@937..938 ")"
-        Colon@938..939 ":"
-        Whitespace@939..940 " "
-        PredefinedType@940..945
-          FloatKw@940..945 "float"
-        Whitespace@945..946 " "
-        ExprBody@946..953
-          FatArrow@946..948 "=>"
-          Whitespace@948..949 " "
-          LiteralExpr@949..953
-            RealNumber@949..953 "0.0f"
-        Semicolon@953..954 ";"
-      Newline@954..955 "\n"
-      Newline@955..956 "\n"
-      Whitespace@956..960 "    "
-      PropertyDecl@960..987
-        ExplicitImpl@960..971
-          Path@960..970
-            PathSegment@960..970
-              NameRef@960..965
-                Ident@960..965 "IList"
-              GenericArgList@965..970
-                Lt@965..966 "<"
-                PredefinedType@966..969
-                  IntKw@966..969 "int"
-                Gt@969..970 ">"
-          Dot@970..971 "."
-        Name@971..976
-          Ident@971..976 "Count"
-        Colon@976..977 ":"
-        Whitespace@977..978 " "
-        PredefinedType@978..981
-          IntKw@978..981 "int"
-        Whitespace@981..982 " "
-        ExprBody@982..986
-          FatArrow@982..984 "=>"
-          Whitespace@984..985 " "
-          LiteralExpr@985..986
-            IntNumber@985..986 "0"
-        Semicolon@986..987 ";"
-      Newline@987..988 "\n"
-      Newline@988..989 "\n"
-      Whitespace@989..993 "    "
-      IndexerDecl@993..1035
-        ExplicitImpl@993..1004
-          Path@993..1003
-            PathSegment@993..1003
-              NameRef@993..998
-                Ident@993..998 "IList"
-              GenericArgList@998..1003
-                Lt@998..999 "<"
-                PredefinedType@999..1002
-                  IntKw@999..1002 "int"
-                Gt@1002..1003 ">"
-          Dot@1003..1004 "."
-        ThisKw@1004..1008 "this"
-        LBracket@1008..1009 "["
-        Param@1009..1015
-          Name@1009..1010
-            Ident@1009..1010 "i"
-          Colon@1010..1011 ":"
-          Whitespace@1011..1012 " "
-          PredefinedType@1012..1015
-            IntKw@1012..1015 "int"
-        RBracket@1015..1016 "]"
-        Colon@1016..1017 ":"
-        Whitespace@1017..1018 " "
-        PredefinedType@1018..1021
-          IntKw@1018..1021 "int"
-        Whitespace@1021..1022 " "
-        AccessorList@1022..1035
-          LBrace@1022..1023 "{"
-          Whitespace@1023..1024 " "
-          Accessor@1024..1033
-            GetKw@1024..1027 "get"
-            Whitespace@1027..1028 " "
-            ExprBody@1028..1032
-              FatArrow@1028..1030 "=>"
-              Whitespace@1030..1031 " "
-              PathExpr@1031..1032
-                Path@1031..1032
-                  PathSegment@1031..1032
-                    NameRef@1031..1032
-                      Ident@1031..1032 "i"
-            Semicolon@1032..1033 ";"
-          Whitespace@1033..1034 " "
-          RBrace@1034..1035 "}"
-      Newline@1035..1036 "\n"
-      Newline@1036..1037 "\n"
-      Whitespace@1037..1041 "    "
-      FunctionDecl@1041..1091
-        Modifier@1041..1047
-          PublicKw@1041..1047 "public"
-        Whitespace@1047..1048 " "
-        Modifier@1048..1053
-          AsyncKw@1048..1053 "async"
-        Whitespace@1053..1054 " "
-        Name@1054..1058
-          Ident@1054..1058 "Load"
-        ParamList@1058..1070
-          LParen@1058..1059 "("
-          Param@1059..1069
-            Name@1059..1061
-              Ident@1059..1061 "id"
-            Colon@1061..1062 ":"
-            Whitespace@1062..1063 " "
-            PathType@1063..1069
-              Path@1063..1069
-                PathSegment@1063..1069
-                  NameRef@1063..1069
-                    Ident@1063..1069 "UserId"
-          RParen@1069..1070 ")"
-        Colon@1070..1071 ":"
-        Whitespace@1071..1072 " "
-        PathType@1072..1087
-          Path@1072..1087
-            PathSegment@1072..1087
-              NameRef@1072..1078
-                Ident@1072..1078 "Result"
-              GenericArgList@1078..1087
-                Lt@1078..1079 "<"
-                PathType@1079..1083
-                  Path@1079..1083
-                    PathSegment@1079..1083
-                      NameRef@1079..1083
-                        Ident@1079..1083 "User"
-                Comma@1083..1084 ","
-                Whitespace@1084..1085 " "
-                PathType@1085..1086
-                  Path@1085..1086
-                    PathSegment@1085..1086
-                      NameRef@1085..1086
-                        Ident@1085..1086 "E"
-                Gt@1086..1087 ">"
-        Whitespace@1087..1088 " "
-        Block@1088..1091
-          LBrace@1088..1089 "{"
-          Whitespace@1089..1090 " "
-          RBrace@1090..1091 "}"
-      Newline@1091..1092 "\n"
-      RBrace@1092..1093 "}"
-  Newline@1093..1094 "\n"
-  Newline@1094..1095 "\n"
-  ClassDecl@1095..1152
-    Modifier@1095..1101
-      PublicKw@1095..1101 "public"
-    Whitespace@1101..1102 " "
-    Modifier@1102..1108
-      UniqueKw@1102..1108 "unique"
-    Whitespace@1108..1109 " "
-    ClassKw@1109..1114 "class"
-    Whitespace@1114..1115 " "
-    Name@1115..1125
-      Ident@1115..1125 "Connection"
-    Newline@1125..1126 "\n"
-    MemberList@1126..1152
-      LBrace@1126..1127 "{"
-      Newline@1127..1128 "\n"
-      Whitespace@1128..1132 "    "
-      FunctionDecl@1132..1150
-        Modifier@1132..1138
-          PublicKw@1132..1138 "public"
-        Whitespace@1138..1139 " "
-        Name@1139..1144
-          Ident@1139..1144 "Close"
-        ParamList@1144..1146
-          LParen@1144..1145 "("
-          RParen@1145..1146 ")"
-        Whitespace@1146..1147 " "
-        Block@1147..1150
-          LBrace@1147..1148 "{"
-          Whitespace@1148..1149 " "
-          RBrace@1149..1150 "}"
-      Newline@1150..1151 "\n"
-      RBrace@1151..1152 "}"
-  Newline@1152..1153 "\n"
+            LiteralExpr@704..706
+              IntNumber@704..706 "80"
+          RParen@706..707 ")"
+        Whitespace@707..708 " "
+        Block@708..711
+          LBrace@708..709 "{"
+          Whitespace@709..710 " "
+          RBrace@710..711 "}"
+      Newline@711..712 "\n"
+      Newline@712..713 "\n"
+      Whitespace@713..717 "    "
+      OperatorDecl@717..780
+        Modifier@717..723
+          PublicKw@717..723 "public"
+        Whitespace@723..724 " "
+        Modifier@724..730
+          StaticKw@724..730 "static"
+        Whitespace@730..731 " "
+        OperatorKw@731..739 "operator"
+        Whitespace@739..740 " "
+        Plus@740..741 "+"
+        ParamList@741..765
+          LParen@741..742 "("
+          Param@742..752
+            Name@742..743
+              Ident@742..743 "a"
+            Colon@743..744 ":"
+            Whitespace@744..745 " "
+            PathType@745..752
+              Path@745..752
+                PathSegment@745..752
+                  NameRef@745..752
+                    Ident@745..752 "Counter"
+          Comma@752..753 ","
+          Whitespace@753..754 " "
+          Param@754..764
+            Name@754..755
+              Ident@754..755 "b"
+            Colon@755..756 ":"
+            Whitespace@756..757 " "
+            PathType@757..764
+              Path@757..764
+                PathSegment@757..764
+                  NameRef@757..764
+                    Ident@757..764 "Counter"
+          RParen@764..765 ")"
+        Colon@765..766 ":"
+        Whitespace@766..767 " "
+        PathType@767..774
+          Path@767..774
+            PathSegment@767..774
+              NameRef@767..774
+                Ident@767..774 "Counter"
+        Whitespace@774..775 " "
+        ExprBody@775..779
+          FatArrow@775..777 "=>"
+          Whitespace@777..778 " "
+          PathExpr@778..779
+            Path@778..779
+              PathSegment@778..779
+                NameRef@778..779
+                  Ident@778..779 "a"
+        Semicolon@779..780 ";"
+      Newline@780..781 "\n"
+      Newline@781..782 "\n"
+      Whitespace@782..786 "    "
+      OperatorDecl@786..850
+        Modifier@786..792
+          PublicKw@786..792 "public"
+        Whitespace@792..793 " "
+        Modifier@793..799
+          StaticKw@793..799 "static"
+        Whitespace@799..800 " "
+        OperatorKw@800..808 "operator"
+        Whitespace@808..809 " "
+        GtEq@809..811 ">="
+        ParamList@811..835
+          LParen@811..812 "("
+          Param@812..822
+            Name@812..813
+              Ident@812..813 "a"
+            Colon@813..814 ":"
+            Whitespace@814..815 " "
+            PathType@815..822
+              Path@815..822
+                PathSegment@815..822
+                  NameRef@815..822
+                    Ident@815..822 "Counter"
+          Comma@822..823 ","
+          Whitespace@823..824 " "
+          Param@824..834
+            Name@824..825
+              Ident@824..825 "b"
+            Colon@825..826 ":"
+            Whitespace@826..827 " "
+            PathType@827..834
+              Path@827..834
+                PathSegment@827..834
+                  NameRef@827..834
+                    Ident@827..834 "Counter"
+          RParen@834..835 ")"
+        Colon@835..836 ":"
+        Whitespace@836..837 " "
+        PredefinedType@837..841
+          BoolKw@837..841 "bool"
+        Whitespace@841..842 " "
+        ExprBody@842..849
+          FatArrow@842..844 "=>"
+          Whitespace@844..845 " "
+          LiteralExpr@845..849
+            TrueKw@845..849 "true"
+        Semicolon@849..850 ";"
+      Newline@850..851 "\n"
+      Newline@851..852 "\n"
+      Whitespace@852..856 "    "
+      ConversionOperatorDecl@856..917
+        Modifier@856..862
+          PublicKw@856..862 "public"
+        Whitespace@862..863 " "
+        Modifier@863..869
+          StaticKw@863..869 "static"
+        Whitespace@869..870 " "
+        ImplicitKw@870..878 "implicit"
+        Whitespace@878..879 " "
+        OperatorKw@879..887 "operator"
+        Whitespace@887..888 " "
+        PredefinedType@888..894
+          StringKw@888..894 "string"
+        ParamList@894..906
+          LParen@894..895 "("
+          Param@895..905
+            Name@895..896
+              Ident@895..896 "c"
+            Colon@896..897 ":"
+            Whitespace@897..898 " "
+            PathType@898..905
+              Path@898..905
+                PathSegment@898..905
+                  NameRef@898..905
+                    Ident@898..905 "Counter"
+          RParen@905..906 ")"
+        Whitespace@906..907 " "
+        ExprBody@907..916
+          FatArrow@907..909 "=>"
+          Whitespace@909..910 " "
+          MemberExpr@910..916
+            PathExpr@910..911
+              Path@910..911
+                PathSegment@910..911
+                  NameRef@910..911
+                    Ident@910..911 "c"
+            Dot@911..912 "."
+            NameRef@912..916
+              Ident@912..916 "Name"
+        Semicolon@916..917 ";"
+      Newline@917..918 "\n"
+      Newline@918..919 "\n"
+      Whitespace@919..923 "    "
+      FunctionDecl@923..952
+        ExplicitImpl@923..930
+          Path@923..929
+            PathSegment@923..929
+              NameRef@923..929
+                Ident@923..929 "IShape"
+          Dot@929..930 "."
+        Name@930..934
+          Ident@930..934 "Area"
+        ParamList@934..936
+          LParen@934..935 "("
+          RParen@935..936 ")"
+        Colon@936..937 ":"
+        Whitespace@937..938 " "
+        PredefinedType@938..943
+          FloatKw@938..943 "float"
+        Whitespace@943..944 " "
+        ExprBody@944..951
+          FatArrow@944..946 "=>"
+          Whitespace@946..947 " "
+          LiteralExpr@947..951
+            RealNumber@947..951 "0.0f"
+        Semicolon@951..952 ";"
+      Newline@952..953 "\n"
+      Newline@953..954 "\n"
+      Whitespace@954..958 "    "
+      PropertyDecl@958..985
+        ExplicitImpl@958..969
+          Path@958..968
+            PathSegment@958..968
+              NameRef@958..963
+                Ident@958..963 "IList"
+              GenericArgList@963..968
+                Lt@963..964 "<"
+                PredefinedType@964..967
+                  IntKw@964..967 "int"
+                Gt@967..968 ">"
+          Dot@968..969 "."
+        Name@969..974
+          Ident@969..974 "Count"
+        Colon@974..975 ":"
+        Whitespace@975..976 " "
+        PredefinedType@976..979
+          IntKw@976..979 "int"
+        Whitespace@979..980 " "
+        ExprBody@980..984
+          FatArrow@980..982 "=>"
+          Whitespace@982..983 " "
+          LiteralExpr@983..984
+            IntNumber@983..984 "0"
+        Semicolon@984..985 ";"
+      Newline@985..986 "\n"
+      Newline@986..987 "\n"
+      Whitespace@987..991 "    "
+      IndexerDecl@991..1033
+        ExplicitImpl@991..1002
+          Path@991..1001
+            PathSegment@991..1001
+              NameRef@991..996
+                Ident@991..996 "IList"
+              GenericArgList@996..1001
+                Lt@996..997 "<"
+                PredefinedType@997..1000
+                  IntKw@997..1000 "int"
+                Gt@1000..1001 ">"
+          Dot@1001..1002 "."
+        ThisKw@1002..1006 "this"
+        LBracket@1006..1007 "["
+        Param@1007..1013
+          Name@1007..1008
+            Ident@1007..1008 "i"
+          Colon@1008..1009 ":"
+          Whitespace@1009..1010 " "
+          PredefinedType@1010..1013
+            IntKw@1010..1013 "int"
+        RBracket@1013..1014 "]"
+        Colon@1014..1015 ":"
+        Whitespace@1015..1016 " "
+        PredefinedType@1016..1019
+          IntKw@1016..1019 "int"
+        Whitespace@1019..1020 " "
+        AccessorList@1020..1033
+          LBrace@1020..1021 "{"
+          Whitespace@1021..1022 " "
+          Accessor@1022..1031
+            GetKw@1022..1025 "get"
+            Whitespace@1025..1026 " "
+            ExprBody@1026..1030
+              FatArrow@1026..1028 "=>"
+              Whitespace@1028..1029 " "
+              PathExpr@1029..1030
+                Path@1029..1030
+                  PathSegment@1029..1030
+                    NameRef@1029..1030
+                      Ident@1029..1030 "i"
+            Semicolon@1030..1031 ";"
+          Whitespace@1031..1032 " "
+          RBrace@1032..1033 "}"
+      Newline@1033..1034 "\n"
+      Newline@1034..1035 "\n"
+      Whitespace@1035..1039 "    "
+      FunctionDecl@1039..1089
+        Modifier@1039..1045
+          PublicKw@1039..1045 "public"
+        Whitespace@1045..1046 " "
+        Modifier@1046..1051
+          AsyncKw@1046..1051 "async"
+        Whitespace@1051..1052 " "
+        Name@1052..1056
+          Ident@1052..1056 "Load"
+        ParamList@1056..1068
+          LParen@1056..1057 "("
+          Param@1057..1067
+            Name@1057..1059
+              Ident@1057..1059 "id"
+            Colon@1059..1060 ":"
+            Whitespace@1060..1061 " "
+            PathType@1061..1067
+              Path@1061..1067
+                PathSegment@1061..1067
+                  NameRef@1061..1067
+                    Ident@1061..1067 "UserId"
+          RParen@1067..1068 ")"
+        Colon@1068..1069 ":"
+        Whitespace@1069..1070 " "
+        PathType@1070..1085
+          Path@1070..1085
+            PathSegment@1070..1085
+              NameRef@1070..1076
+                Ident@1070..1076 "Result"
+              GenericArgList@1076..1085
+                Lt@1076..1077 "<"
+                PathType@1077..1081
+                  Path@1077..1081
+                    PathSegment@1077..1081
+                      NameRef@1077..1081
+                        Ident@1077..1081 "User"
+                Comma@1081..1082 ","
+                Whitespace@1082..1083 " "
+                PathType@1083..1084
+                  Path@1083..1084
+                    PathSegment@1083..1084
+                      NameRef@1083..1084
+                        Ident@1083..1084 "E"
+                Gt@1084..1085 ">"
+        Whitespace@1085..1086 " "
+        Block@1086..1089
+          LBrace@1086..1087 "{"
+          Whitespace@1087..1088 " "
+          RBrace@1088..1089 "}"
+      Newline@1089..1090 "\n"
+      RBrace@1090..1091 "}"
+  Newline@1091..1092 "\n"
+  Newline@1092..1093 "\n"
+  ClassDecl@1093..1150
+    Modifier@1093..1099
+      PublicKw@1093..1099 "public"
+    Whitespace@1099..1100 " "
+    Modifier@1100..1106
+      UniqueKw@1100..1106 "unique"
+    Whitespace@1106..1107 " "
+    ClassKw@1107..1112 "class"
+    Whitespace@1112..1113 " "
+    Name@1113..1123
+      Ident@1113..1123 "Connection"
+    Newline@1123..1124 "\n"
+    MemberList@1124..1150
+      LBrace@1124..1125 "{"
+      Newline@1125..1126 "\n"
+      Whitespace@1126..1130 "    "
+      FunctionDecl@1130..1148
+        Modifier@1130..1136
+          PublicKw@1130..1136 "public"
+        Whitespace@1136..1137 " "
+        Name@1137..1142
+          Ident@1137..1142 "Close"
+        ParamList@1142..1144
+          LParen@1142..1143 "("
+          RParen@1143..1144 ")"
+        Whitespace@1144..1145 " "
+        Block@1145..1148
+          LBrace@1145..1146 "{"
+          Whitespace@1146..1147 " "
+          RBrace@1147..1148 "}"
+      Newline@1148..1149 "\n"
+      RBrace@1149..1150 "}"
+  Newline@1150..1151 "\n"
