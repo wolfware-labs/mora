@@ -1173,7 +1173,7 @@ let name = ReadName();
 let bad: Html = name;            // error: `string` does not convert to `Html`
 ```
 
-A type is an interpolation handler when it implements `IInterpolate<T>`. A hole reaches it typed, when the hole's type implements `IHole<T>` for that handler, or as a displayable value:
+A type `T` is an interpolation handler when it implements `IInterpolate<T>`; implementing `IInterpolate` with any other type argument is the usual unsatisfied-constraint error at the declaration, because `Begin` must return the handler itself. A hole reaches it typed, when the hole's type implements `IHole<T>` for that handler, or as a displayable value:
 
 ```mora
 public interface IInterpolate<TSelf> {
@@ -1189,7 +1189,7 @@ public interface IHole<THandler> {
 }
 ```
 
-- **Lowering.** When the target type of `$"..."` implements `IInterpolate<T>`, the compiler calls `T.Begin` with the total length of the literal parts and the number of holes, then, if `Enabled` is `true`, `AppendLiteral` for each literal part and one call for each hole, in source order. The calls are statically dispatched and inlined like any other generic code (§8.3). The handler value is the expression's value. When `Enabled` is `false` no part is appended and no hole expression is evaluated, which is how a disabled log level costs one branch.
+- **Lowering.** When the target type `T` of `$"..."` implements `IInterpolate<T>`, with itself as the argument, the compiler calls `T.Begin` with the total length of the literal parts and the number of holes, then, if `Enabled` is `true`, `AppendLiteral` for each literal part and one call for each hole, in source order. The calls are statically dispatched and inlined like any other generic code (§8.3). The handler value is the expression's value. When `Enabled` is `false` no part is appended and no hole expression is evaluated, which is how a disabled log level costs one branch.
 - **Holes.** A hole whose type implements `IHole<T>` for the handler goes to `AppendHole`, so a handler can take some types specially, as `Html` takes a nested `Html` fragment. Any other hole whose type implements `IDisplay` goes to `AppendDisplay`, which receives the value itself, not its text, so the handler decides how to encode it. A hole with neither is an error that names both interfaces. A hole is borrowed for the call (§10.3), so a move-only value can be a hole and stays where it is. `format` holds the text after the hole's expression, alignment included (`,10:F2`), and is empty when there is none. `source` is the hole's expression as written (`user.Id`), which log handlers use as a field name.
 - **`Literal`** is text the compiler knows (§15.2): the literal parts of an interpolated string, and a string literal or `const` string written where a `Literal` is expected. Only the compiler creates one, and no function turns a run-time `string` into a `Literal`. Since a handler's trusted text arrives only as `Literal`, text read at run time becomes markup, a query or a command line only through a named escape hatch such as `Html.Unchecked`, which is linted (below).
 - **No conversion from `string`.** A handler type does not implement `IFrom<string>`, so `let bad: Html = name;` does not compile. A handler that needs an escape hatch offers a named function, such as `Html.Unchecked(text)`, and lint `unchecked-injection` (warn by default) flags every call.
@@ -1676,7 +1676,7 @@ public union AppError {
 }
 ```
 
-`@Error` gives each case its `Code`, `PublicMessage` and `HttpStatus` from the attributes `@Code("...")`, `@Public("...")` and `@Status(n)` on the case. A case without `@Code` gets the type's name and the case's name in snake case, joined by a dot: `app_error.not_found`. On a struct the attributes go on the type, and without `@Code` the code is the type's name in snake case. A code is one or more lowercase segments of letters, digits and `_`, joined by dots, and a status is an error status from 400 to 599; `@Error` reports anything else as a compile error at the attribute. Cases without `@Public` are internal, so `Io` and `Json` above never show their text to a client. For a case whose field is marked `@From`, `Source()` returns that field, so the chain to the original error is kept.
+`@Error` gives each case its `Code`, `PublicMessage` and `HttpStatus` from the attributes `@Code("...")`, `@Public("...")` and `@Status(n)` on the case. A case without `@Code` gets the type's name and the case's name in snake case, joined by a dot: `app_error.not_found`. On a struct the attributes go on the type, and without `@Code` the code is the type's name in snake case. A code is one or more lowercase segments of letters, digits and `_`, joined by dots, and a status is an error status from 400 to 599; `@Error` reports anything else as a compile error at the attribute. Cases without `@Public` are internal, so `Io` and `Json` above never show their text to a client. For a case whose field is marked `@From`, `Source()` returns that field, boxed, so the chain to the original error is kept; when the field's type is move-only, which cannot be boxed (§8.4), it returns `none`.
 
 ### 11.3 Conversions in `?`
 
