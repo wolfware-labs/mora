@@ -408,7 +408,7 @@ A project names its dependencies only in `mora.toml` (§17.2); source files have
 core = { path = "../core" }
 ```
 
-Each entry binds its key, in PascalCase, to the **root namespace** of that dependency, in every file of the project: with the entry above, `Core.Parse(...)` calls a function in the root namespace of the project at `../core`, and `using Core.Text;` opens a namespace inside it. The key decides the name, so two dependencies whose own root namespaces are the same never clash. A key that gives the same name as `Std` or as the project's own root namespace is error `MR0501`. The standard library is always available as `Std` and is not listed.
+Each entry binds its key, in PascalCase, to the **root namespace** of that dependency, in every file of the project: with the entry above, `Core.Parse(...)` calls a function in the root namespace of the project at `../core`, and `using Core.Text;` opens a namespace inside it. The key decides the name, so two dependencies whose own root namespaces are the same never clash. A key that gives the same name as `Std`, as the project's own root namespace or as another key (`foo-bar` and `FooBar`) is error `MR0501`. The standard library is always available as `Std` and is not listed.
 
 In the MVP an entry names a local project by `path`, relative to the manifest, and that project is compiled from source in the same build. Version, git, URL and registry sources are post-MVP (§18.5); in the MVP they are error `MR0122`.
 
