@@ -85,7 +85,7 @@ SourceFile@0..386
       LBrace@124..125 "{"
       Newline@125..126 "\n"
       Whitespace@126..130 "    "
-      PropertyDecl@130..160
+      GetterDecl@130..160
         Modifier@130..136
           PublicKw@130..136 "public"
         Whitespace@136..137 " "
@@ -197,7 +197,7 @@ SourceFile@0..386
       Newline@291..292 "\n"
       Newline@292..293 "\n"
       Whitespace@293..297 "    "
-      PropertyDecl@297..326
+      GetterDecl@297..326
         Modifier@297..303
           PublicKw@297..303 "public"
         Whitespace@303..304 " "

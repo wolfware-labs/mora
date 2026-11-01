@@ -87,8 +87,13 @@ Modifier =
     'public' | 'internal' | 'private' | 'file'
   | 'static' | 'mut' | 'unique' | 'shared' | 'ref'
   | 'async' | 'lazy' | 'const' | 'indirect' | 'extern'
-  | 'move' | 'in' | 'params' | 'abstract'
+  | 'move' | 'in' | 'params' | 'abstract' | 'stored'
   )
+  WriteScope?
+
+// §6.9. `mut(private)`, `mut(ns)`, `mut(internal)`: who may write a field.
+WriteScope =
+  '(' scope:('private' | 'ns' | 'internal') ')'
 
 // §6.11. `@Json`, `@Cfg(Os = "linux")`, `@Allow("MR2001")`: one attribute per `@`.
 Attribute =
@@ -178,7 +183,7 @@ ExtensionDecl =
 
 Member =
   FieldDecl
-| PropertyDecl
+| GetterDecl
 | IndexerDecl
 | FunctionDecl
 | ConstructorDecl
@@ -192,7 +197,7 @@ Member =
 | InterfaceDecl
 | SpliceMember
 
-// `=> expr` body shared by functions, properties, accessors, operators and constructors.
+// `=> expr` body shared by functions, getters, accessors, operators and constructors.
 ExprBody =
   '=>' Expr
 
@@ -201,10 +206,22 @@ ExprBody =
 // Also methods (§6.9), interface members (§6.8), extern functions (§13.9) and
 // explicit implementations `IShape.Area(): float => ...`. Without a return
 // type a function returns `()`. The name may be a splice inside `code { }` (§9.3).
+// A `uses` bound follows the return type, or the parameters (§6.14).
 FunctionDecl =
   Attribute* Modifier*
-  ExplicitImpl? (Name | Splice) TypeParamList? ParamList (':' ret:Type)? WhereClause*
+  ExplicitImpl? (Name | Splice) TypeParamList? ParamList (':' ret:Type)? UsesClause? WhereClause*
   (Block | ExprBody ';' | ';')
+
+// §6.14. `uses none`, `uses clock`, `uses (fs.read, net.outbound)`.
+UsesClause =
+  'uses' ('none' | Capability | CapabilityList)
+
+CapabilityList =
+  '(' Capability (',' Capability)* ','? ')'
+
+// `clock`, `fs.read`: a capability or a group of them (§18.6).
+Capability =
+  Path
 
 // `IShape.` in an explicit interface implementation (§6.8).
 ExplicitImpl =
@@ -229,16 +246,17 @@ FieldDecl =
 VariableDeclarator =
   (Name | Splice) (':' Type)? ('=' init:Expr)?
 
-// §6.9. `public Step: int { get; set; } = 1;`, `public Count: int => _count;`
-PropertyDecl =
+// §6.9. `public IsIdle: bool => Count == 0;`, `stored Label: string => $"{Name}";`
+GetterDecl =
   Attribute* Modifier*
   ExplicitImpl? (Name | Splice) ':' Type
-  (AccessorList ('=' init:Expr ';')? | ExprBody ';')
+  ExprBody ';'
 
+// An indexer's accessors (§6.9); fields and getters have none.
 AccessorList =
   '{' Accessor* '}'
 
-// `get;`, `private set;`, `get => x;`.
+// `get => items[i];`, `set => items[i] = value;`.
 Accessor =
   Attribute* Modifier*
   kind:('get' | 'set')
@@ -367,8 +385,9 @@ TupleTypeElem =
 
 // §5.8. `(int, int) => bool`, `() => ()`, `(string) => Task`: the
 // parameter types in parentheses, then the result type.
+// `(T, T) => int uses none` (§6.14).
 FnType =
-  params:TupleType '=>' ret:Type
+  params:TupleType '=>' ret:Type UsesClause?
 
 // §10.7. `public Parent: weak Node;`
 WeakType =

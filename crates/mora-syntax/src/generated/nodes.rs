@@ -922,7 +922,7 @@ impl AstNode for ExtensionDecl {
 }
 
 /// ```text
-/// FunctionDecl = Attribute* Modifier* ExplicitImpl? (Name | Splice) TypeParamList? ParamList (':' ret:Type)? WhereClause* (Block | ExprBody ';' | ';')
+/// FunctionDecl = Attribute* Modifier* ExplicitImpl? (Name | Splice) TypeParamList? ParamList (':' ret:Type)? UsesClause? WhereClause* (Block | ExprBody ';' | ';')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunctionDecl {
@@ -955,6 +955,9 @@ impl FunctionDecl {
         support::token(&self.syntax, &[SyntaxKind::Colon])
     }
     pub fn ret(&self) -> Option<Type> {
+        support::child(&self.syntax)
+    }
+    pub fn uses_clause(&self) -> Option<UsesClause> {
         support::child(&self.syntax)
     }
     pub fn where_clauses(&self) -> AstChildren<WhereClause> {
@@ -1075,7 +1078,7 @@ impl AstNode for TypeDecl {
 }
 
 /// ```text
-/// Modifier = kind:('public' | 'internal' | 'private' | 'file' | 'static' | 'mut' | 'unique' | 'shared' | 'ref' | 'async' | 'lazy' | 'const' | 'indirect' | 'extern' | 'move' | 'in' | 'params' | 'abstract')
+/// Modifier = kind:('public' | 'internal' | 'private' | 'file' | 'static' | 'mut' | 'unique' | 'shared' | 'ref' | 'async' | 'lazy' | 'const' | 'indirect' | 'extern' | 'move' | 'in' | 'params' | 'abstract' | 'stored') WriteScope?
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Modifier {
@@ -1105,14 +1108,59 @@ impl Modifier {
                 SyntaxKind::InKw,
                 SyntaxKind::ParamsKw,
                 SyntaxKind::AbstractKw,
+                SyntaxKind::StoredKw,
             ],
         )
+    }
+    pub fn write_scope(&self) -> Option<WriteScope> {
+        support::child(&self.syntax)
     }
 }
 
 impl AstNode for Modifier {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::Modifier
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
+/// WriteScope = '(' scope:('private' | 'ns' | 'internal') ')'
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WriteScope {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl WriteScope {
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::LParen])
+    }
+    pub fn scope(&self) -> Option<SyntaxToken> {
+        support::token(
+            &self.syntax,
+            &[
+                SyntaxKind::PrivateKw,
+                SyntaxKind::NsKw,
+                SyntaxKind::InternalKw,
+            ],
+        )
+    }
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::RParen])
+    }
+}
+
+impl AstNode for WriteScope {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::WriteScope
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -1647,12 +1695,12 @@ impl AstNode for MemberList {
 }
 
 /// ```text
-/// Member = FieldDecl | PropertyDecl | IndexerDecl | FunctionDecl | ConstructorDecl | DestructorDecl | OperatorDecl | AssocTypeDecl | StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl | SpliceMember
+/// Member = FieldDecl | GetterDecl | IndexerDecl | FunctionDecl | ConstructorDecl | DestructorDecl | OperatorDecl | AssocTypeDecl | StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl | SpliceMember
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Member {
     FieldDecl(FieldDecl),
-    PropertyDecl(PropertyDecl),
+    GetterDecl(GetterDecl),
     IndexerDecl(IndexerDecl),
     FunctionDecl(FunctionDecl),
     ConstructorDecl(ConstructorDecl),
@@ -1670,7 +1718,7 @@ pub enum Member {
 impl AstNode for Member {
     fn can_cast(kind: SyntaxKind) -> bool {
         FieldDecl::can_cast(kind)
-            || PropertyDecl::can_cast(kind)
+            || GetterDecl::can_cast(kind)
             || IndexerDecl::can_cast(kind)
             || FunctionDecl::can_cast(kind)
             || ConstructorDecl::can_cast(kind)
@@ -1690,8 +1738,8 @@ impl AstNode for Member {
         if FieldDecl::can_cast(kind) {
             return FieldDecl::cast(node).map(Self::FieldDecl);
         }
-        if PropertyDecl::can_cast(kind) {
-            return PropertyDecl::cast(node).map(Self::PropertyDecl);
+        if GetterDecl::can_cast(kind) {
+            return GetterDecl::cast(node).map(Self::GetterDecl);
         }
         if IndexerDecl::can_cast(kind) {
             return IndexerDecl::cast(node).map(Self::IndexerDecl);
@@ -1735,7 +1783,7 @@ impl AstNode for Member {
     fn syntax(&self) -> &SyntaxNode {
         match self {
             Self::FieldDecl(it) => it.syntax(),
-            Self::PropertyDecl(it) => it.syntax(),
+            Self::GetterDecl(it) => it.syntax(),
             Self::IndexerDecl(it) => it.syntax(),
             Self::FunctionDecl(it) => it.syntax(),
             Self::ConstructorDecl(it) => it.syntax(),
@@ -2058,14 +2106,14 @@ impl AstNode for Param {
 }
 
 /// ```text
-/// PropertyDecl = Attribute* Modifier* ExplicitImpl? (Name | Splice) ':' Type (AccessorList ('=' init:Expr ';')? | ExprBody ';')
+/// GetterDecl = Attribute* Modifier* ExplicitImpl? (Name | Splice) ':' Type ExprBody ';'
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PropertyDecl {
+pub struct GetterDecl {
     pub(crate) syntax: SyntaxNode,
 }
 
-impl PropertyDecl {
+impl GetterDecl {
     pub fn attributes(&self) -> AstChildren<Attribute> {
         support::children(&self.syntax)
     }
@@ -2087,26 +2135,17 @@ impl PropertyDecl {
     pub fn ty(&self) -> Option<Type> {
         support::child(&self.syntax)
     }
-    pub fn accessor_list(&self) -> Option<AccessorList> {
-        support::child(&self.syntax)
-    }
-    pub fn eq_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Eq])
-    }
-    pub fn init(&self) -> Option<Expr> {
+    pub fn expr_body(&self) -> Option<ExprBody> {
         support::child(&self.syntax)
     }
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::Semicolon])
     }
-    pub fn expr_body(&self) -> Option<ExprBody> {
-        support::child(&self.syntax)
-    }
 }
 
-impl AstNode for PropertyDecl {
+impl AstNode for GetterDecl {
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::PropertyDecl
+        kind == SyntaxKind::GetterDecl
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -2540,6 +2579,111 @@ impl Splice {
 impl AstNode for Splice {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::Splice
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
+/// UsesClause = 'uses' ('none' | Capability | CapabilityList)
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UsesClause {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl UsesClause {
+    pub fn uses_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::UsesKw])
+    }
+    pub fn none_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::NoneKw])
+    }
+    pub fn capability(&self) -> Option<Capability> {
+        support::child(&self.syntax)
+    }
+    pub fn capability_list(&self) -> Option<CapabilityList> {
+        support::child(&self.syntax)
+    }
+}
+
+impl AstNode for UsesClause {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::UsesClause
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
+/// Capability = Path
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Capability {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl Capability {
+    pub fn path(&self) -> Option<Path> {
+        support::child(&self.syntax)
+    }
+}
+
+impl AstNode for Capability {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::Capability
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
+/// CapabilityList = '(' Capability (',' Capability)* ','? ')'
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CapabilityList {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl CapabilityList {
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::LParen])
+    }
+    pub fn capability(&self) -> Option<Capability> {
+        support::child(&self.syntax)
+    }
+    pub fn capabilitys(&self) -> AstChildren<Capability> {
+        support::children(&self.syntax)
+    }
+    pub fn comma_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Comma])
+    }
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::RParen])
+    }
+}
+
+impl AstNode for CapabilityList {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::CapabilityList
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -3100,7 +3244,7 @@ impl AstNode for TupleType {
 }
 
 /// ```text
-/// FnType = params:TupleType '=>' ret:Type
+/// FnType = params:TupleType '=>' ret:Type UsesClause?
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FnType {
@@ -3115,6 +3259,9 @@ impl FnType {
         support::token(&self.syntax, &[SyntaxKind::FatArrow])
     }
     pub fn ret(&self) -> Option<Type> {
+        support::child(&self.syntax)
+    }
+    pub fn uses_clause(&self) -> Option<UsesClause> {
         support::child(&self.syntax)
     }
 }

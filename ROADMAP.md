@@ -240,12 +240,13 @@ Done when:
 
 Spec: [§4](docs/design/mora.md#4-program-structure), [§6](docs/design/mora.md#6-declarations), [§9.2](docs/design/mora.md#92-declaring-macros). Crates: `mora-syntax`. Blocked by: M1.2.
 
-Recursive-descent parsing of compilation units: using directives, attributes, every type declaration (struct and positional struct, class, unique class, union, enum, interface, `ref struct`, `macro`), extension blocks, members (fields, properties, indexers, methods, constructors including primary constructors, destructors, operators, conversions), modifiers, type parameters and constraints, with recovery at member and item boundaries.
+Recursive-descent parsing of compilation units: using directives, attributes, every type declaration (struct and positional struct, class, unique class, union, enum, interface, `ref struct`, `macro`), extension blocks, members (fields with `mut(...)` write scopes, `=>` and `stored` getters, indexers, methods with `uses` bounds, constructors including primary constructors, destructors, operators, conversions), modifiers, type parameters and constraints, with recovery at member and item boundaries.
 
 Done when:
 
 - Snapshot tests of the tree for each declaration form of §6.
 - Error recovery tests: a missing brace or semicolon in one member still yields trees for the following members.
+- Accessor bodies on fields and getters (`{ get; }`, `{ get; set; }`) are syntax errors that recover at the next member.
 
 ### M1.4 Parser: statements and expressions
 

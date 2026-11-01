@@ -408,6 +408,8 @@ pub enum SyntaxKind {
     FieldDecl,
     /// A `Modifier` node.
     Modifier,
+    /// A `WriteScope` node.
+    WriteScope,
     /// A `Attribute` node.
     Attribute,
     /// A `AttributeArgList` node.
@@ -440,8 +442,8 @@ pub enum SyntaxKind {
     Block,
     /// A `Param` node.
     Param,
-    /// A `PropertyDecl` node.
-    PropertyDecl,
+    /// A `GetterDecl` node.
+    GetterDecl,
     /// A `IndexerDecl` node.
     IndexerDecl,
     /// A `ConstructorDecl` node.
@@ -460,6 +462,12 @@ pub enum SyntaxKind {
     ExplicitImpl,
     /// A `Splice` node.
     Splice,
+    /// A `UsesClause` node.
+    UsesClause,
+    /// A `Capability` node.
+    Capability,
+    /// A `CapabilityList` node.
+    CapabilityList,
     /// A `VariableDeclarator` node.
     VariableDeclarator,
     /// A `AccessorList` node.
@@ -881,6 +889,7 @@ impl SyntaxKind {
         FunctionDecl,
         FieldDecl,
         Modifier,
+        WriteScope,
         Attribute,
         AttributeArgList,
         AttributeArg,
@@ -897,7 +906,7 @@ impl SyntaxKind {
         AddsClause,
         Block,
         Param,
-        PropertyDecl,
+        GetterDecl,
         IndexerDecl,
         ConstructorDecl,
         DestructorDecl,
@@ -907,6 +916,9 @@ impl SyntaxKind {
         ExprBody,
         ExplicitImpl,
         Splice,
+        UsesClause,
+        Capability,
+        CapabilityList,
         VariableDeclarator,
         AccessorList,
         Accessor,

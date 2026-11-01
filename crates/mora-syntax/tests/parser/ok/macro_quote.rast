@@ -35,7 +35,7 @@ SourceFile@0..197
             LBrace@52..53 "{"
             Newline@53..54 "\n"
             Whitespace@54..62 "        "
-            PropertyDecl@62..85
+            GetterDecl@62..85
               Modifier@62..68
                 PublicKw@62..68 "public"
               Whitespace@68..69 " "

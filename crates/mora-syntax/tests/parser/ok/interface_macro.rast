@@ -1,5 +1,5 @@
-SourceFile@0..338
-  InterfaceDecl@0..186
+SourceFile@0..374
+  InterfaceDecl@0..222
     Modifier@0..6
       PublicKw@0..6 "public"
     Whitespace@6..7 " "
@@ -17,7 +17,7 @@ SourceFile@0..338
             NameRef@26..34
               Ident@26..34 "IDisplay"
     Whitespace@34..35 " "
-    MemberList@35..186
+    MemberList@35..222
       LBrace@35..36 "{"
       Newline@36..37 "\n"
       Whitespace@37..41 "    "
@@ -34,7 +34,7 @@ SourceFile@0..338
         Semicolon@54..55 ";"
       Newline@55..56 "\n"
       Whitespace@56..60 "    "
-      PropertyDecl@60..84
+      GetterDecl@60..84
         Name@60..64
           Ident@60..64 "Name"
         Colon@64..65 ":"
@@ -66,168 +66,195 @@ SourceFile@0..338
         Semicolon@103..104 ";"
       Newline@104..105 "\n"
       Whitespace@105..109 "    "
-      PropertyDecl@109..146
+      FieldDecl@109..138
         Modifier@109..115
           StaticKw@109..115 "static"
         Whitespace@115..116 " "
         Modifier@116..124
           AbstractKw@116..124 "abstract"
         Whitespace@124..125 " "
-        Name@125..129
-          Ident@125..129 "Unit"
-        Colon@129..130 ":"
-        Whitespace@130..131 " "
-        PathType@131..137
-          Path@131..137
-            PathSegment@131..137
-              NameRef@131..137
-                Ident@131..137 "IShape"
-        Whitespace@137..138 " "
-        AccessorList@138..146
-          LBrace@138..139 "{"
-          Whitespace@139..140 " "
-          Accessor@140..144
-            GetKw@140..143 "get"
-            Semicolon@143..144 ";"
-          Whitespace@144..145 " "
-          RBrace@145..146 "}"
-      Newline@146..147 "\n"
-      Whitespace@147..151 "    "
-      AssocTypeDecl@151..184
-        TypeKw@151..155 "type"
-        Whitespace@155..156 " "
-        Name@156..162
-          Ident@156..162 "Points"
-        Whitespace@162..163 " "
-        BaseList@163..183
-          Colon@163..164 ":"
-          Whitespace@164..165 " "
-          PathType@165..183
-            Path@165..183
-              PathSegment@165..183
-                NameRef@165..176
-                  Ident@165..176 "IEnumerable"
-                GenericArgList@176..183
-                  Lt@176..177 "<"
-                  PathType@177..182
-                    Path@177..182
-                      PathSegment@177..182
-                        NameRef@177..182
-                          Ident@177..182 "Point"
-                  Gt@182..183 ">"
-        Semicolon@183..184 ";"
-      Newline@184..185 "\n"
-      RBrace@185..186 "}"
-  Newline@186..187 "\n"
-  Newline@187..188 "\n"
-  MacroDecl@188..275
-    Attribute@188..195
-      At@188..189 "@"
-      Path@189..195
-        PathSegment@189..195
-          NameRef@189..195
-            Ident@189..195 "Derive"
-    Newline@195..196 "\n"
-    Modifier@196..202
-      PublicKw@196..202 "public"
-    Whitespace@202..203 " "
-    MacroKw@203..208 "macro"
-    Whitespace@208..209 " "
-    Name@209..218
-      Ident@209..218 "Equatable"
-    ParamList@218..231
-      LParen@218..219 "("
-      Param@219..230
-        Name@219..220
-          Ident@219..220 "t"
-        Colon@220..221 ":"
-        Whitespace@221..222 " "
-        PathType@222..230
-          Path@222..230
-            PathSegment@222..230
-              NameRef@222..230
-                Ident@222..230 "TypeInfo"
-      RParen@230..231 ")"
-    Whitespace@231..232 " "
-    AddsClause@232..250
-      AddsKw@232..236 "adds"
-      Whitespace@236..237 " "
-      PathType@237..250
-        Path@237..250
-          PathSegment@237..250
-            NameRef@237..247
-              Ident@237..247 "IEquatable"
-            GenericArgList@247..250
-              Lt@247..248 "<"
-              PathType@248..249
-                Path@248..249
-                  PathSegment@248..249
-                    NameRef@248..249
-                      Ident@248..249 "T"
-              Gt@249..250 ">"
-    Whitespace@250..251 " "
-    Block@251..275
-      LBrace@251..252 "{"
-      Newline@252..253 "\n"
-      Whitespace@253..257 "    "
-      ReturnStmt@257..273
-        ReturnKw@257..263 "return"
-        Whitespace@263..264 " "
-        QuoteExpr@264..272
-          CodeKw@264..268 "code"
-          Whitespace@268..269 " "
-          MemberList@269..272
-            LBrace@269..270 "{"
-            Whitespace@270..271 " "
-            RBrace@271..272 "}"
-        Semicolon@272..273 ";"
-      Newline@273..274 "\n"
-      RBrace@274..275 "}"
-  Newline@275..276 "\n"
-  Newline@276..277 "\n"
-  FunctionDecl@277..337
-    Attribute@277..289
-      At@277..278 "@"
-      Path@278..284
-        PathSegment@278..284
-          NameRef@278..284
-            Ident@278..284 "Import"
-      AttributeArgList@284..289
-        LParen@284..285 "("
-        AttributeArg@285..288
-          LiteralExpr@285..288
-            String@285..288 "\"c\""
-        RParen@288..289 ")"
-    Newline@289..290 "\n"
-    Modifier@290..296
-      StaticKw@290..296 "static"
-    Whitespace@296..297 " "
-    Modifier@297..303
-      ExternKw@297..303 "extern"
-    Whitespace@303..304 " "
-    Name@304..308
-      Ident@304..308 "puts"
-    ParamList@308..331
-      LParen@308..309 "("
-      Param@309..330
-        Name@309..310
-          Ident@309..310 "s"
-        Colon@310..311 ":"
-        Whitespace@311..312 " "
-        PathType@312..330
-          Path@312..330
-            PathSegment@312..330
-              NameRef@312..324
-                Ident@312..324 "ReadOnlySpan"
-              GenericArgList@324..330
-                Lt@324..325 "<"
-                PredefinedType@325..329
-                  ByteKw@325..329 "byte"
-                Gt@329..330 ">"
-      RParen@330..331 ")"
-    Colon@331..332 ":"
+        VariableDeclarator@125..137
+          Name@125..129
+            Ident@125..129 "Unit"
+          Colon@129..130 ":"
+          Whitespace@130..131 " "
+          PathType@131..137
+            Path@131..137
+              PathSegment@131..137
+                NameRef@131..137
+                  Ident@131..137 "IShape"
+        Semicolon@137..138 ";"
+      Newline@138..139 "\n"
+      Whitespace@139..143 "    "
+      FunctionDecl@143..182
+        Name@143..150
+          Ident@143..150 "Compare"
+        ParamList@150..166
+          LParen@150..151 "("
+          Param@151..157
+            Name@151..152
+              Ident@151..152 "a"
+            Colon@152..153 ":"
+            Whitespace@153..154 " "
+            PredefinedType@154..157
+              IntKw@154..157 "int"
+          Comma@157..158 ","
+          Whitespace@158..159 " "
+          Param@159..165
+            Name@159..160
+              Ident@159..160 "b"
+            Colon@160..161 ":"
+            Whitespace@161..162 " "
+            PredefinedType@162..165
+              IntKw@162..165 "int"
+          RParen@165..166 ")"
+        Colon@166..167 ":"
+        Whitespace@167..168 " "
+        PredefinedType@168..171
+          IntKw@168..171 "int"
+        Whitespace@171..172 " "
+        UsesClause@172..181
+          UsesKw@172..176 "uses"
+          Whitespace@176..177 " "
+          NoneKw@177..181 "none"
+        Semicolon@181..182 ";"
+      Newline@182..183 "\n"
+      Whitespace@183..187 "    "
+      AssocTypeDecl@187..220
+        TypeKw@187..191 "type"
+        Whitespace@191..192 " "
+        Name@192..198
+          Ident@192..198 "Points"
+        Whitespace@198..199 " "
+        BaseList@199..219
+          Colon@199..200 ":"
+          Whitespace@200..201 " "
+          PathType@201..219
+            Path@201..219
+              PathSegment@201..219
+                NameRef@201..212
+                  Ident@201..212 "IEnumerable"
+                GenericArgList@212..219
+                  Lt@212..213 "<"
+                  PathType@213..218
+                    Path@213..218
+                      PathSegment@213..218
+                        NameRef@213..218
+                          Ident@213..218 "Point"
+                  Gt@218..219 ">"
+        Semicolon@219..220 ";"
+      Newline@220..221 "\n"
+      RBrace@221..222 "}"
+  Newline@222..223 "\n"
+  Newline@223..224 "\n"
+  MacroDecl@224..311
+    Attribute@224..231
+      At@224..225 "@"
+      Path@225..231
+        PathSegment@225..231
+          NameRef@225..231
+            Ident@225..231 "Derive"
+    Newline@231..232 "\n"
+    Modifier@232..238
+      PublicKw@232..238 "public"
+    Whitespace@238..239 " "
+    MacroKw@239..244 "macro"
+    Whitespace@244..245 " "
+    Name@245..254
+      Ident@245..254 "Equatable"
+    ParamList@254..267
+      LParen@254..255 "("
+      Param@255..266
+        Name@255..256
+          Ident@255..256 "t"
+        Colon@256..257 ":"
+        Whitespace@257..258 " "
+        PathType@258..266
+          Path@258..266
+            PathSegment@258..266
+              NameRef@258..266
+                Ident@258..266 "TypeInfo"
+      RParen@266..267 ")"
+    Whitespace@267..268 " "
+    AddsClause@268..286
+      AddsKw@268..272 "adds"
+      Whitespace@272..273 " "
+      PathType@273..286
+        Path@273..286
+          PathSegment@273..286
+            NameRef@273..283
+              Ident@273..283 "IEquatable"
+            GenericArgList@283..286
+              Lt@283..284 "<"
+              PathType@284..285
+                Path@284..285
+                  PathSegment@284..285
+                    NameRef@284..285
+                      Ident@284..285 "T"
+              Gt@285..286 ">"
+    Whitespace@286..287 " "
+    Block@287..311
+      LBrace@287..288 "{"
+      Newline@288..289 "\n"
+      Whitespace@289..293 "    "
+      ReturnStmt@293..309
+        ReturnKw@293..299 "return"
+        Whitespace@299..300 " "
+        QuoteExpr@300..308
+          CodeKw@300..304 "code"
+          Whitespace@304..305 " "
+          MemberList@305..308
+            LBrace@305..306 "{"
+            Whitespace@306..307 " "
+            RBrace@307..308 "}"
+        Semicolon@308..309 ";"
+      Newline@309..310 "\n"
+      RBrace@310..311 "}"
+  Newline@311..312 "\n"
+  Newline@312..313 "\n"
+  FunctionDecl@313..373
+    Attribute@313..325
+      At@313..314 "@"
+      Path@314..320
+        PathSegment@314..320
+          NameRef@314..320
+            Ident@314..320 "Import"
+      AttributeArgList@320..325
+        LParen@320..321 "("
+        AttributeArg@321..324
+          LiteralExpr@321..324
+            String@321..324 "\"c\""
+        RParen@324..325 ")"
+    Newline@325..326 "\n"
+    Modifier@326..332
+      StaticKw@326..332 "static"
     Whitespace@332..333 " "
-    PredefinedType@333..336
-      IntKw@333..336 "int"
-    Semicolon@336..337 ";"
-  Newline@337..338 "\n"
+    Modifier@333..339
+      ExternKw@333..339 "extern"
+    Whitespace@339..340 " "
+    Name@340..344
+      Ident@340..344 "puts"
+    ParamList@344..367
+      LParen@344..345 "("
+      Param@345..366
+        Name@345..346
+          Ident@345..346 "s"
+        Colon@346..347 ":"
+        Whitespace@347..348 " "
+        PathType@348..366
+          Path@348..366
+            PathSegment@348..366
+              NameRef@348..360
+                Ident@348..360 "ReadOnlySpan"
+              GenericArgList@360..366
+                Lt@360..361 "<"
+                PredefinedType@361..365
+                  ByteKw@361..365 "byte"
+                Gt@365..366 ">"
+      RParen@366..367 ")"
+    Colon@367..368 ":"
+    Whitespace@368..369 " "
+    PredefinedType@369..372
+      IntKw@369..372 "int"
+    Semicolon@372..373 ";"
+  Newline@373..374 "\n"

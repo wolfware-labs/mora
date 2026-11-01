@@ -27,6 +27,14 @@ fn has(text: &str, kind: K) -> bool {
     count(text, kind) > 0
 }
 
+/// Whether a token of `kind` is in the tree.
+fn has_token(text: &str, kind: K) -> bool {
+    parse(text)
+        .syntax()
+        .debug_tree()
+        .contains(&format!("{kind:?}@"))
+}
+
 /// The first node of `kind`, which must be there.
 fn node(text: &str, kind: K) -> SyntaxNode {
     parse(text)
@@ -42,11 +50,11 @@ fn assert_clean_with(text: &str, kind: K) {
     assert!(has(text, kind), "no {kind:?} in {text:?}");
 }
 
-/// A property of type `ty` parses without errors: the member's shape
+/// A getter of type `ty` parses without errors: the member's shape
 /// needs `scan_type` to find the end of the type.
-fn assert_property_type(ty: &str) -> String {
-    let text = format!("class A {{ P: {ty} {{ get; }} }}");
-    assert_clean_with(&text, K::PropertyDecl);
+fn assert_getter_type(ty: &str) -> String {
+    let text = format!("class A {{ P: {ty} => x; }}");
+    assert_clean_with(&text, K::GetterDecl);
     text
 }
 
@@ -60,17 +68,17 @@ fn a_weak_field_type_parses() {
 }
 
 // `scan_type`: a splice type, a tuple type, a nested or array type before
-// `{` makes a property.
+// `=>` makes a getter.
 
 #[test]
-fn a_spread_splice_type_makes_a_property() {
-    assert_property_type("$..ts");
+fn a_spread_splice_type_makes_a_getter() {
+    assert_getter_type("$..ts");
 }
 
 #[test]
-fn a_parenthesized_splice_type_makes_a_property() {
-    assert_property_type("$(T)");
-    assert_property_type("$(f())");
+fn a_parenthesized_splice_type_makes_a_getter() {
+    assert_getter_type("$(T)");
+    assert_getter_type("$(f())");
 }
 
 #[test]
@@ -82,27 +90,27 @@ fn an_unclosed_splice_type_ends_at_the_end_of_the_file() {
 }
 
 #[test]
-fn a_weak_or_unit_type_makes_a_property() {
-    let text = assert_property_type("weak Node?");
+fn a_weak_or_unit_type_makes_a_getter() {
+    let text = assert_getter_type("weak Node?");
     assert!(has(&text, K::WeakType));
-    assert_property_type("()");
+    assert_getter_type("()");
 }
 
 #[test]
-fn a_tuple_type_makes_a_property() {
-    assert_property_type("(a: int, b: string)");
-    assert_property_type("(int, string)");
-    assert_property_type("(int, string,)");
+fn a_tuple_type_makes_a_getter() {
+    assert_getter_type("(a: int, b: string)");
+    assert_getter_type("(int, string)");
+    assert_getter_type("(int, string,)");
 }
 
 #[test]
-fn a_nested_generic_type_makes_a_property() {
-    assert_property_type("Outer<int>.Inner");
+fn a_nested_generic_type_makes_a_getter() {
+    assert_getter_type("Outer<int>.Inner");
 }
 
 #[test]
-fn an_array_type_makes_a_property() {
-    let text = assert_property_type("int[]");
+fn an_array_type_makes_a_getter() {
+    let text = assert_getter_type("int[]");
     assert!(has(&text, K::ArrayType));
 }
 
@@ -286,6 +294,114 @@ fn file_alone_is_a_name() {
     assert!(!has("file = 5;", K::Modifier));
 }
 
+// `contextual_modifier`: `stored` before a name or a modifier is a modifier.
+
+#[test]
+fn stored_is_a_modifier_before_a_name_or_a_modifier() {
+    for text in [
+        "class A { stored L: string => N; }",
+        "class A { stored public L: string => N; }",
+    ] {
+        assert_clean_with(text, K::GetterDecl);
+        assert!(has_token(text, K::StoredKw), "{text:?}");
+    }
+}
+
+#[test]
+fn stored_alone_is_a_name() {
+    for text in ["stored = 5;", "stored is int;", "class A { stored: int; }"] {
+        assert_eq!(messages(text), Vec::<String>::new(), "{text:?}");
+        assert!(!has_token(text, K::StoredKw), "{text:?}");
+    }
+}
+
+// `write_scope`: one word in parentheses after `mut`.
+
+#[test]
+fn write_scopes_parse() {
+    for (text, scope) in [
+        ("class A { mut(private) X: int; }", K::PrivateKw),
+        ("class A { mut(ns) X: int; }", K::NsKw),
+        ("class A { mut(internal) X: int; }", K::InternalKw),
+    ] {
+        assert_clean_with(text, K::WriteScope);
+        assert!(has_token(text, scope), "{text:?}");
+    }
+}
+
+#[test]
+fn another_word_is_not_a_write_scope() {
+    assert_eq!(
+        messages("class A { mut(public) X: int; }"),
+        ["expected `private`, `ns` or `internal`"]
+    );
+    assert!(!has("class A { mut X: int; }", K::WriteScope));
+}
+
+// `accessor_body`: fields and getters have no accessors.
+
+#[test]
+fn accessors_on_a_field_are_one_error() {
+    for text in [
+        "class A { P: int { get; } Q: int; }",
+        "class A { P: int { get; set; } = 1; Q: int; }",
+    ] {
+        assert_eq!(messages(text), ["expected `;`"], "{text:?}");
+        assert!(has(text, K::FieldDecl), "{text:?}");
+    }
+    assert_eq!(
+        messages("class A { I.P: int { get; } Q: int; }"),
+        ["expected `=>`"]
+    );
+}
+
+#[test]
+fn garbage_braces_in_a_member_list_are_skipped_whole() {
+    let text = "class A { { get; } Q: int; }";
+    assert_eq!(messages(text), ["expected a member"]);
+    assert!(has(text, K::FieldDecl));
+}
+
+// `uses_clause` and `at_function`: a bound after a signature or a function type.
+
+#[test]
+fn uses_bounds_parse() {
+    for text in [
+        "Run() uses none { }",
+        "Run(): int uses clock => 1;",
+        "Run() uses (fs.read, net) { }",
+        "Sort(f: (int) => int uses none) { }",
+        "class A { F(): int uses fs.write where T : I => 1; }",
+    ] {
+        assert_clean_with(text, K::UsesClause);
+    }
+    assert!(has("Run() uses none { }", K::FunctionDecl));
+    assert!(has("Run() uses (fs.read, net) { }", K::CapabilityList));
+}
+
+#[test]
+fn a_call_before_another_name_is_a_statement() {
+    let text = "Log(x) Next();";
+    assert!(!has(text, K::FunctionDecl), "{text:?}");
+    assert!(has(text, K::ExprStmt), "{text:?}");
+}
+
+#[test]
+fn several_words_after_mut_are_not_a_write_scope() {
+    let text = "class A { mut(private, ns) X: int; }";
+    assert!(!has(text, K::WriteScope), "{text:?}");
+    assert!(!messages(text).is_empty(), "{text:?}");
+}
+
+#[test]
+fn a_uses_bound_needs_a_capability() {
+    assert_eq!(
+        messages("Run() uses { }"),
+        ["expected `none`, a capability or `(`"]
+    );
+    assert_eq!(messages("Run() uses () { }"), ["expected a capability"]);
+}
+
 // `statement_inner`: `unsafe` starts a statement only before a block.
 
 #[test]
@@ -409,9 +525,9 @@ fn an_indexer_is_a_member_only() {
 }
 
 #[test]
-fn a_property_is_a_member_only() {
+fn a_getter_is_a_member_only() {
     let text = "static X: int => 1;";
-    assert!(!has(text, K::PropertyDecl));
+    assert!(!has(text, K::GetterDecl));
 }
 
 #[test]

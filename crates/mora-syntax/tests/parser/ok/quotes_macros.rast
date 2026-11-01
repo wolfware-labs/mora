@@ -15,7 +15,7 @@ SourceFile@0..218
           MemberList@13..40
             LBrace@13..14 "{"
             Whitespace@14..15 " "
-            PropertyDecl@15..38
+            GetterDecl@15..38
               Modifier@15..21
                 PublicKw@15..21 "public"
               Whitespace@21..22 " "
