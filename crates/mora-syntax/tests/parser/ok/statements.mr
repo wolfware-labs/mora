@@ -1,5 +1,4 @@
-Run(items: List<int>, counts: Dictionary<string, int>)
-{
+Run(items: List<int>, counts: Dictionary<string, int>) {
     let total = 0;
     var count = 1;
     let limit: int = 10;
@@ -20,8 +19,7 @@ Run(items: List<int>, counts: Dictionary<string, int>)
     foreach (ref var cell in span) { }
     foreach (let n: int in items) { }
 
-    switch (total)
-    {
+    switch (total) {
         0 or 1 when count > 0 => Log("small"),
         > 100 => { Log("big"); }
         let x when x < 0 => Log("negative"),

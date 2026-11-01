@@ -1,5 +1,4 @@
-public class Counter
-{
+public class Counter {
     public Name: string { get; }
     public Step: int { get; private set; } = 1;
     public Doubled: int => Step * 2;
@@ -7,8 +6,7 @@ public class Counter
     mut _count: int;
     mut _peak: int = 0;
 
-    public Counter(name: string, step: int)
-    {
+    public Counter(name: string, step: int) {
         Name = name;
     }
 
@@ -47,7 +45,6 @@ public class Counter
     public async Load(id: UserId): Result<User, E> { }
 }
 
-public unique class Connection
-{
+public unique class Connection {
     public Close() { }
 }

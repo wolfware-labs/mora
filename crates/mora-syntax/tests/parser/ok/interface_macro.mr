@@ -1,5 +1,4 @@
-public interface IShape : IDisplay
-{
+public interface IShape : IDisplay {
     Area(): float;
     Name: string => "shape";
     Log(m: string);
@@ -8,8 +7,7 @@ public interface IShape : IDisplay
 }
 
 @Derive
-public macro Equatable(t: TypeInfo) adds IEquatable<T>
-{
+public macro Equatable(t: TypeInfo) adds IEquatable<T> {
     return code { };
 }
 

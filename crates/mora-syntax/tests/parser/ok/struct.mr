@@ -1,6 +1,5 @@
 /// A point on the plane.
-public struct Point
-{
+public struct Point {
     public X: int;
     public Y: int;
     mut _visits: int = 0;
@@ -9,8 +8,7 @@ public struct Point
     public Shapes: List<any IShape>?;
 }
 
-public ref struct Cursor<T> where T : struct
-{
+public ref struct Cursor<T> where T : struct {
     _items: Span<T>;
 }
 

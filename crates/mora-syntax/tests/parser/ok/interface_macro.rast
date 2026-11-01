@@ -16,7 +16,7 @@ SourceFile@0..338
           PathSegment@26..34
             NameRef@26..34
               Ident@26..34 "IDisplay"
-    Newline@34..35 "\n"
+    Whitespace@34..35 " "
     MemberList@35..186
       LBrace@35..36 "{"
       Newline@36..37 "\n"
@@ -165,7 +165,7 @@ SourceFile@0..338
                     NameRef@248..249
                       Ident@248..249 "T"
               Gt@249..250 ">"
-    Newline@250..251 "\n"
+    Whitespace@250..251 " "
     Block@251..275
       LBrace@251..252 "{"
       Newline@252..253 "\n"

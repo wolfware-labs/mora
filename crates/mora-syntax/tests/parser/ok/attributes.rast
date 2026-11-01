@@ -62,7 +62,7 @@ SourceFile@0..178
     Whitespace@77..78 " "
     Name@78..85
       Ident@78..85 "Options"
-    Newline@85..86 "\n"
+    Whitespace@85..86 " "
     MemberList@86..177
       LBrace@86..87 "{"
       Newline@87..88 "\n"

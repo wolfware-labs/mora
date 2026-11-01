@@ -1,12 +1,10 @@
 public struct User(Id: int, Name: string);
 public struct Money(Cents: long) : IComparable<Money>;
-struct Tag(Value: string)
-{
+struct Tag(Value: string) {
     public Upper: string => Value;
 }
 
-public union Json
-{
+public union Json {
     Null,
     Bool(Value: bool),
     @Default Number(Value: double),

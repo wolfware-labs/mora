@@ -143,13 +143,11 @@ public struct NewUser(Name: string, Email: string?);
 ```mora
 namespace UsersApi;
 
-public class UserStore
-{
+public class UserStore {
     private mut _nextId: int = 1;
     private _users: Dictionary<int, User> = new();
 
-    public Add(input: NewUser): User
-    {
+    public Add(input: NewUser): User {
         let user = new User(_nextId, input.Name, input.Email);
         _nextId += 1;
         _users[user.Id] = user;
@@ -175,29 +173,24 @@ let app = WebApp.Create(args);
 
 app.MapGet("/users", async (req: Request) => Results.Json(store.All()));
 
-app.MapGet("/users/{id}", async (req: Request) =>
-{
+app.MapGet("/users/{id}", async (req: Request) => {
     let id = req.RouteValue<int>("id")?;
-    return switch (store.Find(id))
-    {
+    return switch (store.Find(id)) {
         User u => Results.Json(u),
         none => Results.NotFound(),
     };
 });
 
-app.MapPost("/users", async (req: Request) =>
-{
+app.MapPost("/users", async (req: Request) => {
     let input = await req.ReadJsonAsync<NewUser>()?;
-    if (input.Name.Length == 0)
-    {
+    if (input.Name.Length == 0) {
         return Results.BadRequest("name is required");
     }
     let user = store.Add(input);
     return Results.Created($"/users/{user.Id}", user);
 });
 
-app.MapDelete("/users/{id}", async (req: Request) =>
-{
+app.MapDelete("/users/{id}", async (req: Request) => {
     let id = req.RouteValue<int>("id")?;
     return store.Remove(id) ? Results.NoContent() : Results.NotFound();
 });
@@ -242,14 +235,12 @@ DELETE /users/1                     -> 404
 ```mora
 public struct Point(X: float, Y: float);     // value: copied, no identity
 
-public class Node                            // shared: reference counted
-{
+public class Node {                          // shared: reference counted
     public Children: List<Node> { get; } = new();
     public Parent: weak Node;                // back-reference: does not keep the parent alive
 }
 
-public unique class TempFile                 // unique: one owner, moved, never aliased
-{
+public unique class TempFile {               // unique: one owner, moved, never aliased
     public Path: string { get; }
     public TempFile(path: string) { Path = path; File.WriteAllText(path, "").Expect("create temp file"); }
     ~TempFile() { _ = File.Delete(Path); }     // runs exactly when the owner goes out of scope
@@ -265,23 +256,19 @@ static Keep(n: Node, into: List<Node>) { into.Add(n); }               // storing
 ### 2.4 Unions, options and results
 
 ```mora
-public union Shape
-{
+public union Shape {
     Circle(Radius: float),
     Rect(Width: float, Height: float),
 }
 
-public static Area(s: Shape): float => switch (s)
-{
+public static Area(s: Shape): float => switch (s) {
     Circle(let r) => MathF.PI * r * r,
     Rect(let w, let h) => w * h,
 };
 
-public static Total(csv: string): Result<int, ParseError>
-{
+public static Total(csv: string): Result<int, ParseError> {
     var sum = 0;
-    foreach (let field in csv.Split(','))
-    {
+    foreach (let field in csv.Split(',')) {
         sum += int.Parse(field.Trim())?;
     }
     return sum;
@@ -522,8 +509,7 @@ Multi-dimensional (`T[,]`) and jagged arrays work as `T[][]`; `T[,]` is post-MVP
 `T?` is `Option<T>` for every type `T`, value or reference (D-6). `Option<T>` is the standard-library union:
 
 ```mora
-public union Option<T>
-{
+public union Option<T> {
     Some(Value: T),
     None,
 }
@@ -542,8 +528,7 @@ Flow typing narrows an option after a check, as the C# nullable analysis does, b
 
 ```mora
 @MustUse
-public union Result<T, E>
-{
+public union Result<T, E> {
     Ok(Value: T),
     Err(Error: E),
 }
@@ -589,8 +574,7 @@ A function type parameter declared with the default `in` mode accepts both. A `m
 A value converts implicitly from `S` to `T` only when `T` implements the standard-library interface `IFrom<S>` (D-91):
 
 ```mora
-public interface IFrom<S>
-{
+public interface IFrom<S> {
     static abstract From(value: S): Self;
 }
 ```
@@ -645,8 +629,7 @@ The compiler decides how a value is stored (inline in its owner, on the stack or
 ### 6.2 Structs
 
 ```mora
-public struct Vector3
-{
+public struct Vector3 {
     public mut X: float;
     public mut Y: float;
     public mut Z: float;
@@ -668,8 +651,7 @@ public struct Vector3
 ### 6.3 Classes
 
 ```mora
-public class Counter
-{
+public class Counter {
     private mut _count: int;                // mutable field
     public Name: string { get; }            // set once, in the constructor
     public Step: int { get; set; } = 1;     // mutable auto-property
@@ -691,8 +673,7 @@ public class Counter
 ### 6.4 Unique classes
 
 ```mora
-public unique class FileLock
-{
+public unique class FileLock {
     private _path: string;
     private mut _renewals: int;
     public FileLock(path: string) { _path = path; File.WriteAllText(path, "").Expect("lock"); }
@@ -722,8 +703,7 @@ Data without identity is a positional struct (D-56).
 ### 6.6 Unions
 
 ```mora
-public union Json
-{
+public union Json {
     Null,
     Bool(Value: bool),
     Number(Value: double),
@@ -750,8 +730,7 @@ Unlike C#, an enum is **closed**: `switch` over it is checked for exhaustiveness
 ### 6.8 Interfaces
 
 ```mora
-public interface IShape
-{
+public interface IShape {
     Area(): float;
     Name: string => "shape";                // default implementation
     static abstract Unit: IShape { get; }   // static abstract member, as in C# 11
@@ -769,8 +748,7 @@ public interface IShape
   public interface IRound : IShape { IShape.Name: string => "round"; }
   public interface IPointy : IShape { IShape.Name: string => "pointy"; }
 
-  public class Badge : IRound, IPointy
-  {
+  public class Badge : IRound, IPointy {
       public Name: string => "badge";  // required: IRound and IPointy disagree about IShape.Name
   }
   ```
@@ -783,15 +761,13 @@ public interface IShape
 **Declaration order.** Every declaration puts the name first and the type after a colon (D-58). A field or property is `Balance: decimal`. A method is its name, its parameters and then `:` and the return type: `public Deposit(amount: decimal): decimal`. A function with no `: Type` after its parameter list returns `()`. A parameter is `amount: decimal`, with any mode or modifier before the name: `ref p: Point`, `params xs: ReadOnlySpan<int>`, `this s: string`. The same order holds for locals (§7.10), lambda parameters (§7.6), local functions, union case fields and positional parameters.
 
 ```mora
-public class Account
-{
+public class Account {
     public mut Balance: decimal;
     public Owner: string { get; }
 
     public Account(owner: string) { Owner = owner; }
 
-    public Deposit(amount: decimal): decimal
-    {
+    public Deposit(amount: decimal): decimal {
         Balance += amount;
         return Balance;
     }
@@ -811,8 +787,7 @@ public class Account
 **Memberwise creation.** A struct, class or unique class that declares no constructor is created by naming its fields (D-57):
 
 ```mora
-public class Options
-{
+public class Options {
     public Host: string = "127.0.0.1";
     public Port: int;
     public mut Retries: int = 3;
@@ -835,8 +810,7 @@ A field without an initializer is required: every way of creating the value sets
 
 ```mora
 @Equatable @Comparable
-public struct Money
-{
+public struct Money {
     public Cents: long;
 
     public static operator +(a: Money, b: Money): Money => new Money { Cents = a.Cents + b.Cents };
@@ -900,23 +874,19 @@ The refinement is checked once, where a value is created (`From`, `Parse`, a con
 A type states the rules of its members in a `contract` section, linked to each member by name, so the rules never sit on the signature line (D-63). The MVP reserves `contract` at section position; the checks arrive in v0.2.
 
 ```mora
-public class Account
-{
+public class Account {
     public mut Balance: Cents;
     public mut IsFrozen: bool;
 
-    public Withdraw(amount: Cents): Result<(), AccountError>
-    {
+    public Withdraw(amount: Cents): Result<(), AccountError> {
         Balance -= amount;
         return Ok(());
     }
 
-    contract
-    {
+    contract {
         invariant Balance >= 0;
 
-        Withdraw
-        {
+        Withdraw {
             fails with AccountError.Frozen when IsFrozen;
             fails with AccountError.Insufficient when amount > Balance;
             ensures Balance == old(Balance) - amount;
@@ -1016,8 +986,7 @@ Parameter and return types are inferred from the target function type. A paramet
 There is one `switch`, written the same way as a statement and as an expression (D-89):
 
 ```mora
-switch (command)
-{
+switch (command) {
     "start" => Start(),
     "stop" when force => Kill(),
     "stop" => {
@@ -1027,8 +996,7 @@ switch (command)
     _ => Console.WriteLine($"unknown command {command}"),
 }
 
-let status = switch (store.Find(id))
-{
+let status = switch (store.Find(id)) {
     User u => Results.Json(u),
     none => Results.NotFound(),
 };
@@ -1132,13 +1100,11 @@ A bare interface type is never a box (D-67):
 - **Anywhere else** (a field, a type argument, a local with a written type, an array element), a bare interface type is error `MR0236`, because a value stored there must be boxed; write `any I` (§8.4).
 
 ```mora
-public static Print(value: IDisplay)
-{
+public static Print(value: IDisplay) {
     Console.WriteLine(value);
 }
 
-public static TotalArea(shapes: List<any IShape>): double
-{
+public static TotalArea(shapes: List<any IShape>): double {
     return shapes.Sum(s => s.Area());
 }
 ```
@@ -1190,11 +1156,9 @@ Macros generate code at compile time (D-48). They are the one place where Mora d
 ### 9.1 A complete example
 
 ```mora
-public macro Equatable(t: Type) adds IEquatable<$t>
-{
+public macro Equatable(t: Type) adds IEquatable<$t> {
     let checks = t.Fields.Where(f => !f.IsWeak).Select(f => code(this.$f == other.$f));
-    return code
-    {
+    return code {
         public Equals(in other: $t): bool => $(checks.JoinWith("&&", whenEmpty: code(true)));
     };
 }
@@ -1203,8 +1167,7 @@ public macro Equatable(t: Type) adds IEquatable<$t>
 ```mora
 // expect: True
 @Equatable
-public class Point
-{
+public class Point {
     public X: int;
     public Y: int;
     public Point(x: int, y: int) { X = x; Y = y; }
@@ -1529,8 +1492,7 @@ There are no exceptions (D-8).
 Any type can be an error type. The standard library's errors are unions or structs that implement `IError`:
 
 ```mora
-public interface IError : IDisplay
-{
+public interface IError : IDisplay {
     Source: IError? => none;    // the underlying error, if any
 }
 ```
@@ -1539,14 +1501,12 @@ The MVP standard library defines `IoError`, `ParseError`, `FormatError`, `JsonEr
 
 ```mora
 @Error
-public union AppError
-{
+public union AppError {
     NotFound(What: string),
     Io(@From Inner: IoError),
     Json(@From Inner: JsonError);
 
-    public ToString(): string => switch (this)
-    {
+    public ToString(): string => switch (this) {
         NotFound(let w) => $"{w} not found",
         Io(let e) => $"I/O error: {e}",
         Json(let e) => $"bad JSON: {e}",
@@ -1958,13 +1918,11 @@ A lookup that can miss returns an option, and a mutation that can conflict retur
 Code that knows a value is there says so with `.Expect("message")`, which panics with that message on `none`:
 
 ```mora
-if (_users[id] is User user)
-{
+if (_users[id] is User user) {
     Console.WriteLine(user.Name);
 }
 let first = orders.First().Expect("orders is never empty here");
-if (!_users.Add(user.Id, user))
-{
+if (!_users.Add(user.Id, user)) {
     Console.WriteLine($"user {user.Id} already exists");
 }
 ```
@@ -2009,36 +1967,30 @@ Operators that need the whole sequence (`OrderBy`, `GroupBy`, `Reverse`, `Distin
 Unit tests live next to the code they test, in a `test` section (D-64):
 
 ```mora
-public struct Order
-{
+public struct Order {
     public Lines: List<Line>;
 
-    public Total(): Cents
-    {
+    public Total(): Cents {
         return Lines.Sum(l => l.Price * l.Quantity);
     }
 }
 
-test
-{
+test {
     @Test
-    EmptyOrderTotalsZero()
-    {
+    EmptyOrderTotalsZero() {
         let order = new Order { Lines = [] };
         let zero: Cents = 0;
         Assert.Equal(zero, order.Total());
     }
 
     @Test
-    TotalMultipliesPriceByQuantity()
-    {
+    TotalMultipliesPriceByQuantity() {
         let order = new Order { Lines = [OneLine(price: 250, quantity: 2)] };
         let expected: Cents = 500;
         Assert.Equal(expected, order.Total());
     }
 
-    OneLine(price: Cents, quantity: int): Line    // a helper: no @Test, still test-only
-    {
+    OneLine(price: Cents, quantity: int): Line {  // a helper: no @Test, still test-only
         return new Line { Price = price, Quantity = quantity };
     }
 }
@@ -2090,8 +2042,7 @@ await app.RunAsync("127.0.0.1:8080")?;            // address argument overrides 
 ### 16.2 `HttpError`
 
 ```mora
-public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError>
-{
+public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
     BadRequest(Message: string),
     NotFound,
     PayloadTooLarge,

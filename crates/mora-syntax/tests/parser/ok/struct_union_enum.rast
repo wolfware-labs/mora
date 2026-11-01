@@ -80,7 +80,7 @@ SourceFile@0..386
         PredefinedType@116..122
           StringKw@116..122 "string"
       RParen@122..123 ")"
-    Newline@123..124 "\n"
+    Whitespace@123..124 " "
     MemberList@124..162
       LBrace@124..125 "{"
       Newline@125..126 "\n"
@@ -117,7 +117,7 @@ SourceFile@0..386
     Whitespace@176..177 " "
     Name@177..181
       Ident@177..181 "Json"
-    Newline@181..182 "\n"
+    Whitespace@181..182 " "
     UnionBody@182..328
       LBrace@182..183 "{"
       Newline@183..184 "\n"
