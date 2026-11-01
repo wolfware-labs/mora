@@ -182,6 +182,7 @@ registry! {
     MR2003 = 2003: "use of an `[Obsolete]` declaration",
     MR2010 = 2010: "a switch arm that can never match",
     MR2020 = 2020: "lint `strong-cycle`: shared classes that can form a strong cycle",
+    MR2030 = 2030: "lint `format`: a file that `mora fmt` would change",
 }
 
 #[cfg(test)]
