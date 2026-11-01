@@ -1445,13 +1445,13 @@ Debug builds keep these guarantees too.
 Allocation and layout guarantees hold in every build profile, so a test that counts allocations (§15.9) gives the same answer in `dev` and `release`. The test suite checks each with MIR snapshots or allocation counts:
 
 1. **Stack promotion.** A class or unique object of at most 1 KiB, or an array of constant length within that size, never touches the heap when its reference is used only in locals of the creating function, as an `in` argument to a parameter that does not escape, as the receiver of a method whose `this` does not escape, or by a non-escaping closure, and when it does not outlive its loop iteration. A function's promoted objects total at most 16 KiB (§14.18, OQ-23).
-2. **Futures.** `await` on a call to an async function that is not recursive (§12.3) allocates nothing. `Task.Spawn` allocates once, converting to `Future<T>` allocates once, and an `await` that recurses into its own async function allocates once per call (§12.3).
+2. **Futures.** `await` on a call to an async function that is not recursive (§12.3) allocates nothing for the future's state; allocations the function's body makes count separately. `Task.Spawn` allocates once, converting to `Future<T>` allocates once, and an `await` that recurses into its own async function allocates once per call (§12.3).
 3. **LINQ and loops.** A chain of the standard operators over an array, span or `List<T>` compiles to one loop with no allocation and no calls into the operators' iterator types. `foreach` over an array or span, and `for (var i = 0; i < a.Length; i++)` over an array or span local or parameter that the loop does not assign, have no per-element bounds check (§14.17).
 4. **Strings.** A string of at most 15 bytes never allocates. `a + b + ...` allocates at most once, and so does `$"..."` when every hole is a primitive, a `string` or a type whose `IDisplay` implementation does not allocate. Allocations made inside a user's `Format` or `ToString` are counted separately (§13.4).
 5. **In-place updates.** `with` on a value at its last use whose count is one updates it in place, and `+=` on a local string at its last use appends in place when its allocation has room; a loop of `+=` on an unaliased local string runs in amortized linear time (§14.19).
 6. **Options.** `T?` is the same size as `T` for every type §13.5 lists as having a niche.
 7. **Copy elision.** A value returned by `return new S(...)`, by `return local` when every return path returns that local, as an aggregate literal, or by a call assigned to a fresh local or field is constructed in its final place (D-79).
-8. **Sized collections.** `ToList`, `ToArray` and `ToDictionary` on a source whose exact count is known allocate exactly once (§15.5).
+8. **Sized collections.** `ToList`, `ToArray` and `ToDictionary` on a source whose exact count is known make exactly one allocation for their backing storage; the `List<T>` or `Dictionary` object itself is one more unless it is promoted (item 1, §15.5).
 
 The compiler shows what it decided: hover on `new` says `stack` or `heap` and, for `heap`, the reason and its line, and `mora explain-cost` lists every remaining allocation, box, retain in a loop and bounds check (§17.1, D-76).
 
@@ -1907,7 +1907,7 @@ Hover shows a parameter that does not escape as `scoped`. The word is not a keyw
 
 Two idioms reuse a value's storage when nothing else refers to it (D-71):
 
-- **`with`.** `x with { F = v }`, where `x` is at its last use, checks `strong == 1 && weak == 1` at run time: one strong reference and no weak reference besides the implicit one of §13.3. When it holds, it releases the old `F`, stores `v` and returns `x`; otherwise it copies and then sets. A struct stored inline has nothing to reuse, since `with` on it is already a copy that scalar replacement removes.
+- **`with`.** `x with { F = v }`, where `x` is at its last use, checks `strong == 1 && weak == 1` at run time: one strong reference and no weak reference besides the implicit one of §13.3. When it holds, it releases the old `F`, stores `v` and returns `x`; otherwise it copies and then sets. Only a struct can be the subject: a class has no `with` (§6.3). The counted case is a struct the compiler stores in a heap cell, because it is large or recursive (§6.1, §10.13). A struct stored inline has nothing to reuse, since `with` on it is already a copy that scalar replacement removes.
 - **String append.** `s += t` and `s = s + t`, where `s` is a local at its last use, append in place when `s` is a unique heap string whose allocation has room (§13.1). Otherwise the string moves to a new allocation that grows by half again, so repeated appends run in amortized linear time. No other reference sees the change, so strings stay immutable to every observer.
 
 Reuse needs `weak == 1`, that is no weak reference besides the implicit one, because a weak reference could otherwise load the new value instead of `none`. Rebuilding an `indirect` union in place and reusing any freed cell for a new allocation of the same size are post-MVP.
@@ -1949,7 +1949,7 @@ Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`, so
 
 `Dictionary` and `HashSet` iterate in insertion order (D-29), unlike .NET's unspecified order. This makes program output reproducible, because no iteration order depends on the per-process hash keys.
 
-**Layout and hashing** (D-77). `Dictionary` and `HashSet` keep their entries in a dense array in insertion order, with an index table of entry numbers probed 16 slots at a time and one control byte per slot, at a load factor of 7/8. Iteration walks the dense array. A removal leaves a tombstone, and the array compacts when more than half of it is tombstones. Keys are hashed with a per-process random key: a fast keyed hash by default, and SipHash-1-3 through `Hasher.Strong` for code that hashes keys an attacker controls (OQ-24).
+**Layout and hashing** (D-77). `Dictionary` and `HashSet` keep their entries in a dense array in insertion order, with an index table of entry numbers probed 16 slots at a time and one control byte per slot, at a load factor of 7/8. Iteration walks the dense array. A removal leaves a tombstone, and the array compacts when more than half of it is tombstones. Keys are hashed with a per-process random key. `Hasher` is the state that `IHashable.Hash` writes to (§8.5), and its static members `Hasher.Fast` and `Hasher.Strong` name the two algorithms: a fast keyed hash, the default, and SipHash-1-3, for code that hashes keys an attacker controls (OQ-24). `Dictionary` and `HashSet` take the algorithm as an optional constructor argument: `new Dictionary<string, User>(hasher: Hasher.Strong)`.
 
 **Sizing** (D-81). `List<T>` doubles its capacity and rounds it up to the allocator's size class (§13.1), so space the allocator would waste becomes usable capacity. `new List<T>()`, `new Dictionary<TKey, TValue>()` and `new HashSet<T>()` allocate no buffer until the first insertion.
 
@@ -1983,7 +1983,7 @@ MVP operators: `Where`, `Select`, `SelectMany`, `Take`, `Skip`, `TakeWhile`, `Sk
 
 Operators that need the whole sequence (`OrderBy`, `GroupBy`, `Reverse`, `Distinct`) buffer into a `List<T>` once when enumeration starts, as .NET does.
 
-`IEnumerator<T>.SizeHint()` (§8.5) returns how many items remain: at least `Lower`, and at most `Upper` when that is known. `Lower == Upper` means the count is exact. Arrays, spans and collections report an exact count. The operators pass it on: `Select` keeps it, and `Where` keeps only the upper bound, as `(0, Upper)`. `ToList`, `ToArray` and `ToDictionary` on a source with an exact count allocate exactly once. `OrderBy(...).ToList()` sorts its buffer in place and hands it to the result instead of copying it (D-81). A chain of these operators compiles to one loop with no allocation (§10.13, §14.17).
+`IEnumerator<T>.SizeHint()` (§8.5) returns how many items remain: at least `Lower`, and at most `Upper` when that is known. `Lower == Upper` means the count is exact. Arrays, spans and collections report an exact count. The operators pass it on: `Select` keeps it, and `Where` keeps only the upper bound, as `(0, Upper)`. `ToList`, `ToArray` and `ToDictionary` on a source with an exact count make exactly one allocation for their backing storage; a `List<T>` or `Dictionary` object is one more unless it is promoted (§10.13). `OrderBy(...).ToList()` sorts its buffer in place and hands it to the result instead of copying it (D-81). A chain of these operators compiles to one loop with no allocation (§10.13, §14.17).
 
 ### 15.6 Console, environment and time
 
@@ -2284,7 +2284,7 @@ This section keeps the original direction for libraries and packages so that MVP
 
 ### 18.1 WebAssembly target
 
-`mora build --target wasm32-wasi` (WASI preview 2) and `--target wasm32-unknown` (browser) lower MIR to WebAssembly with `wasm-encoder`. Layouts are those of §13 with 4-byte pointers, so the shared-object header is 12 bytes. The runtime is `mora-rt` compiled for the wasm targets. Async on wasm uses the WASI event loop on `wasm32-wasi` and the host's promise integration in the browser. `mora run --target wasm32-wasi` runs the module in embedded Wasmtime.
+`mora build --target wasm32-wasi` (WASI preview 2) and `--target wasm32-unknown` (browser) lower MIR to WebAssembly with `wasm-encoder`. Layouts are those of §13 with 4-byte pointers; the shared-object header is 8 bytes, as on every target. The runtime is `mora-rt` compiled for the wasm targets. Async on wasm uses the WASI event loop on `wasm32-wasi` and the host's promise integration in the browser. `mora run --target wasm32-wasi` runs the module in embedded Wasmtime.
 
 ### 18.2 The library format
 
@@ -2379,7 +2379,7 @@ An archive contains every Tier 1 and Tier 2 target that its host can build for. 
 Linux, macOS and Windows are the MVP's targets, and the design keeps every other target reachable without rewriting the core (G7, D-50). Five rules make that hold:
 
 1. **Targets are data.** Each target is a TOML description in `targets/` (for example `targets/x86_64-linux.toml`), read by `mora-target`: triple, pointer width, endianness, integer and float alignments, object format (ELF, Mach-O, COFF, wasm), linker flavor and arguments, the runtime platform layer to link, the backend, and the platform capabilities it offers (`heap`, `threads`, `fs`, `net`, `stdio`, `clock`, `random`, `process`, `env`). `mora build --target path/to/custom.toml` accepts a description that is not built in: a `--target` value ending in `.toml` is a path, and any other value names a built-in target. An unknown key in a description is an error. No code outside `mora-target`, `mora-link` and the backends may branch on a target name, and `cargo xtask layers` rejects a string literal naming a built-in target's name, triple, `os` or `arch` anywhere else.
-2. **Layouts are computed, never assumed.** Every size, alignment and offset (§13.3 to §13.6) comes from the target description. The shared-object header is 16 bytes with 64-bit pointers and 12 bytes with 32-bit pointers. Reference counts stay `u32` on every target. Code that hard-codes a size or a byte order outside `mora-target` is a review blocker.
+2. **Layouts are computed, never assumed.** Every size, alignment and offset (§13.3 to §13.6) comes from the target description. The shared-object header is two `u32` counts, 8 bytes on every target (§13.3); the debug runtime's prefix word is pointer-sized. Code that hard-codes a size or a byte order outside `mora-target` is a review blocker.
 3. **One platform interface.** `mora-rt-core` calls the platform only through a small set of functions that each platform layer provides: `mora_pal_alloc`, `mora_pal_realloc`, `mora_pal_free`, `mora_pal_abort`, `mora_pal_write_diagnostic` (where panics go), `mora_pal_now` (optional) and `mora_pal_wait` (the executor's idle hook: the `mio` reactor on hosted targets, a wait-for-interrupt loop on bare metal). A new platform implements these, plus whichever hosted services its capabilities declare.
 
    | Function (C ABI) | Contract |
@@ -2598,7 +2598,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-78 | `T?` is the same size as `T` for every type with a niche, and the spec lists those types | user | 5.6, 13.5 |
 | D-79 | Returned values and call results are constructed in their final place | user | 10.13 |
 | D-80 | The HTTP server and JSON serializers work in pooled buffers, with a budget of 3 heap allocations for a warm `GET /users/1` | user | 16.1, 20.6 |
-| D-81 | Collections size themselves: exact-count sources allocate once, growth rounds to the allocator's size class, and empty collections allocate nothing | user | 15.3, 15.5 |
+| D-81 | Collections size themselves: exact-count sources allocate their backing storage once, growth rounds to the allocator's size class, and empty collections allocate nothing | user | 15.3, 15.5 |
 | D-82 | The linker merges identical functions; merging identical MIR bodies is post-MVP | user | 14.14 |
 | D-83 | Byte scans in the runtime use SIMD; vector types for Mora code are post-MVP, and Cranelift output is not auto-vectorized | user | 13.1 |
 | D-84 | Rejected: deferred or coalesced decrements and background cycle collection, because they free memory at points the reader cannot see | user | 10.8 |
