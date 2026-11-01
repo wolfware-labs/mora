@@ -1232,6 +1232,7 @@ These macros replace a fixed derive list; the compiler has no special knowledge 
 | `[Default]` | `IDefault` from field initializers or field defaults; for unions, the case marked `[Default]` | `IDefault` |
 | `[Clone]` | `IClone<T>`, cloning fields that implement `IClone` and copying the rest | copyable or `IClone` |
 | `[Json]` | `IJsonSerialize` and `IJsonDeserialize` (§16.3) | `IJsonSerialize` / `IJsonDeserialize` |
+| `[Arithmetic]` | On a newtype (§6.12): same-type `+` and `-`, and `*` and `/` by a value of the underlying type; on a refined newtype each result is checked against the refinement | The underlying type has those operators |
 | `#Assert(condition)` | An assertion that, on failure, prints the condition's source text and the values of its operands: `assertion failed: total > 0 (total = -3)` | |
 
 A `weak` field is skipped by `Equatable`, `Hashable` and `Comparable`, and printed as `<weak>` by `Display`.
@@ -1741,7 +1742,7 @@ Macro expansion (§9) sits between signature resolution and body checking. `mora
 
 ### 14.6 Constant evaluation
 
-`const` values, `static readonly` initializers and default parameter values are evaluated by a MIR interpreter at compile time. In the MVP the interpreter supports arithmetic, comparisons, string literals and concatenation of constants, construction of plain structs, tuples and unions, and arrays of such values. Anything else is error `MR0460` with the hint to use `static lazy`.
+`const` values, `static readonly` initializers, default parameter values, constants converted to a newtype and the defaults of refined newtypes (§6.12) are evaluated by a MIR interpreter at compile time. In the MVP the interpreter supports arithmetic, comparisons, string literals and concatenation of constants, construction of plain structs, tuples and unions, arrays of such values, and matching a value against a newtype's refinement pattern. Anything else is error `MR0460` with the hint to use `static lazy`.
 
 ### 14.7 MIR
 
@@ -1944,7 +1945,7 @@ test
 - A `test { }` section sits at file level or inside a type, and a file may have several.
 - Inside a section, `[Test]` marks a test and anything else is a helper. `[Test]` outside a test section is error `MR0145`, with a fix that moves the function into one. Files in `tests/` are exempt: each is an integration test program, and its `[Test]` functions sit at file level (§17.5).
 - Sections, their tests and their helpers are compiled only under `mora test`. They never reach a `build` or `run` binary and raise no dead-code warnings.
-- A section at file level sees what the folder sees. A section inside a type also sees the type's `private` members.
+- A section at file level sees what other code in its file sees, `internal` and `file` items included. A section inside a type also sees the type's `private` members.
 - `Order.tests.mr` next to `Order.mr` is a test section in its entirety, for tests that outgrow the file.
 - Integration tests stay in `tests/*.mr` and see only `public` items (§17.5).
 
@@ -2101,7 +2102,7 @@ users-api/
 
 ### 17.5 Test runner
 
-`mora test` compiles the project with `Test = true`, collects `[Test]` functions from the `test` sections and `.tests.mr` files in `src/` (unit tests, §15.9) and from every file in `tests/` (integration tests, which see only `public` items), builds one test executable, and runs each test. Because a panic aborts (§11.4), the runner forks a child process per test on Unix and spawns one per test on Windows; a panicking test fails without stopping the others. Output follows `dotnet test` conventions: one line per failing test with the assertion message, and a summary `Passed: 41, Failed: 1, Ignored: 2`. `--leak-check` (on by default under `mora test`) fails a test that leaves objects alive (§10.11).
+`mora test` compiles the project with `Test = true`, collects `[Test]` functions from the `test` sections and `.tests.mr` files in `src/` (unit tests, which can see `internal` items, §15.9) and from every file in `tests/` (integration tests, which see only `public` items), builds one test executable, and runs each test. Because a panic aborts (§11.4), the runner forks a child process per test on Unix and spawns one per test on Windows; a panicking test fails without stopping the others. Output follows `dotnet test` conventions: one line per failing test with the assertion message, and a summary `Passed: 41, Failed: 1, Ignored: 2`. `--leak-check` (on by default under `mora test`) fails a test that leaves objects alive (§10.11).
 
 ### 17.6 Diagnostics
 
