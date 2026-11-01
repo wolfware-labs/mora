@@ -1741,7 +1741,8 @@ Futures given to `scope.Spawn` and `Task.SpawnDetached` own everything they use 
 **Deadlines** (D-110). A deadline belongs to the running task and covers everything it awaits; it is one field in the executor's task record.
 
 - `Task.WithTimeout` and `Task.WithDeadline` lower it while `f` runs and restore it afterwards. A nested call keeps the earlier of its own deadline and the inherited one, so an inner call can shorten a deadline but never extend it.
-- When the deadline passes, the runtime drops `f` (§12.5) and the call returns `Err(TimeoutError)`. Timers and socket operations in `f` therefore end at the deadline without checking anything. A synchronous call such as `File.ReadAllText` blocks the thread (§12.1) and cannot be interrupted; it ends when the call returns, and lint `blocking-in-async` (§6.14) reports it in async code.
+- When the deadline passes, the runtime drops `f` (§12.5) and the call returns `Err(TimeoutError)`. Timers and socket operations in `f` therefore end at the deadline without checking anything. A synchronous call such as `File.ReadAllText` blocks the thread (§12.1) and cannot be interrupted: `f` is dropped at its next `await` after the deadline, so the call returns late by the length of the blocking call. Lint `blocking-in-async` (§6.14) reports such calls in async code.
+- If `f` completes and the deadline passes before the executor polls `f` again, the result wins: the executor checks deadlines only before it polls a task, so a future that has returned `Ready` is never turned into `Err(TimeoutError)`.
 - `scope.Spawn` children inherit the deadline of the task that created the scope. `Task.SpawnDetached` tasks start without one.
 - The HTTP server gives each request a deadline (§16.1), so a handler and everything it calls stop at it with no deadline parameter in any signature.
 
@@ -2171,11 +2172,11 @@ Operators that need the whole sequence (`OrderBy`, `GroupBy`, `Reverse`, `Distin
 
 | Type | Meaning and MVP members |
 |---|---|
-| `Instant` | A point on the UTC timeline, in nanoseconds. `Clock.Now()` returns one (`uses clock`). `Instant + TimeSpan` gives an `Instant` and `Instant - Instant` a `TimeSpan`; comparison, `ToString()` in RFC 3339 (`2026-10-26T20:15:03.120Z`), `Instant.Parse` |
+| `Instant` | A point on the UTC timeline, in nanoseconds. `Clock.Now()` returns one (`uses clock`). `Instant + TimeSpan` gives an `Instant` and `Instant - Instant` a `TimeSpan`; comparison, `ToString()` in RFC 3339 (`2026-10-26T20:15:03.120Z`), `Instant.Parse` returning `Result<Instant, TimeError>` |
 | `MonoTime` | A monotonic reading for measuring durations and setting deadlines. `MonoTime.Now()` (`uses clock`), `MonoTime - MonoTime` gives a `TimeSpan` and `MonoTime + TimeSpan` a `MonoTime`. It never serializes |
 | `TimeSpan` | An exact duration: `FromMilliseconds`, `FromSeconds`, `FromMinutes`, `FromHours`, `TotalMilliseconds`, arithmetic, comparison |
 | `Stopwatch` | `StartNew()`, `Elapsed`, `ElapsedMilliseconds`, `Restart()`, built on `MonoTime` |
-| `LocalDate`, `LocalTime`, `LocalDateTime` | Calendar values with no time zone: a birthday, "09:00 every day". `LocalDate.Of(year, month, day)` and the matching `Of` on the others return `Result<_, TimeError>`, so an invalid date is an error value. Components: `Year`, `Month`, `Day` and `DayOfWeek` on dates, `Hour`, `Minute`, `Second` and `Nanosecond` on times, all of them on `LocalDateTime`. Comparison, ISO 8601 `ToString()` and `Parse` |
+| `LocalDate`, `LocalTime`, `LocalDateTime` | Calendar values with no time zone: a birthday, "09:00 every day". `LocalDate.Of(year, month, day)` and the matching `Of` on the others return `Result<_, TimeError>`, so an invalid date is an error value. Components: `Year`, `Month`, `Day` and `DayOfWeek` on dates, `Hour`, `Minute`, `Second` and `Nanosecond` on times, all of them on `LocalDateTime`. Comparison, ISO 8601 `ToString()`, and `Parse` returning `Result<_, TimeError>` |
 | `Period` | Calendar arithmetic: `Period.Days(n)`, `Months(n)`, `Years(n)`. `LocalDate + Period.Months(1)` moves by calendar months and clamps the day (January 31 plus one month is February 28 or 29); a `TimeSpan` is always exact |
 | `Clock` | `Now()`, the one wall-clock reading in `Std`, routed through the World. `MonoTime.Now()` also goes through the World. Behind the real World, the wall clock is a hosted service of `mora-rt` (§13.1) and monotonic time comes from `mora_pal_now` (§19.4) |
 | `TimeError` | A union implementing `IError`: `OutOfRange(Field: string, Value: long)` for a component outside its calendar range, and `Format(Input: string)` for text `Parse` rejects |
