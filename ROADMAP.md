@@ -1038,9 +1038,9 @@ Done when:
 
 ### M5.8 Console, environment, time and random
 
-Spec: [§15.6](docs/design/mora.md#156-console-environment-and-time). Crates: `std`, `mora-rt`. Blocked by: M5.2.
+Spec: [§12.1](docs/design/mora.md#121-execution-model-in-the-mvp), [§15.6](docs/design/mora.md#156-console-environment-and-time). Crates: `std`, `mora-rt`. Blocked by: M5.2.
 
-The members of §15.6: `Console` input and error output, `Environment`, `Random`, `Math` and `MathF`, and the time types of D-111 (`Clock`, `Instant`, `MonoTime`, `TimeSpan`, `Stopwatch`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Period`, `TimeError`) and lint `wall-clock-duration`. `@RequiresCapability` tags go on the members that use a capability, such as `Clock.Now()` and `MonoTime.Now()` (`clock`) and `Random.Shared` (`random`); value types and their arithmetic need none.
+The World seam in the per-thread context (D-109), through which the clock and `Random.Shared` read, and the members of §15.6: `Console` input and error output, `Environment`, `Random`, `Math` and `MathF`, and the time types of D-111 (`Clock`, `Instant`, `MonoTime`, `TimeSpan`, `Stopwatch`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Period`, `TimeError`) and lint `wall-clock-duration`. `@RequiresCapability` tags go on the members that use a capability, such as `Clock.Now()` and `MonoTime.Now()` (`clock`) and `Random.Shared` (`random`); value types and their arithmetic need none.
 
 Done when:
 
@@ -1084,7 +1084,7 @@ Done when:
 
 ### M5.12 Testing library and `mora test`
 
-Spec: [§15.9](docs/design/mora.md#159-testing), [§17.5](docs/design/mora.md#175-test-runner). Crates: `std`, `mora-driver`, `mora-cli`, `mora-testkit`. Blocked by: M5.7.
+Spec: [§15.9](docs/design/mora.md#159-testing), [§17.5](docs/design/mora.md#175-test-runner). Crates: `std`, `mora-driver`, `mora-cli`, `mora-testkit`. Blocked by: M5.7, M5.8.
 
 `@Test`, `Std.Testing.Assert`, `Assert.Panics` in a child process, unit tests in `src/` and integration tests in `tests/`, one process per test, `--leak-check` on by default, the output format of §17.5, and test seeds (D-109): one seed per run for `Random.Shared` (and for the scheduler once M6.3 lands), printed on failure and replayed with `--seed`.
 
@@ -1202,9 +1202,9 @@ Done when:
 
 ### M6.3 Executor, tasks and cancellation
 
-Spec: [§12.1](docs/design/mora.md#121-execution-model-in-the-mvp), [§12.4](docs/design/mora.md#124-tasks), [§12.5](docs/design/mora.md#125-cancellation), [§15.10](docs/design/mora.md#1510-logging-and-tracing). Crates: `mora-rt`, `std`. Blocked by: M6.2, M5.16.
+Spec: [§12.1](docs/design/mora.md#121-execution-model-in-the-mvp), [§12.4](docs/design/mora.md#124-tasks), [§12.5](docs/design/mora.md#125-cancellation), [§15.10](docs/design/mora.md#1510-logging-and-tracing). Crates: `mora-rt`, `std`. Blocked by: M6.2, M5.12, M5.16.
 
-The World seam in the per-thread context (D-109) with a seeded choice among ready tasks under `mora test`, the single-threaded executor and wakers, `Task.WhenAll`, `WhenAny`, a fail-fast `Scope` (D-110), `SpawnDetached` with lint `detached-task`, `TaskHandle<T>`, `Delay`, `Yield`, inherited deadlines with `WithTimeout`, `WithDeadline` and `Remaining`, cancellation by drop, cancellation of detached tasks when `Main` returns, and spawned tasks inheriting the current log span (§15.10).
+Task scheduling through the World (D-109), with a choice among ready tasks seeded by the `mora test` seed, the single-threaded executor and wakers, `Task.WhenAll`, `WhenAny`, a fail-fast `Scope` (D-110), `SpawnDetached` with lint `detached-task`, `TaskHandle<T>`, `Delay`, `Yield`, inherited deadlines with `WithTimeout`, `WithDeadline` and `Remaining`, cancellation by drop, cancellation of detached tasks when `Main` returns, and spawned tasks inheriting the current log span (§15.10).
 
 Done when:
 
