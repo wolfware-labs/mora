@@ -120,7 +120,6 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
     while p.at(K::At) {
         attribute(p);
     }
-    let attributed = p.pos() > start;
     let modifiers = modifiers(p);
     let member = cx != Context::TopLevel;
     match p.current() {
@@ -137,8 +136,9 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
         K::ThisKw if member && p.nth(1) == K::LBracket => indexer(p, m, 0),
         _ => {
             // `@Cfg(Debug = true) Log(x);` at the top level (§6.11). There,
-            // without modifiers, only a function has a shape.
-            let statement = cx == Context::TopLevel && attributed && modifiers.is_empty();
+            // without modifiers, only a function has a shape, so tokens
+            // taken without one are attributes before a statement.
+            let statement = cx == Context::TopLevel && modifiers.is_empty();
             match shape(p, cx, !modifiers.is_empty()) {
                 Some(shape) => member_with_shape(p, m, shape),
                 _ if p.pos() == start => {

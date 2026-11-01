@@ -524,6 +524,16 @@ fn an_extension_without_a_body_is_a_call() {
 }
 
 #[test]
+fn extension_starts_a_block_at_the_top_level() {
+    // `extension` is a keyword at the start of a declaration (§3.4), so a
+    // block body here is a member list, not a function body.
+    let text = "extension(x: int) { return x; }";
+    assert!(has(text, K::ExtensionDecl));
+    assert!(!has(text, K::FunctionDecl));
+    assert!(!messages(text).is_empty());
+}
+
+#[test]
 fn extension_blocks_are_not_members() {
     let text = "class A { extension(x: int) { } }";
     assert!(!has(text, K::ExtensionDecl));
@@ -546,6 +556,16 @@ fn a_using_after_a_declaration_is_reported() {
         messages("F();\nglobal using A;"),
         ["`using` directives come before the declarations"]
     );
+}
+
+// A `:` at the top level of a hole starts its format (§3.5), so `::`
+// there is format text.
+
+#[test]
+fn a_double_colon_in_a_hole_is_format_text() {
+    let text = r#"let s = $"{Core::Parse(1)}";"#;
+    assert_eq!(messages(text), Vec::<String>::new());
+    assert_eq!(node(text, K::InterpHole).text(), "{Core::Parse(1)}");
 }
 
 // Removed forms are ordinary syntax errors (D-96, D-98).
