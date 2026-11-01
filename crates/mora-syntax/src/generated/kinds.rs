@@ -312,6 +312,12 @@ pub enum SyntaxKind {
     SetKw,
     /// The contextual keyword `value`: an identifier the parser marks in position.
     ValueKw,
+    /// The contextual keyword `stored`: an identifier the parser marks in position.
+    StoredKw,
+    /// The contextual keyword `ns`: an identifier the parser marks in position.
+    NsKw,
+    /// The contextual keyword `uses`: an identifier the parser marks in position.
+    UsesKw,
     /// The contextual keyword `when`: an identifier the parser marks in position.
     WhenKw,
     /// The contextual keyword `and`: an identifier the parser marks in position.
@@ -835,6 +841,9 @@ impl SyntaxKind {
         GetKw,
         SetKw,
         ValueKw,
+        StoredKw,
+        NsKw,
+        UsesKw,
         WhenKw,
         AndKw,
         OrKw,
@@ -1157,6 +1166,9 @@ impl SyntaxKind {
         GetKw,
         SetKw,
         ValueKw,
+        StoredKw,
+        NsKw,
+        UsesKw,
         WhenKw,
         AndKw,
         OrKw,
@@ -1331,6 +1343,9 @@ impl SyntaxKind {
             GetKw => "get",
             SetKw => "set",
             ValueKw => "value",
+            StoredKw => "stored",
+            NsKw => "ns",
+            UsesKw => "uses",
             WhenKw => "when",
             AndKw => "and",
             OrKw => "or",
@@ -1446,6 +1461,9 @@ impl SyntaxKind {
             "get" => GetKw,
             "set" => SetKw,
             "value" => ValueKw,
+            "stored" => StoredKw,
+            "ns" => NsKw,
+            "uses" => UsesKw,
             "when" => WhenKw,
             "and" => AndKw,
             "or" => OrKw,
