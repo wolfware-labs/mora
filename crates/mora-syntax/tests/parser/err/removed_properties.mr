@@ -1,0 +1,10 @@
+public class Counter {
+    public Name: string { get; }
+    public Step: int { get; private set; } = 1;
+    public Total: int { get => 0; set { } }
+    IShape.Area: float { get; }
+    public mut(public) Count: int;
+    public Next: int => 1;
+}
+
+Run() uses { }

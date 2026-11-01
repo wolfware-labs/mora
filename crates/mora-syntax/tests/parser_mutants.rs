@@ -406,7 +406,7 @@ fn a_tuple_typed_member_keeps_its_body() {
         outline("class A { Pair(): (int, int) => (1, 2); Two: (int, int) => (1, 2); }");
     assert!(errors.is_empty(), "{errors:?}");
     assert!(!tree.contains("FnType"), "{tree}");
-    assert!(tree.contains("PropertyDecl"), "{tree}");
+    assert!(tree.contains("GetterDecl"), "{tree}");
 }
 
 #[test]

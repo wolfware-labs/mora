@@ -1,0 +1,185 @@
+SourceFile@0..260
+  ClassDecl@0..243
+    Modifier@0..6
+      PublicKw@0..6 "public"
+    Whitespace@6..7 " "
+    ClassKw@7..12 "class"
+    Whitespace@12..13 " "
+    Name@13..20
+      Ident@13..20 "Counter"
+    Whitespace@20..21 " "
+    MemberList@21..243
+      LBrace@21..22 "{"
+      Newline@22..23 "\n"
+      Whitespace@23..27 "    "
+      FieldDecl@27..55
+        Modifier@27..33
+          PublicKw@27..33 "public"
+        Whitespace@33..34 " "
+        VariableDeclarator@34..46
+          Name@34..38
+            Ident@34..38 "Name"
+          Colon@38..39 ":"
+          Whitespace@39..40 " "
+          PredefinedType@40..46
+            StringKw@40..46 "string"
+        Whitespace@46..47 " "
+        Error@47..55
+          LBrace@47..48 "{"
+          Whitespace@48..49 " "
+          Ident@49..52 "get"
+          Semicolon@52..53 ";"
+          Whitespace@53..54 " "
+          RBrace@54..55 "}"
+      Newline@55..56 "\n"
+      Whitespace@56..60 "    "
+      FieldDecl@60..103
+        Modifier@60..66
+          PublicKw@60..66 "public"
+        Whitespace@66..67 " "
+        VariableDeclarator@67..76
+          Name@67..71
+            Ident@67..71 "Step"
+          Colon@71..72 ":"
+          Whitespace@72..73 " "
+          PredefinedType@73..76
+            IntKw@73..76 "int"
+        Whitespace@76..77 " "
+        Error@77..102
+          LBrace@77..78 "{"
+          Whitespace@78..79 " "
+          Ident@79..82 "get"
+          Semicolon@82..83 ";"
+          Whitespace@83..84 " "
+          PrivateKw@84..91 "private"
+          Whitespace@91..92 " "
+          Ident@92..95 "set"
+          Semicolon@95..96 ";"
+          Whitespace@96..97 " "
+          RBrace@97..98 "}"
+          Whitespace@98..99 " "
+          Eq@99..100 "="
+          Whitespace@100..101 " "
+          LiteralExpr@101..102
+            IntNumber@101..102 "1"
+        Semicolon@102..103 ";"
+      Newline@103..104 "\n"
+      Whitespace@104..108 "    "
+      FieldDecl@108..147
+        Modifier@108..114
+          PublicKw@108..114 "public"
+        Whitespace@114..115 " "
+        VariableDeclarator@115..125
+          Name@115..120
+            Ident@115..120 "Total"
+          Colon@120..121 ":"
+          Whitespace@121..122 " "
+          PredefinedType@122..125
+            IntKw@122..125 "int"
+        Whitespace@125..126 " "
+        Error@126..147
+          LBrace@126..127 "{"
+          Whitespace@127..128 " "
+          Ident@128..131 "get"
+          Whitespace@131..132 " "
+          FatArrow@132..134 "=>"
+          Whitespace@134..135 " "
+          IntNumber@135..136 "0"
+          Semicolon@136..137 ";"
+          Whitespace@137..138 " "
+          Ident@138..141 "set"
+          Whitespace@141..142 " "
+          LBrace@142..143 "{"
+          Whitespace@143..144 " "
+          RBrace@144..145 "}"
+          Whitespace@145..146 " "
+          RBrace@146..147 "}"
+      Newline@147..148 "\n"
+      Whitespace@148..152 "    "
+      GetterDecl@152..179
+        ExplicitImpl@152..159
+          Path@152..158
+            PathSegment@152..158
+              NameRef@152..158
+                Ident@152..158 "IShape"
+          Dot@158..159 "."
+        Name@159..163
+          Ident@159..163 "Area"
+        Colon@163..164 ":"
+        Whitespace@164..165 " "
+        PredefinedType@165..170
+          FloatKw@165..170 "float"
+        Whitespace@170..171 " "
+        Error@171..179
+          LBrace@171..172 "{"
+          Whitespace@172..173 " "
+          Ident@173..176 "get"
+          Semicolon@176..177 ";"
+          Whitespace@177..178 " "
+          RBrace@178..179 "}"
+      Newline@179..180 "\n"
+      Whitespace@180..184 "    "
+      FieldDecl@184..214
+        Modifier@184..190
+          PublicKw@184..190 "public"
+        Whitespace@190..191 " "
+        Modifier@191..202
+          MutKw@191..194 "mut"
+          WriteScope@194..202
+            LParen@194..195 "("
+            Error@195..201
+              PublicKw@195..201 "public"
+            RParen@201..202 ")"
+        Whitespace@202..203 " "
+        VariableDeclarator@203..213
+          Name@203..208
+            Ident@203..208 "Count"
+          Colon@208..209 ":"
+          Whitespace@209..210 " "
+          PredefinedType@210..213
+            IntKw@210..213 "int"
+        Semicolon@213..214 ";"
+      Newline@214..215 "\n"
+      Whitespace@215..219 "    "
+      GetterDecl@219..241
+        Modifier@219..225
+          PublicKw@219..225 "public"
+        Whitespace@225..226 " "
+        Name@226..230
+          Ident@226..230 "Next"
+        Colon@230..231 ":"
+        Whitespace@231..232 " "
+        PredefinedType@232..235
+          IntKw@232..235 "int"
+        Whitespace@235..236 " "
+        ExprBody@236..240
+          FatArrow@236..238 "=>"
+          Whitespace@238..239 " "
+          LiteralExpr@239..240
+            IntNumber@239..240 "1"
+        Semicolon@240..241 ";"
+      Newline@241..242 "\n"
+      RBrace@242..243 "}"
+  Newline@243..244 "\n"
+  Newline@244..245 "\n"
+  FunctionDecl@245..259
+    Name@245..248
+      Ident@245..248 "Run"
+    ParamList@248..250
+      LParen@248..249 "("
+      RParen@249..250 ")"
+    Whitespace@250..251 " "
+    UsesClause@251..255
+      UsesKw@251..255 "uses"
+    Whitespace@255..256 " "
+    Block@256..259
+      LBrace@256..257 "{"
+      Whitespace@257..258 " "
+      RBrace@258..259 "}"
+  Newline@259..260 "\n"
+error MR0110 47..48: expected `;`
+error MR0110 77..78: expected `;`
+error MR0110 126..127: expected `;`
+error MR0110 171..172: expected `=>`
+error MR0110 195..201: expected `private`, `ns` or `internal`
+error MR0110 255..255: expected `none`, a capability or `(`

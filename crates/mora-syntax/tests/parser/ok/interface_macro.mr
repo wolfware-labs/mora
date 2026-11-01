@@ -2,7 +2,8 @@ public interface IShape : IDisplay {
     Area(): float;
     Name: string => "shape";
     Log(m: string);
-    static abstract Unit: IShape { get; }
+    static abstract Unit: IShape;
+    Compare(a: int, b: int): int uses none;
     type Points : IEnumerable<Point>;
 }
 

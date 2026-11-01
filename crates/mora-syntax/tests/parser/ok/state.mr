@@ -1,0 +1,39 @@
+public class Account {
+    public Owner: string;
+    public mut Note: string = "";
+    public mut(private) Balance: decimal = 0;
+    public mut(ns) Version: int = 0;
+    internal mut(internal) Audit: bool = false;
+    private mut _count: int;
+    stored: int;
+    mut uses: int;
+
+    public IsEmpty: bool => Balance == 0;
+    public stored Label: string => $"{Owner}: {Balance}";
+    stored public Initial: char => Owner[0];
+
+    public Deposit(amount: decimal): decimal {
+        Balance += amount;
+        return Balance;
+    }
+
+    public static Apply(cents: int, rate: int): int uses none => cents * rate;
+
+    public Save() uses (fs.write, clock) { }
+
+    public Fetch(url: string): string uses net.outbound where T : IDisplay {
+        return url;
+    }
+
+    public Sort(compare: (int, int) => int uses none) { }
+
+    public Run(job: () => () uses (fs.read, net)) { }
+
+    public OnTick: ((int) => () uses none);
+}
+
+Tick() uses clock { }
+
+public interface IComparer<T> {
+    Compare(a: T, b: T): int uses none;
+}

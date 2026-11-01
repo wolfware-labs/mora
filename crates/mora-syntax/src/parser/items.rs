@@ -106,6 +106,9 @@ enum Context<'t> {
     /// In the member list of a type, named `owner` (none in `code { }`),
     /// or a local function.
     Member { owner: Option<&'t str> },
+    /// In the member list of an interface, where `Name: T;` declares a
+    /// getter (§6.8).
+    Interface,
 }
 
 /// Parses a declaration with its attributes and modifiers. At the top
@@ -183,12 +186,18 @@ fn at_declaration_start(p: &Parser<'_>) -> bool {
 
 /// Whether a function declared name first starts at `at`: a name, its type
 /// parameters and its parameters, then what only a declaration has after
-/// them: a body, a return type or a `where` clause. `Log(x);` is a call.
+/// them: a body, a return type, a `uses` bound or a `where` clause.
+/// `Log(x);` is a call.
 pub(crate) fn at_function(input: &Input<'_>, at: usize) -> bool {
-    matches!(
-        after_signature(input, at).map(|i| input.kind(i)),
-        Some(K::LBrace | K::FatArrow | K::ThinArrow | K::Colon | K::WhereKw)
-    )
+    match after_signature(input, at) {
+        Some(i) => {
+            matches!(
+                input.kind(i),
+                K::LBrace | K::FatArrow | K::ThinArrow | K::Colon | K::WhereKw
+            ) || (input.kind(i) == K::Ident && input.text(i) == "uses")
+        }
+        None => false,
+    }
 }
 
 /// Whether an extension block starts at `at`: the word `extension`, type
@@ -233,10 +242,20 @@ fn after_signature(input: &Input<'_>, at: usize) -> Option<usize> {
     }
 }
 
-/// The contextual modifier `file`, when another word of the declaration
-/// follows (§6.1).
+/// The contextual modifier `file` or `stored` here, when another word of
+/// the declaration follows (§6.1, §6.9).
+fn contextual_modifier(p: &Parser<'_>) -> Option<SyntaxKind> {
+    if p.at_contextual("file") && (p.nth(1) == K::Ident || p.nth(1).is_keyword()) {
+        Some(K::FileKw)
+    } else if p.at_contextual("stored") && (p.nth(1) == K::Ident || MODIFIERS.contains(&p.nth(1))) {
+        Some(K::StoredKw)
+    } else {
+        None
+    }
+}
+
 fn at_contextual_modifier(p: &Parser<'_>) -> bool {
-    p.at_contextual("file") && (p.nth(1) == K::Ident || p.nth(1).is_keyword())
+    contextual_modifier(p).is_some()
 }
 
 /// Takes modifiers and returns their kinds.
@@ -244,9 +263,15 @@ fn modifiers(p: &mut Parser<'_>) -> Vec<SyntaxKind> {
     let mut kinds = Vec::new();
     loop {
         let m = p.start();
-        if at_contextual_modifier(p) {
-            p.bump_remap(K::FileKw);
-            kinds.push(K::FileKw);
+        if let Some(kind) = contextual_modifier(p) {
+            p.bump_remap(kind);
+            kinds.push(kind);
+        } else if p.at(K::MutKw) {
+            kinds.push(K::MutKw);
+            p.bump(K::MutKw);
+            if at_write_scope(p) {
+                write_scope(p);
+            }
         } else if p.at_any(MODIFIERS) {
             kinds.push(p.current());
             p.bump_any();
@@ -256,6 +281,29 @@ fn modifiers(p: &mut Parser<'_>) -> Vec<SyntaxKind> {
         }
         m.complete(p, K::Modifier);
     }
+}
+
+/// One word in parentheses after `mut`: a write scope (§6.9).
+fn at_write_scope(p: &Parser<'_>) -> bool {
+    p.at(K::LParen) && p.nth(2) == K::RParen
+}
+
+/// `(private)`, `(ns)` or `(internal)`; any other word is reported.
+fn write_scope(p: &mut Parser<'_>) {
+    let m = p.start();
+    p.bump(K::LParen);
+    if p.at_any(&[K::PrivateKw, K::InternalKw]) {
+        p.bump_any();
+    } else if p.at_contextual("ns") {
+        p.bump_remap(K::NsKw);
+    } else {
+        let e = p.start();
+        p.error("expected `private`, `ns` or `internal`");
+        p.bump_any();
+        e.complete(p, K::Error);
+    }
+    p.bump(K::RParen);
+    m.complete(p, K::WriteScope);
 }
 
 /// `@Json`, `@Cfg(Os = "linux")`, `@Allow("MR2001")` (§6.11).
@@ -336,10 +384,9 @@ fn extension_decl(p: &mut Parser<'_>, m: Marker) {
 
 fn interface_decl(p: &mut Parser<'_>, m: Marker) {
     p.bump(K::InterfaceKw);
-    let owner = p.nth_text(0);
     type_head(p);
     type_tail(p);
-    member_list(p, Some(owner));
+    members_in_braces(p, Context::Interface);
     m.complete(p, K::InterfaceDecl);
 }
 
@@ -367,7 +414,7 @@ fn union_decl(p: &mut Parser<'_>, m: Marker) {
             }
         }
         if p.eat(K::Semicolon) {
-            members(p, Some(owner));
+            members(p, Context::Member { owner: Some(owner) });
         }
         p.expect(K::RBrace);
     }
@@ -427,17 +474,20 @@ fn macro_decl(p: &mut Parser<'_>, m: Marker) {
 
 /// `{ members }` of the type named `owner`, or of a `code { }` quote.
 pub(crate) fn member_list(p: &mut Parser<'_>, owner: Option<&str>) {
+    members_in_braces(p, Context::Member { owner });
+}
+
+fn members_in_braces(p: &mut Parser<'_>, cx: Context<'_>) {
     let m = p.start();
     if p.expect(K::LBrace) {
-        members(p, owner);
+        members(p, cx);
         p.expect(K::RBrace);
     }
     m.complete(p, K::MemberList);
 }
 
 /// Members up to the closing `}`, recovering at each member boundary.
-fn members(p: &mut Parser<'_>, owner: Option<&str>) {
-    let cx = Context::Member { owner };
+fn members(p: &mut Parser<'_>, cx: Context<'_>) {
     while !p.at(K::RBrace) && !p.at_end() {
         let before = p.pos();
         // `$..members;` is a splice of members; `$f: int;` declares a field.
@@ -453,10 +503,15 @@ fn members(p: &mut Parser<'_>, owner: Option<&str>) {
             // Skip to something that can start a member, as one error.
             let e = p.start();
             p.error("expected a member");
-            p.bump_any();
+            if p.at(K::LBrace) {
+                skip_braces(p);
+            } else {
+                p.bump_any();
+            }
             while !p.at_end()
                 && !p.at(K::RBrace)
                 && !p.at_any(ITEM_RECOVERY)
+                && !p.at_any(MODIFIERS)
                 && !types::at_type_start(p)
             {
                 p.bump_any();
@@ -471,7 +526,7 @@ fn members(p: &mut Parser<'_>, owner: Option<&str>) {
 enum Kind {
     Function,
     Constructor,
-    Property,
+    Getter,
     Field,
     Indexer,
 }
@@ -518,8 +573,17 @@ fn shape(p: &Parser<'_>, cx: Context<'_>, modifiers: bool) -> Option<Shape> {
             }
             K::Colon => {
                 let after = scan_type_no_fn(input, end + 1).map(|i| input.kind(i));
-                if member && matches!(after, Some(K::LBrace | K::FatArrow | K::ThinArrow)) {
-                    return shape(Kind::Property, segments);
+                if member && matches!(after, Some(K::FatArrow | K::ThinArrow)) {
+                    return shape(Kind::Getter, segments);
+                }
+                // `IShape.Area: float { ... }`: an explicit implementation is
+                // a getter, whose braces are reported when parsed.
+                if member && segments > 1 && after == Some(K::LBrace) {
+                    return shape(Kind::Getter, segments);
+                }
+                // `Sides: int;` in an interface: a getter without a default.
+                if cx == Context::Interface && after == Some(K::Semicolon) {
+                    return shape(Kind::Getter, segments);
                 }
                 if fields && segments == 1 {
                     return shape(Kind::Field, 1);
@@ -538,19 +602,52 @@ fn shape(p: &Parser<'_>, cx: Context<'_>, modifiers: bool) -> Option<Shape> {
 fn member_with_shape(p: &mut Parser<'_>, m: Marker, shape: Shape) {
     if shape.kind == Kind::Field {
         variable_declarator(p, Declarators::Field);
-        p.expect(K::Semicolon);
+        if p.at(K::LBrace) {
+            accessor_body(p, "expected `;`");
+            p.eat(K::Semicolon);
+        } else {
+            p.expect(K::Semicolon);
+        }
         m.complete(p, K::FieldDecl);
         return;
     }
     match shape.kind {
         Kind::Function => function(p, m, shape.segments),
         Kind::Constructor => constructor(p, m),
-        Kind::Property => property(p, m, shape.segments),
+        Kind::Getter => getter(p, m, shape.segments),
         _ => indexer(p, m, shape.segments),
     }
 }
 
-/// The name of a function or a property: a dotted explicit implementation
+/// `{ ... }` after a field's or a getter's type: neither has accessors
+/// (§6.9). The braces and an initializer after them are taken as one error.
+fn accessor_body(p: &mut Parser<'_>, message: &str) {
+    let e = p.start();
+    p.error(message);
+    skip_braces(p);
+    if p.eat(K::Eq) {
+        exprs::expr(p);
+    }
+    e.complete(p, K::Error);
+}
+
+/// Takes a `{` and everything up to its matching `}`.
+fn skip_braces(p: &mut Parser<'_>) {
+    let mut depth = 0usize;
+    loop {
+        match p.current() {
+            K::LBrace => depth += 1,
+            K::RBrace => depth -= 1,
+            _ => {}
+        }
+        p.bump_any();
+        if depth == 0 || p.at_end() {
+            return;
+        }
+    }
+}
+
+/// The name of a function or a getter: a dotted explicit implementation
 /// `IShape.Area` when there are several `segments`, or a splice.
 fn member_name(p: &mut Parser<'_>, segments: usize) {
     if segments > 1 {
@@ -574,6 +671,9 @@ fn function(p: &mut Parser<'_>, m: Marker, segments: usize) {
     if p.at(K::Colon) {
         types::member_annotation(p);
     }
+    if p.at_contextual("uses") {
+        types::uses_clause(p);
+    }
     while p.at(K::WhereKw) {
         where_clause(p);
     }
@@ -581,21 +681,18 @@ fn function(p: &mut Parser<'_>, m: Marker, segments: usize) {
     m.complete(p, K::FunctionDecl);
 }
 
-/// `Count: int { get; }`, `IsEmpty: bool => Count == 0;` (§6.9).
-fn property(p: &mut Parser<'_>, m: Marker, segments: usize) {
+/// `IsEmpty: bool => Count == 0;`, `stored Label: string => ...;` (§6.9).
+fn getter(p: &mut Parser<'_>, m: Marker, segments: usize) {
     member_name(p, segments);
     required_annotation(p, true);
     if p.at(K::LBrace) {
-        accessor_list(p);
-        if p.eat(K::Eq) {
-            exprs::expr(p);
-            p.expect(K::Semicolon);
-        }
-    } else {
+        accessor_body(p, "expected `=>`");
+        p.eat(K::Semicolon);
+    } else if !p.eat(K::Semicolon) {
         expr_body(p);
         p.expect(K::Semicolon);
     }
-    m.complete(p, K::PropertyDecl);
+    m.complete(p, K::GetterDecl);
 }
 
 /// `: Type` where a declaration must have one. A `member`'s type takes a

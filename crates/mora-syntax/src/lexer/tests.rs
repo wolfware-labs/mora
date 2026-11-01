@@ -55,8 +55,10 @@ fn contextual_keywords_are_identifiers() {
         let word = kind.text().unwrap();
         assert_eq!(tokens(word), [(K::Ident, word)], "{word}");
     }
-    assert!(SyntaxKind::CONTEXTUAL_KEYWORDS.contains(&K::ExtensionKw));
-    assert!(!SyntaxKind::KEYWORDS.contains(&K::ExtensionKw));
+    for kind in [K::ExtensionKw, K::StoredKw, K::NsKw, K::UsesKw] {
+        assert!(SyntaxKind::CONTEXTUAL_KEYWORDS.contains(&kind), "{kind:?}");
+        assert!(!SyntaxKind::KEYWORDS.contains(&kind), "{kind:?}");
+    }
 }
 
 #[test]

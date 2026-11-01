@@ -2,6 +2,6 @@
 @Cfg(Os = "linux", Debug = true)
 @Allow("MR2001") @MustUse
 public class Options {
-    @Range(1, 65535) public Port: int { get; }
-    public Host: string { @Inline get; }
+    @Range(1, 65535) public Port: int;
+    @Cheap public Host: string => "localhost";
 }

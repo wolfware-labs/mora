@@ -1,5 +1,5 @@
-SourceFile@0..178
-  ClassDecl@0..177
+SourceFile@0..176
+  ClassDecl@0..175
     Attribute@0..5
       At@0..1 "@"
       Path@1..5
@@ -63,11 +63,11 @@ SourceFile@0..178
     Name@78..85
       Ident@78..85 "Options"
     Whitespace@85..86 " "
-    MemberList@86..177
+    MemberList@86..175
       LBrace@86..87 "{"
       Newline@87..88 "\n"
       Whitespace@88..92 "    "
-      PropertyDecl@92..134
+      FieldDecl@92..126
         Attribute@92..108
           At@92..93 "@"
           Path@93..98
@@ -89,49 +89,40 @@ SourceFile@0..178
         Modifier@109..115
           PublicKw@109..115 "public"
         Whitespace@115..116 " "
-        Name@116..120
-          Ident@116..120 "Port"
-        Colon@120..121 ":"
-        Whitespace@121..122 " "
-        PredefinedType@122..125
-          IntKw@122..125 "int"
-        Whitespace@125..126 " "
-        AccessorList@126..134
-          LBrace@126..127 "{"
-          Whitespace@127..128 " "
-          Accessor@128..132
-            GetKw@128..131 "get"
-            Semicolon@131..132 ";"
-          Whitespace@132..133 " "
-          RBrace@133..134 "}"
-      Newline@134..135 "\n"
-      Whitespace@135..139 "    "
-      PropertyDecl@139..175
-        Modifier@139..145
-          PublicKw@139..145 "public"
-        Whitespace@145..146 " "
-        Name@146..150
-          Ident@146..150 "Host"
-        Colon@150..151 ":"
-        Whitespace@151..152 " "
-        PredefinedType@152..158
-          StringKw@152..158 "string"
-        Whitespace@158..159 " "
-        AccessorList@159..175
-          LBrace@159..160 "{"
+        VariableDeclarator@116..125
+          Name@116..120
+            Ident@116..120 "Port"
+          Colon@120..121 ":"
+          Whitespace@121..122 " "
+          PredefinedType@122..125
+            IntKw@122..125 "int"
+        Semicolon@125..126 ";"
+      Newline@126..127 "\n"
+      Whitespace@127..131 "    "
+      GetterDecl@131..173
+        Attribute@131..137
+          At@131..132 "@"
+          Path@132..137
+            PathSegment@132..137
+              NameRef@132..137
+                Ident@132..137 "Cheap"
+        Whitespace@137..138 " "
+        Modifier@138..144
+          PublicKw@138..144 "public"
+        Whitespace@144..145 " "
+        Name@145..149
+          Ident@145..149 "Host"
+        Colon@149..150 ":"
+        Whitespace@150..151 " "
+        PredefinedType@151..157
+          StringKw@151..157 "string"
+        Whitespace@157..158 " "
+        ExprBody@158..172
+          FatArrow@158..160 "=>"
           Whitespace@160..161 " "
-          Accessor@161..173
-            Attribute@161..168
-              At@161..162 "@"
-              Path@162..168
-                PathSegment@162..168
-                  NameRef@162..168
-                    Ident@162..168 "Inline"
-            Whitespace@168..169 " "
-            GetKw@169..172 "get"
-            Semicolon@172..173 ";"
-          Whitespace@173..174 " "
-          RBrace@174..175 "}"
-      Newline@175..176 "\n"
-      RBrace@176..177 "}"
-  Newline@177..178 "\n"
+          LiteralExpr@161..172
+            String@161..172 "\"localhost\""
+        Semicolon@172..173 ";"
+      Newline@173..174 "\n"
+      RBrace@174..175 "}"
+  Newline@175..176 "\n"

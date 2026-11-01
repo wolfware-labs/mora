@@ -213,7 +213,7 @@ fn attaches_comments(kind: SyntaxKind) -> bool {
             | K::ExtensionDecl
             | K::FunctionDecl
             | K::FieldDecl
-            | K::PropertyDecl
+            | K::GetterDecl
             | K::IndexerDecl
             | K::ConstructorDecl
             | K::DestructorDecl

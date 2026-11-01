@@ -358,6 +358,10 @@ fn node_field_name(ty: &str, many: bool) -> String {
         base + "es"
     } else if base == "ty" {
         "types".into()
+    } else if let Some(stem) = base.strip_suffix('y')
+        && !stem.ends_with(['a', 'e', 'i', 'o', 'u'])
+    {
+        stem.to_owned() + "ies"
     } else {
         base + "s"
     }
@@ -1147,6 +1151,8 @@ mod tests {
         assert_eq!(node_field_name("Type", true), "types");
         assert_eq!(node_field_name("Modifier", true), "modifiers");
         assert_eq!(node_field_name("Class", true), "classes");
+        assert_eq!(node_field_name("Capability", true), "capabilities");
+        assert_eq!(node_field_name("Key", true), "keys");
     }
 
     #[test]

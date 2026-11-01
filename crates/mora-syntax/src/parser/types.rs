@@ -69,6 +69,9 @@ fn ty_with(p: &mut Parser<'_>, arrays: bool, functions: bool) {
                 let m = tuple.precede(p);
                 arrow(p);
                 ty(p);
+                if p.at_contextual("uses") {
+                    uses_clause(p);
+                }
                 m.complete(p, K::FnType)
             } else {
                 tuple
@@ -152,6 +155,52 @@ pub(crate) fn arrow(p: &mut Parser<'_>) {
     } else {
         p.expect(K::FatArrow);
     }
+}
+
+/// `uses none`, `uses clock`, `uses (fs.read, net.outbound)` (§6.14).
+pub(crate) fn uses_clause(p: &mut Parser<'_>) {
+    let m = p.start();
+    p.bump_remap(K::UsesKw);
+    if !p.eat(K::NoneKw) {
+        if p.at(K::LParen) {
+            let list = p.start();
+            p.bump(K::LParen);
+            if p.at(K::RParen) {
+                p.error("expected a capability");
+            }
+            while !p.at(K::RParen) && !p.at_end() {
+                capability(p);
+                if !p.eat(K::Comma) {
+                    break;
+                }
+            }
+            p.expect(K::RParen);
+            list.complete(p, K::CapabilityList);
+        } else if p.at(K::Ident) {
+            capability(p);
+        } else {
+            p.error("expected `none`, a capability or `(`");
+        }
+    }
+    m.complete(p, K::UsesClause);
+}
+
+/// `clock`, `fs.read`.
+fn capability(p: &mut Parser<'_>) {
+    let m = p.start();
+    let path = p.start();
+    loop {
+        let segment = p.start();
+        name_ref(p);
+        segment.complete(p, K::PathSegment);
+        if p.at(K::Dot) && p.nth(1) == K::Ident {
+            p.bump(K::Dot);
+        } else {
+            break;
+        }
+    }
+    path.complete(p, K::Path);
+    m.complete(p, K::Capability);
 }
 
 /// `: Type` after a name or a parameter list.
@@ -282,6 +331,27 @@ pub(crate) fn scan_type_no_fn(input: &Input<'_>, at: usize) -> Option<usize> {
     scan(input, at, false)
 }
 
+/// After a `uses` bound at `at`, if there is one, the index after it:
+/// `uses none`, `uses fs.read`, `uses (clock, env)`.
+fn scan_uses(input: &Input<'_>, at: usize) -> usize {
+    if input.text(at) != "uses" {
+        return at;
+    }
+    let mut i = at + 1;
+    if input.kind(i) == K::NoneKw {
+        return i + 1;
+    }
+    let list = input.kind(i) == K::LParen;
+    i += usize::from(list);
+    while matches!(input.kind(i), K::Ident | K::Dot) || (list && input.kind(i) == K::Comma) {
+        i += 1;
+    }
+    if list && input.kind(i) == K::RParen {
+        i += 1;
+    }
+    i
+}
+
 fn scan(input: &Input<'_>, at: usize, functions: bool) -> Option<usize> {
     let mut i = match input.kind(at) {
         kind if PREDEFINED.contains(&kind) => at + 1,
@@ -310,9 +380,10 @@ fn scan(input: &Input<'_>, at: usize, functions: bool) -> Option<usize> {
                     }
                 }
             };
-            // `(int) => bool`: the result type ends the function type.
+            // `(int) => bool`: the result type, and a `uses` bound after it,
+            // end the function type.
             if functions && matches!(input.kind(end), K::FatArrow | K::ThinArrow) {
-                return scan_type(input, end + 1);
+                return scan_type(input, end + 1).map(|i| scan_uses(input, i));
             }
             end
         }
