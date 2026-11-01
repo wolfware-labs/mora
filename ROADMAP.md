@@ -768,12 +768,13 @@ Done when:
 
 Spec: [§4.4](docs/design/mora.md#44-dependencies), [§17.2](docs/design/mora.md#172-manifest). Crates: `mora-driver`, `mora-pkg`, `mora-hir`. Blocked by: M3.10.
 
-`kind = "lib"`, root namespaces, `[dependencies]` path entries whose keys bind each dependency's root namespace (D-96), `MR0122`, `MR0501`, and `mora.lock` with path entries.
+`kind = "lib"`, root namespaces, `[dependencies]` path entries whose keys bind each dependency's root namespace (D-96), `MR0122`, `MR0501`, the dependency-cycle check `MR0502`, and `mora.lock` with path entries.
 
 Done when:
 
 - A two-project example (app plus library) builds and runs.
 - A remote dependency source reports `MR0122`.
+- Two path dependencies that depend on each other report `MR0502`.
 
 ### M3.15 Attributes: `Cfg`, lint levels and `Obsolete`
 
