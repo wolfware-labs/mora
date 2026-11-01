@@ -49,10 +49,10 @@ pub(crate) fn source_file(p: &mut Parser<'_>) {
     let m = p.start();
     // Whether an item or a statement has been seen: `using` directives
     // come before them (§4.2).
-    let mut items = false;
+    let mut seen_item = false;
     while !p.at_end() {
         let before = p.pos();
-        items |= top_level(p, items);
+        seen_item |= top_level(p, seen_item);
         if p.pos() == before {
             // Nothing could use the token: take it, so the loop moves on.
             let e = p.start();
@@ -66,9 +66,9 @@ pub(crate) fn source_file(p: &mut Parser<'_>) {
 
 /// Parses one top-level element and returns whether it was an item or a
 /// statement. A `using` directive after one is still parsed, with an error.
-fn top_level(p: &mut Parser<'_>, items: bool) -> bool {
+fn top_level(p: &mut Parser<'_>, seen_item: bool) -> bool {
     if p.at(K::UsingKw) || (p.at_contextual("global") && p.nth(1) == K::UsingKw) {
-        if items {
+        if seen_item {
             p.error("`using` directives come before the declarations");
         }
         using_directive(p);
