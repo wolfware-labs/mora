@@ -1786,7 +1786,7 @@ Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`. `i
 | `Span<T>`, `ReadOnlySpan<T>` | `Length`, indexing, slicing with ranges, `CopyTo`, `SequenceEqual`, `IndexOf`, `ToArray` |
 | `Memory<T>`, `ReadOnlyMemory<T>` | `Length`, `Span`, `Slice`, `ToArray`; created with `array.AsMemory()` and `text.AsMemory()` |
 
-`Dictionary` iterates in insertion order (D-29), unlike .NET's unspecified order. This makes program output reproducible.
+`Dictionary` and `HashSet` iterate in insertion order (D-29), unlike .NET's unspecified order. This makes program output reproducible, because no iteration order depends on the per-process hash keys.
 
 ### 15.4 Lookups never throw
 
@@ -2308,7 +2308,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-26 | A panic aborts the process with exit code 101; there is no unwinding | author | 11.4 |
 | D-27 | `async F(): T` declares the awaited type; futures are cold and unique. Spelled name-first since D-58 | draft, author | 12.2 |
 | D-28 | No borrows across `await`, so futures never point into themselves and need no pinning | author | 12.3 |
-| D-29 | `Dictionary` iterates in insertion order | author | 15.3 |
+| D-29 | `Dictionary` and `HashSet` iterate in insertion order | author | 15.3 |
 | D-30 | No class inheritance in the MVP; interfaces with default methods instead | author | 6.1 |
 | D-31 | The MVP is proven by a native REST API with JSON on Linux, macOS and Windows | user | 1.5, 2.2 |
 | D-32 | The project lives in a public repository, `wolfware-labs/mora-lang` (named `wolfware-labs/mora` until 2026-10-31), from day one, with the conventions of other Wolfware projects | user | 21 |
