@@ -46,7 +46,7 @@ fn every_keyword_and_punctuation_lexes_as_itself() {
         assert_eq!(tokens(text), [(kind, text)], "{text}");
         assert!(errors(text).is_empty(), "{text}");
     }
-    assert_eq!(SyntaxKind::KEYWORDS.len(), 74);
+    assert_eq!(SyntaxKind::KEYWORDS.len(), 73);
 }
 
 #[test]
@@ -181,24 +181,15 @@ fn comments_and_trivia() {
 }
 
 #[test]
-fn region_markers_start_a_line() {
-    assert_eq!(tokens("#region_x")[1], (K::Ident, "region_x"));
-    let text = "#region Setup\n  #endregion\nx #region\n#if DEBUG\r\n#Log(x)";
+fn hash_is_a_token_at_the_start_of_a_line() {
+    let text = "#region Setup\n  #Log(x)";
     assert_eq!(
         tokens(text),
         [
-            (K::Directive, "#region Setup"),
-            (K::Newline, "\n"),
-            (K::Directive, "#endregion"),
-            (K::Newline, "\n"),
-            (K::Ident, "x"),
             (K::Hash, "#"),
             (K::Ident, "region"),
+            (K::Ident, "Setup"),
             (K::Newline, "\n"),
-            (K::Hash, "#"),
-            (K::IfKw, "if"),
-            (K::Ident, "DEBUG"),
-            (K::Newline, "\r\n"),
             (K::Hash, "#"),
             (K::Ident, "Log"),
             (K::LParen, "("),
@@ -511,7 +502,7 @@ fn repository_sources_lex_losslessly() {
 fn random_inputs_are_lossless() {
     const PIECES: &[&str] = &[
         "$", "@", "{", "}", "\"", "'", "\\", "/", "*", "\n", "\r", "#", "x", "u8", "0", "1e", ".",
-        "_", ":", ",", " ", "é", "𝄞", "\u{301}", "region", "\"\"\"", "\\u{", "0x", "`",
+        "_", ":", ",", " ", "é", "𝄞", "\u{301}", "\"\"\"", "\\u{", "0x", "`",
     ];
     let mut state: u64 = 0x9E37_79B9_7F4A_7C15;
     let mut next = move || {

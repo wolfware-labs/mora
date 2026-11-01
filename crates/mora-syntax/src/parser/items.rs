@@ -14,7 +14,6 @@ const MODIFIERS: &[SyntaxKind] = &[
     K::PrivateKw,
     K::StaticKw,
     K::MutKw,
-    K::ReadonlyKw,
     K::UniqueKw,
     K::SharedKw,
     K::RefKw,
@@ -610,9 +609,7 @@ fn shape(p: &Parser<'_>, cx: Context<'_>, modifiers: bool) -> Option<Shape> {
 
 fn member_with_shape(p: &mut Parser<'_>, m: Marker, shape: Shape) {
     if shape.kind == Kind::Field {
-        // The type goes into the first declarator, where the name-first
-        // form has it.
-        variable_declarators(p, Declarators::Field);
+        variable_declarator(p, Declarators::Field);
         p.expect(K::Semicolon);
         m.complete(p, K::FieldDecl);
         return;
@@ -726,38 +723,32 @@ fn explicit_impl(p: &mut Parser<'_>, segments: usize) {
     m.complete(p, K::ExplicitImpl);
 }
 
-/// Where declarators are, which decides whether each needs a type.
+/// Where a declarator is, which decides whether it needs a type.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Declarators {
-    /// Fields, constants and statics: every declarator has a type.
+    /// Fields, constants and statics: the declarator has a type.
     Field,
     /// Locals, after `let` or `var`: a type is optional.
     Local,
 }
 
-/// `Count: int = 0, Peak: int` or, for a local, `x = 1, y: int`.
-pub(crate) fn variable_declarators(p: &mut Parser<'_>, at: Declarators) {
-    let mut d = p.start();
-    loop {
-        if p.at(K::Dollar) {
-            exprs::splice(p);
-        } else {
-            name(p);
-        }
-        if at == Declarators::Field {
-            required_annotation(p);
-        } else if p.at(K::Colon) {
-            types::annotation(p);
-        }
-        if p.eat(K::Eq) {
-            exprs::expr(p);
-        }
-        d.complete(p, K::VariableDeclarator);
-        if !p.eat(K::Comma) {
-            break;
-        }
-        d = p.start();
+/// `Count: int = 0` or, for a local, `x = 1`: one name per declaration.
+pub(crate) fn variable_declarator(p: &mut Parser<'_>, at: Declarators) {
+    let d = p.start();
+    if p.at(K::Dollar) {
+        exprs::splice(p);
+    } else {
+        name(p);
     }
+    if at == Declarators::Field {
+        required_annotation(p);
+    } else if p.at(K::Colon) {
+        types::annotation(p);
+    }
+    if p.eat(K::Eq) {
+        exprs::expr(p);
+    }
+    d.complete(p, K::VariableDeclarator);
 }
 
 fn accessor_list(p: &mut Parser<'_>) {
@@ -964,7 +955,7 @@ fn base_list(p: &mut Parser<'_>) {
     m.complete(p, K::BaseList);
 }
 
-/// `where T : IComparable<T>, new()` (§8.2).
+/// `where T : IComparable<T>, allows move` (§8.2).
 fn where_clause(p: &mut Parser<'_>) {
     let m = p.start();
     p.bump(K::WhereKw);
@@ -972,21 +963,16 @@ fn where_clause(p: &mut Parser<'_>) {
     p.expect(K::Colon);
     loop {
         let c = p.start();
-        if p.at_any(&[K::StructKw, K::ClassKw, K::UniqueKw, K::MoveKw]) && !p.nth_at(1, K::Lt) {
+        if p.at_any(&[K::StructKw, K::ClassKw, K::UniqueKw]) && !p.nth_at(1, K::Lt) {
             p.bump_any();
             c.complete(p, K::KindConstraint);
-        } else if p.at(K::NewKw) {
-            p.bump(K::NewKw);
-            p.expect(K::LParen);
-            p.expect(K::RParen);
-            c.complete(p, K::NewConstraint);
-        } else if p.at(K::RefKw) || (p.at_contextual("allows") && p.nth(1) == K::RefKw) {
-            if p.at_contextual("allows") {
-                p.bump_remap(K::AllowsKw);
+        } else if p.at_contextual("allows") && matches!(p.nth(1), K::MoveKw | K::RefKw) {
+            p.bump_remap(K::AllowsKw);
+            if !p.eat(K::MoveKw) {
+                p.bump(K::RefKw);
+                p.expect(K::StructKw);
             }
-            p.bump(K::RefKw);
-            p.expect(K::StructKw);
-            c.complete(p, K::RefStructConstraint);
+            c.complete(p, K::AllowsConstraint);
         } else {
             types::ty(p);
             c.complete(p, K::TypeConstraint);

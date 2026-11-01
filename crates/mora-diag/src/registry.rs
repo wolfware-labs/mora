@@ -126,6 +126,8 @@ registry! {
     MR0233 = 233: "`==` on a type without `IEquatable<T>`",
     MR0234 = 234: "variance annotation on a type parameter",
     MR0235 = 235: "two interfaces give different defaults for one inherited member and the type does not implement it",
+    MR0236 = 236: "a bare interface type where a value is stored; write `any I`",
+    MR0237 = 237: "an opaque return type with two different concrete types",
     MR0260 = 260: "a constant outside a newtype's refinement",
     MR0300 = 300: "a moved-from variable is used",
     MR0301 = 301: "one field moved out of a local",

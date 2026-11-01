@@ -3,8 +3,9 @@ public class Counter
     public Name: string { get; }
     public Step: int { get; private set; } = 1;
     public Doubled: int => Step * 2;
-    static readonly Limit: int = 1 << 10;
-    mut _count: int, _peak: int = 0;
+    const Limit: int = 1 << 10;
+    mut _count: int;
+    mut _peak: int = 0;
 
     public Counter(name: string, step: int)
     {

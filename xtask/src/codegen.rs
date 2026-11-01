@@ -43,12 +43,6 @@ const OTHER_TOKENS: &[(&str, &str, &str, bool)] = &[
     ),
     ("BlockComment", "block_comment", "`/* ... */`.", true),
     (
-        "Directive",
-        "directive",
-        "A `#region` or `#endregion` line (§3.2).",
-        true,
-    ),
-    (
         "Ident",
         "ident",
         "A name, possibly with an `@` prefix.",
@@ -1007,7 +1001,7 @@ mod tests {
     fn the_real_spec_has_both_keyword_lists() {
         let spec = std::fs::read_to_string(crate::root().join(crate::error_codes::SPEC)).unwrap();
         let tokens = Tokens::from_spec(&spec).unwrap();
-        assert_eq!(tokens.keywords.len(), 74);
+        assert_eq!(tokens.keywords.len(), 73);
         assert!(tokens.contextual.contains(&"adds".to_owned()));
     }
 
