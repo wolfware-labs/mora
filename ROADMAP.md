@@ -20,7 +20,7 @@ Companion to [`docs/design/mora.md`](docs/design/mora.md). The spec defines what
 | **v0.2** | M8, M9, M16 | Libraries and packages from URL and git sources, with capability grants, semantic diff and semver checks (contracts join in v0.3), and the rest of the agent toolchain |
 | **v0.3** | M14, M15, M17 | Contracts and property tests, the world simulator, record and replay, hot reload, and standard library growth |
 | **v0.4** | M10, M11, M18 | Threads, language growth and the optimizer passes left after the MVP |
-| **v0.5** | M12, M13 | The package registry and signing, the LLVM backend and more targets |
+| **v0.5** | M12, M13 | The package registry with registry dependencies and signing, the LLVM backend and more targets |
 
 Post-MVP milestones are broken into deliverables when each one starts, after its spec sections are updated.
 
@@ -1498,5 +1498,5 @@ Done when:
 | M15: Test and run tooling | The simulated World, sound test caching and flaky-test triage from effects, `mora run --record` and `mora replay`, and hot reload of function bodies in dev builds. | [§12.1](docs/design/mora.md#121-execution-model-in-the-mvp), [§15.9](docs/design/mora.md#159-testing), [§17.5](docs/design/mora.md#175-test-runner) |
 | M16: Agent tooling and API evolution | `mora query`, `mora context` and `mora mcp`, JSON Schema from types and `@Tool` signatures as MCP tools, semantic diff with compiler-checked semver (contract changes count once M14 lands), and editions with `mora migrate`. | [§6.14](docs/design/mora.md#614-effects), [§16.3](docs/design/mora.md#163-json-stdjson), [§17.1](docs/design/mora.md#171-commands), [§18.4](docs/design/mora.md#184-abi-stability) |
 | M17: Standard library growth | Time zones and the tz database, typed configuration with `@Config`, `Retry` policies, `@CancelSafe` and `Task.Shield`. | [§12.5](docs/design/mora.md#125-cancellation), [§15.6](docs/design/mora.md#156-console-environment-and-time), [§15.12](docs/design/mora.md#1512-what-is-not-in-the-mvp) |
-| M18: Optimizer | General reuse when unique, merging identical MIR bodies, `Vector128<T>`, closed-world devirtualization of `any I` and function values, and checked `@NoAlloc` and `scoped`. | [§10.13](docs/design/mora.md#1013-what-the-optimizer-guarantees), [§14.19](docs/design/mora.md#1419-reuse-when-unique), [§6.14](docs/design/mora.md#614-effects) |
+| M18: Optimizer | General reuse when unique, merging identical MIR bodies, `Vector128<T>`, closed-world devirtualization of `any I` and function values, and checked `@NoAlloc` and `scoped`. | [§10.13](docs/design/mora.md#1013-what-the-optimizer-guarantees), [§14.19](docs/design/mora.md#1419-reuse-when-unique), [§6.14](docs/design/mora.md#614-effects), [§13.1](docs/design/mora.md#131-the-runtime-library), [§14.14](docs/design/mora.md#1414-linking) |
 
