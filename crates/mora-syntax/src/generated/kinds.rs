@@ -352,6 +352,24 @@ pub enum SyntaxKind {
     TypeKw,
     /// The contextual keyword `allows`: an identifier the parser marks in position.
     AllowsKw,
+    /// The contextual keyword `newtype`: an identifier the parser marks in position.
+    NewtypeKw,
+    /// The contextual keyword `test`: an identifier the parser marks in position.
+    TestKw,
+    /// The contextual keyword `contract`: an identifier the parser marks in position.
+    ContractKw,
+    /// The contextual keyword `invariant`: an identifier the parser marks in position.
+    InvariantKw,
+    /// The contextual keyword `requires`: an identifier the parser marks in position.
+    RequiresKw,
+    /// The contextual keyword `fails`: an identifier the parser marks in position.
+    FailsKw,
+    /// The contextual keyword `ensures`: an identifier the parser marks in position.
+    EnsuresKw,
+    /// The contextual keyword `old`: an identifier the parser marks in position.
+    OldKw,
+    /// The contextual keyword `result`: an identifier the parser marks in position.
+    ResultKw,
     /// The contextual keyword `_`: an identifier the parser marks in position.
     Underscore,
     /// Text the parser could not fit into the grammar.
@@ -849,6 +867,15 @@ impl SyntaxKind {
         FromKw,
         TypeKw,
         AllowsKw,
+        NewtypeKw,
+        TestKw,
+        ContractKw,
+        InvariantKw,
+        RequiresKw,
+        FailsKw,
+        EnsuresKw,
+        OldKw,
+        ResultKw,
         Underscore,
         Error,
         Name,
@@ -1149,8 +1176,34 @@ impl SyntaxKind {
     ];
     /// The contextual keywords (§3.4).
     pub const CONTEXTUAL_KEYWORDS: &[SyntaxKind] = &[
-        GetKw, SetKw, ValueKw, WhenKw, AndKw, OrKw, NotKw, WithKw, FileKw, NameofKw, GlobalKw,
-        ArenaKw, ArgsKw, CodeKw, AddsKw, FromKw, TypeKw, AllowsKw, Underscore,
+        GetKw,
+        SetKw,
+        ValueKw,
+        WhenKw,
+        AndKw,
+        OrKw,
+        NotKw,
+        WithKw,
+        FileKw,
+        NameofKw,
+        GlobalKw,
+        ArenaKw,
+        ArgsKw,
+        CodeKw,
+        AddsKw,
+        FromKw,
+        TypeKw,
+        AllowsKw,
+        NewtypeKw,
+        TestKw,
+        ContractKw,
+        InvariantKw,
+        RequiresKw,
+        FailsKw,
+        EnsuresKw,
+        OldKw,
+        ResultKw,
+        Underscore,
     ];
 
     /// The kind with this raw number.
@@ -1316,6 +1369,15 @@ impl SyntaxKind {
             FromKw => "from",
             TypeKw => "type",
             AllowsKw => "allows",
+            NewtypeKw => "newtype",
+            TestKw => "test",
+            ContractKw => "contract",
+            InvariantKw => "invariant",
+            RequiresKw => "requires",
+            FailsKw => "fails",
+            EnsuresKw => "ensures",
+            OldKw => "old",
+            ResultKw => "result",
             Underscore => "_",
             _ => return None,
         })
@@ -1423,6 +1485,15 @@ impl SyntaxKind {
             "from" => FromKw,
             "type" => TypeKw,
             "allows" => AllowsKw,
+            "newtype" => NewtypeKw,
+            "test" => TestKw,
+            "contract" => ContractKw,
+            "invariant" => InvariantKw,
+            "requires" => RequiresKw,
+            "fails" => FailsKw,
+            "ensures" => EnsuresKw,
+            "old" => OldKw,
+            "result" => ResultKw,
             "_" => Underscore,
             _ => return None,
         })
