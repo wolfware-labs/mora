@@ -360,6 +360,44 @@ fn garbage_braces_in_a_member_list_are_skipped_whole() {
     let text = "class A { { get; } Q: int; }";
     assert_eq!(messages(text), ["expected a member"]);
     assert!(has(text, K::FieldDecl));
+    // Recovery stops at the next member's modifiers.
+    let text = "class A { { get; } mut Q: int; }";
+    assert_eq!(messages(text), ["expected a member"]);
+    assert_eq!(node(text, K::FieldDecl).text(), "mut Q: int;");
+}
+
+// `shape` in an interface: `Name: T;` is a getter without a default.
+
+#[test]
+fn an_interface_member_without_a_body_is_a_getter() {
+    for text in [
+        "interface I { Sides: int; }",
+        "interface I { static abstract Unit: I; }",
+    ] {
+        assert_clean_with(text, K::GetterDecl);
+        assert!(!has(text, K::FieldDecl), "{text:?}");
+    }
+    assert!(has("class A { Sides: int; }", K::FieldDecl));
+}
+
+// `scan_uses`: a `uses` bound inside a member's function type.
+
+#[test]
+fn a_getter_of_a_bounded_function_type_parses() {
+    for text in [
+        "class A { F: ((int) => int uses none) => G; }",
+        "class A { F: ((int) => int uses fs.read) => G; }",
+        "class A { F: ((int) => int uses (clock, env)) => G; }",
+    ] {
+        assert_clean_with(text, K::GetterDecl);
+        assert!(has(text, K::UsesClause), "{text:?}");
+    }
+    assert_clean_with("class A { F: ((int) => int uses none); }", K::FieldDecl);
+    // A bound without parentheses ends at a comma.
+    assert_clean_with(
+        "class A { F: ((int) => int uses clock, int) => G; }",
+        K::GetterDecl,
+    );
 }
 
 // `uses_clause` and `at_function`: a bound after a signature or a function type.

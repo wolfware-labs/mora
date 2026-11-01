@@ -246,11 +246,12 @@ FieldDecl =
 VariableDeclarator =
   (Name | Splice) (':' Type)? ('=' init:Expr)?
 
-// §6.9. `public IsIdle: bool => Count == 0;`, `stored Label: string => $"{Name}";`
+// §6.9. `public IsIdle: bool => Count == 0;`, `stored Label: string => $"{Name}";`.
+// In an interface, `Sides: int;` is a getter without a default (§6.8).
 GetterDecl =
   Attribute* Modifier*
   ExplicitImpl? (Name | Splice) ':' Type
-  ExprBody ';'
+  (ExprBody ';' | ';')
 
 // An indexer's accessors (§6.9); fields and getters have none.
 AccessorList =

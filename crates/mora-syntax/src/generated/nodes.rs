@@ -2106,7 +2106,7 @@ impl AstNode for Param {
 }
 
 /// ```text
-/// GetterDecl = Attribute* Modifier* ExplicitImpl? (Name | Splice) ':' Type ExprBody ';'
+/// GetterDecl = Attribute* Modifier* ExplicitImpl? (Name | Splice) ':' Type (ExprBody ';' | ';')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GetterDecl {
@@ -2670,7 +2670,7 @@ impl CapabilityList {
     pub fn capability(&self) -> Option<Capability> {
         support::child(&self.syntax)
     }
-    pub fn capabilitys(&self) -> AstChildren<Capability> {
+    pub fn capabilities(&self) -> AstChildren<Capability> {
         support::children(&self.syntax)
     }
     pub fn comma_token(&self) -> Option<SyntaxToken> {

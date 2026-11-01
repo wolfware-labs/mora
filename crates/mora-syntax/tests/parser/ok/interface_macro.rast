@@ -66,23 +66,22 @@ SourceFile@0..374
         Semicolon@103..104 ";"
       Newline@104..105 "\n"
       Whitespace@105..109 "    "
-      FieldDecl@109..138
+      GetterDecl@109..138
         Modifier@109..115
           StaticKw@109..115 "static"
         Whitespace@115..116 " "
         Modifier@116..124
           AbstractKw@116..124 "abstract"
         Whitespace@124..125 " "
-        VariableDeclarator@125..137
-          Name@125..129
-            Ident@125..129 "Unit"
-          Colon@129..130 ":"
-          Whitespace@130..131 " "
-          PathType@131..137
-            Path@131..137
-              PathSegment@131..137
-                NameRef@131..137
-                  Ident@131..137 "IShape"
+        Name@125..129
+          Ident@125..129 "Unit"
+        Colon@129..130 ":"
+        Whitespace@130..131 " "
+        PathType@131..137
+          Path@131..137
+            PathSegment@131..137
+              NameRef@131..137
+                Ident@131..137 "IShape"
         Semicolon@137..138 ";"
       Newline@138..139 "\n"
       Whitespace@139..143 "    "

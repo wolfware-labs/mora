@@ -331,6 +331,27 @@ pub(crate) fn scan_type_no_fn(input: &Input<'_>, at: usize) -> Option<usize> {
     scan(input, at, false)
 }
 
+/// After a `uses` bound at `at`, if there is one, the index after it:
+/// `uses none`, `uses fs.read`, `uses (clock, env)`.
+fn scan_uses(input: &Input<'_>, at: usize) -> usize {
+    if input.text(at) != "uses" {
+        return at;
+    }
+    let mut i = at + 1;
+    if input.kind(i) == K::NoneKw {
+        return i + 1;
+    }
+    let list = input.kind(i) == K::LParen;
+    i += usize::from(list);
+    while matches!(input.kind(i), K::Ident | K::Dot) || (list && input.kind(i) == K::Comma) {
+        i += 1;
+    }
+    if list && input.kind(i) == K::RParen {
+        i += 1;
+    }
+    i
+}
+
 fn scan(input: &Input<'_>, at: usize, functions: bool) -> Option<usize> {
     let mut i = match input.kind(at) {
         kind if PREDEFINED.contains(&kind) => at + 1,
@@ -359,9 +380,10 @@ fn scan(input: &Input<'_>, at: usize, functions: bool) -> Option<usize> {
                     }
                 }
             };
-            // `(int) => bool`: the result type ends the function type.
+            // `(int) => bool`: the result type, and a `uses` bound after it,
+            // end the function type.
             if functions && matches!(input.kind(end), K::FatArrow | K::ThinArrow) {
-                return scan_type(input, end + 1);
+                return scan_type(input, end + 1).map(|i| scan_uses(input, i));
             }
             end
         }

@@ -106,6 +106,9 @@ enum Context<'t> {
     /// In the member list of a type, named `owner` (none in `code { }`),
     /// or a local function.
     Member { owner: Option<&'t str> },
+    /// In the member list of an interface, where `Name: T;` declares a
+    /// getter (§6.8).
+    Interface,
 }
 
 /// Parses a declaration with its attributes and modifiers. At the top
@@ -381,10 +384,9 @@ fn extension_decl(p: &mut Parser<'_>, m: Marker) {
 
 fn interface_decl(p: &mut Parser<'_>, m: Marker) {
     p.bump(K::InterfaceKw);
-    let owner = p.nth_text(0);
     type_head(p);
     type_tail(p);
-    member_list(p, Some(owner));
+    members_in_braces(p, Context::Interface);
     m.complete(p, K::InterfaceDecl);
 }
 
@@ -412,7 +414,7 @@ fn union_decl(p: &mut Parser<'_>, m: Marker) {
             }
         }
         if p.eat(K::Semicolon) {
-            members(p, Some(owner));
+            members(p, Context::Member { owner: Some(owner) });
         }
         p.expect(K::RBrace);
     }
@@ -472,17 +474,20 @@ fn macro_decl(p: &mut Parser<'_>, m: Marker) {
 
 /// `{ members }` of the type named `owner`, or of a `code { }` quote.
 pub(crate) fn member_list(p: &mut Parser<'_>, owner: Option<&str>) {
+    members_in_braces(p, Context::Member { owner });
+}
+
+fn members_in_braces(p: &mut Parser<'_>, cx: Context<'_>) {
     let m = p.start();
     if p.expect(K::LBrace) {
-        members(p, owner);
+        members(p, cx);
         p.expect(K::RBrace);
     }
     m.complete(p, K::MemberList);
 }
 
 /// Members up to the closing `}`, recovering at each member boundary.
-fn members(p: &mut Parser<'_>, owner: Option<&str>) {
-    let cx = Context::Member { owner };
+fn members(p: &mut Parser<'_>, cx: Context<'_>) {
     while !p.at(K::RBrace) && !p.at_end() {
         let before = p.pos();
         // `$..members;` is a splice of members; `$f: int;` declares a field.
@@ -506,6 +511,7 @@ fn members(p: &mut Parser<'_>, owner: Option<&str>) {
             while !p.at_end()
                 && !p.at(K::RBrace)
                 && !p.at_any(ITEM_RECOVERY)
+                && !p.at_any(MODIFIERS)
                 && !types::at_type_start(p)
             {
                 p.bump_any();
@@ -573,6 +579,10 @@ fn shape(p: &Parser<'_>, cx: Context<'_>, modifiers: bool) -> Option<Shape> {
                 // `IShape.Area: float { ... }`: an explicit implementation is
                 // a getter, whose braces are reported when parsed.
                 if member && segments > 1 && after == Some(K::LBrace) {
+                    return shape(Kind::Getter, segments);
+                }
+                // `Sides: int;` in an interface: a getter without a default.
+                if cx == Context::Interface && after == Some(K::Semicolon) {
                     return shape(Kind::Getter, segments);
                 }
                 if fields && segments == 1 {
@@ -678,7 +688,7 @@ fn getter(p: &mut Parser<'_>, m: Marker, segments: usize) {
     if p.at(K::LBrace) {
         accessor_body(p, "expected `=>`");
         p.eat(K::Semicolon);
-    } else {
+    } else if !p.eat(K::Semicolon) {
         expr_body(p);
         p.expect(K::Semicolon);
     }
