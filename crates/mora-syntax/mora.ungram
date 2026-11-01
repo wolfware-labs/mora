@@ -652,12 +652,16 @@ RangeExpr =
 SwitchExpr =
   'switch' '(' scrutinee:Expr ')' SwitchArmList
 
-// A comma separates arms; after a block it may be left out.
+// A comma follows every expression arm but the last; after a block arm
+// it may be left out.
 SwitchArmList =
-  '{' (SwitchArm ','?)* '}'
+  '{' (SwitchArm ',' | SwitchBlockArm ','?)* SwitchArm? '}'
 
 SwitchArm =
-  Pattern WhenClause? '=>' (Block | Expr)
+  Pattern WhenClause? '=>' Expr
+
+SwitchBlockArm =
+  Pattern WhenClause? '=>' Block
 
 // §6.5. `user with { Name = "Ada" }`.
 WithExpr =

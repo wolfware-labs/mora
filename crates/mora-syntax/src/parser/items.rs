@@ -266,7 +266,7 @@ pub(crate) fn at_function(input: &Input<'_>, at: usize) -> bool {
     }
     matches!(
         input.kind(i + 1),
-        K::LBrace | K::FatArrow | K::Colon | K::WhereKw
+        K::LBrace | K::FatArrow | K::ThinArrow | K::Colon | K::WhereKw
     )
 }
 
@@ -541,7 +541,7 @@ fn shape(p: &Parser<'_>, cx: Context<'_>, modifiers: bool) -> Option<Shape> {
             }
             K::Colon => {
                 let after = scan_type_no_fn(input, end + 1).map(|i| input.kind(i));
-                if member && matches!(after, Some(K::LBrace | K::FatArrow)) {
+                if member && matches!(after, Some(K::LBrace | K::FatArrow | K::ThinArrow)) {
                     return shape(Kind::Property, segments);
                 }
                 if fields && segments == 1 {
@@ -841,7 +841,9 @@ fn assoc_type(p: &mut Parser<'_>, m: Marker) {
 pub(crate) fn param_list(p: &mut Parser<'_>) {
     let m = p.start();
     if p.expect(K::LParen) {
-        while !p.at(K::RParen) && !p.at_end() && !p.at_any(&[K::LBrace, K::Semicolon, K::FatArrow])
+        while !p.at(K::RParen)
+            && !p.at_end()
+            && !p.at_any(&[K::LBrace, K::Semicolon, K::FatArrow, K::ThinArrow])
         {
             param(p);
             if !p.eat(K::Comma) {
@@ -932,7 +934,7 @@ fn where_clause(p: &mut Parser<'_>) {
 fn body_or_semicolon(p: &mut Parser<'_>) {
     if p.at(K::LBrace) {
         stmts::block(p);
-    } else if p.at(K::FatArrow) {
+    } else if p.at(K::FatArrow) || p.at(K::ThinArrow) {
         expr_body(p);
         p.expect(K::Semicolon);
     } else {
@@ -942,7 +944,7 @@ fn body_or_semicolon(p: &mut Parser<'_>) {
 
 fn expr_body(p: &mut Parser<'_>) {
     let m = p.start();
-    p.expect(K::FatArrow);
+    types::arrow(p);
     exprs::expr(p);
     m.complete(p, K::ExprBody);
 }

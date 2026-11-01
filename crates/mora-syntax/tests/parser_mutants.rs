@@ -358,7 +358,7 @@ fn a_block_arm_needs_no_comma() {
     assert_eq!(
         outline("switch (x) { 1 => { F(); } _ => G() }"),
         (
-            "SourceFile(SwitchStmt(P, SwitchArmList(SwitchArm(ConstantPattern(LiteralExpr), Block(ExprStmt(CallExpr(P)))), SwitchArm(DiscardPattern, CallExpr(P)))))".into(),
+            "SourceFile(SwitchStmt(P, SwitchArmList(SwitchBlockArm(ConstantPattern(LiteralExpr), Block(ExprStmt(CallExpr(P)))), SwitchArm(DiscardPattern, CallExpr(P)))))".into(),
             vec![]
         )
     );
@@ -440,4 +440,35 @@ fn a_parenthesized_lambda_is_not_a_cast() {
 fn a_parenthesized_type_argument_opens_generic_arguments() {
     // A comparison chain would be `BinExpr(BinExpr(P, ParenExpr(P)), ParenExpr(P))`.
     assert_eq!(shape("F<(A)>(x)"), "CallExpr(P)");
+}
+
+// types::arrow in declaration bodies and switch arms: `->` gets the same
+// fix to `=>` there.
+
+#[test]
+fn a_thin_arrow_body_or_arm_gets_the_fix() {
+    for text in [
+        "F() -> 1;",
+        "Twice(x: int): int -> x * 2;",
+        "class A { Count: int -> 0; Get(): int -> 1; }",
+        "let y = switch (x) { _ -> 1 };",
+        "switch (x) { 0 -> F(), _ -> { G(); } }",
+    ] {
+        let parsed = parse(text);
+        let arrows = text.matches("->").count();
+        assert_eq!(
+            parsed.errors().len(),
+            arrows,
+            "{text}: {:?}",
+            parsed.errors()
+        );
+        let mut fixed = text.to_owned();
+        for error in parsed.errors().iter().rev() {
+            assert_eq!(error.message, "expected `=>`", "{text}");
+            assert_eq!(&text[error.range], "->", "{text}");
+            fixed = error.fix.as_ref().unwrap().apply(&fixed);
+        }
+        assert_eq!(fixed, text.replace("->", "=>"));
+        assert!(parse(&fixed).errors().is_empty(), "{fixed}");
+    }
 }

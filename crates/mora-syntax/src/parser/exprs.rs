@@ -684,14 +684,15 @@ pub(crate) fn switch_head(p: &mut Parser<'_>) {
             if p.at_contextual("when") {
                 patterns::when_clause(p);
             }
-            p.expect(K::FatArrow);
+            types::arrow(p);
             let block = p.at(K::LBrace);
             if block {
                 stmts::block(p);
+                arm.complete(p, K::SwitchBlockArm);
             } else {
                 expr(p);
+                arm.complete(p, K::SwitchArm);
             }
-            arm.complete(p, K::SwitchArm);
             if !p.eat(K::Comma) && !block {
                 break;
             }

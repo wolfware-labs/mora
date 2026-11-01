@@ -4203,7 +4203,7 @@ impl AstNode for ForInitExprs {
 }
 
 /// ```text
-/// SwitchArmList = '{' (SwitchArm ','?)* '}'
+/// SwitchArmList = '{' (SwitchArm ',' | SwitchBlockArm ','?)* SwitchArm? '}'
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SwitchArmList {
@@ -4216,6 +4216,12 @@ impl SwitchArmList {
     }
     pub fn switch_arms(&self) -> AstChildren<SwitchArm> {
         support::children(&self.syntax)
+    }
+    pub fn switch_block_arms(&self) -> AstChildren<SwitchBlockArm> {
+        support::children(&self.syntax)
+    }
+    pub fn switch_arm(&self) -> Option<SwitchArm> {
+        support::child(&self.syntax)
     }
     pub fn r_brace_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::RBrace])
@@ -5849,7 +5855,7 @@ impl AstNode for Arg {
 }
 
 /// ```text
-/// SwitchArm = Pattern WhenClause? '=>' (Block | Expr)
+/// SwitchArm = Pattern WhenClause? '=>' Expr
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SwitchArm {
@@ -5866,9 +5872,6 @@ impl SwitchArm {
     pub fn fat_arrow_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::FatArrow])
     }
-    pub fn block(&self) -> Option<Block> {
-        support::child(&self.syntax)
-    }
     pub fn expr(&self) -> Option<Expr> {
         support::child(&self.syntax)
     }
@@ -5877,6 +5880,43 @@ impl SwitchArm {
 impl AstNode for SwitchArm {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::SwitchArm
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
+/// SwitchBlockArm = Pattern WhenClause? '=>' Block
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SwitchBlockArm {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl SwitchBlockArm {
+    pub fn pattern(&self) -> Option<Pattern> {
+        support::child(&self.syntax)
+    }
+    pub fn when_clause(&self) -> Option<WhenClause> {
+        support::child(&self.syntax)
+    }
+    pub fn fat_arrow_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::FatArrow])
+    }
+    pub fn block(&self) -> Option<Block> {
+        support::child(&self.syntax)
+    }
+}
+
+impl AstNode for SwitchBlockArm {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SwitchBlockArm
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {

@@ -682,7 +682,7 @@ SourceFile@0..1199
           Comma@769..770 ","
           Newline@770..771 "\n"
           Whitespace@771..779 "        "
-          SwitchArm@779..803
+          SwitchBlockArm@779..803
             RelationalPattern@779..784
               Gt@779..780 ">"
               Whitespace@780..781 " "

@@ -628,6 +628,8 @@ pub enum SyntaxKind {
     Arg,
     /// A `SwitchArm` node.
     SwitchArm,
+    /// A `SwitchBlockArm` node.
+    SwitchBlockArm,
     /// A `ObjectInitializer` node.
     ObjectInitializer,
     /// A `CaptureList` node.
@@ -989,6 +991,7 @@ impl SyntaxKind {
         CollectionElem,
         Arg,
         SwitchArm,
+        SwitchBlockArm,
         ObjectInitializer,
         CaptureList,
         LambdaParam,
