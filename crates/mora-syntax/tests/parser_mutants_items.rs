@@ -377,15 +377,28 @@ fn a_named_constraint_is_a_type_constraint() {
 }
 
 #[test]
-fn ref_after_a_type_constraint_is_not_a_ref_struct_constraint() {
-    let text = "class A<T> where T : X ref struct { }";
-    assert!(has(text, K::TypeConstraint));
-    assert!(!has(text, K::RefStructConstraint));
-    assert_eq!(messages(text), ["expected `{`", "expected an identifier"]);
+fn allows_widens_with_move_or_ref_struct() {
+    assert_clean_with("class A<T> where T : allows move { }", K::AllowsConstraint);
     assert_clean_with(
         "class A<T> where T : class, allows ref struct { }",
-        K::RefStructConstraint,
+        K::AllowsConstraint,
     );
+    // `allows` alone, or before anything else, is a type named `allows`.
+    let text = "class A<T> where T : allows { }";
+    assert!(has(text, K::TypeConstraint));
+    assert!(!has(text, K::AllowsConstraint));
+}
+
+#[test]
+fn move_and_ref_struct_are_not_constraints_without_allows() {
+    for text in [
+        "class A<T> where T : move { }",
+        "class A<T> where T : ref struct { }",
+        "class A<T> where T : new() { }",
+    ] {
+        assert!(!has(text, K::AllowsConstraint), "{text}");
+        assert!(!messages(text).is_empty(), "{text}");
+    }
 }
 
 // `declaration` and `shape`: indexers, operators and properties are members
@@ -481,4 +494,15 @@ fn a_field_needs_a_plain_name_and_a_place_for_fields() {
         "X: int;"
     );
     assert!(!has("[A] x: int;", K::FieldDecl));
+}
+
+// `at_any`: `any` starts a boxed interface type only before a name.
+
+#[test]
+fn any_alone_is_a_type_name() {
+    for text in ["struct S { X: any; }", "struct S { X: List<any>; }"] {
+        assert_clean_with(text, K::PathType);
+        assert!(!has(text, K::AnyType), "{text}");
+    }
+    assert_clean_with("struct S { X: any IShape; }", K::AnyType);
 }

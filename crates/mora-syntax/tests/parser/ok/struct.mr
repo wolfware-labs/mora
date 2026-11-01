@@ -5,6 +5,8 @@ public struct Point
     public Y: int;
     mut _visits: int = 0;
     public Parent: weak Node;
+    public Shape: any IShape;
+    public Shapes: List<any IShape>?;
 }
 
 public ref struct Cursor<T> where T : struct
@@ -12,4 +14,4 @@ public ref struct Cursor<T> where T : struct
     _items: Span<T>;
 }
 
-public readonly struct Pair<A, B> : IEquatable<Pair<A, B>> where A : IEquatable<A>, new() where B : allows ref struct;
+public struct Pair<A, B> : IEquatable<Pair<A, B>> where A : IEquatable<A>, IDefault, allows move where B : allows ref struct;

@@ -113,7 +113,7 @@ fn local_decl_stmt(p: &mut Parser<'_>) {
 fn local_decl(p: &mut Parser<'_>) {
     let m = p.start();
     p.bump_any();
-    items::variable_declarators(p, Declarators::Local);
+    items::variable_declarator(p, Declarators::Local);
     m.complete(p, K::LocalDecl);
 }
 

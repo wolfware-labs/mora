@@ -153,7 +153,6 @@ pub fn lex(text: &str) -> Lexed {
     let mut lexer = Lexer {
         text,
         pos: 0,
-        line_start: true,
         stack: Vec::new(),
         holes: Vec::new(),
         out: Lexed::default(),
@@ -174,9 +173,6 @@ pub fn lex(text: &str) -> Lexed {
     }
     lexer.out
 }
-
-/// The names that make a `#` at the start of a line a region marker (§3.2).
-const DIRECTIVES: &[&str] = &["region", "endregion"];
 
 /// An interpolated string being lexed.
 #[derive(Debug, Clone, Copy)]
@@ -208,8 +204,6 @@ struct Lexer<'a> {
     text: &'a str,
     /// Where the next token starts.
     pos: usize,
-    /// Whether only whitespace precedes `pos` on its line.
-    line_start: bool,
     /// The interpolated strings and holes `pos` is inside, innermost last.
     stack: Vec<Frame>,
     /// The byte ranges of holes, for the indentation rules of raw strings.
@@ -474,11 +468,6 @@ impl<'a> Lexer<'a> {
             range: TextRange::new(size(self.pos), size(end)),
         });
         self.pos = end;
-        self.line_start = match kind {
-            SyntaxKind::Newline => true,
-            SyntaxKind::Whitespace => self.line_start,
-            _ => false,
-        };
     }
 
     fn error(&mut self, code: Code, range: std::ops::Range<usize>, message: impl Into<String>) {
@@ -495,17 +484,6 @@ impl<'a> Lexer<'a> {
         let Some(c) = rest.chars().next() else {
             return;
         };
-        if c == '#' && self.line_start {
-            // The whole word after `#`, so `#region_x` is not a region marker.
-            let name_len = rest[1..]
-                .find(|c: char| !is_ident_continue(c))
-                .unwrap_or(rest.len() - 1);
-            let name = &rest[1..1 + name_len];
-            if DIRECTIVES.contains(&name) {
-                self.push(SyntaxKind::Directive, line_len(rest));
-                return;
-            }
-        }
         if self.string_or_char() {
             return;
         }

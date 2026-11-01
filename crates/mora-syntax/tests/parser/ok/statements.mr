@@ -4,7 +4,8 @@ Run(items: List<int>, counts: Dictionary<string, int>)
     var count = 1;
     let limit: int = 10;
     let index: int;
-    var user: User? = none, other: User? = none;
+    var user: User? = none;
+    var other: User? = none;
     let (id, name) = pair;
     let (first: int, second) = pair;
 

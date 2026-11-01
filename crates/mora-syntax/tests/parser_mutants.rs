@@ -182,24 +182,32 @@ fn a_quote_holds_a_type_only_when_it_cannot_be_an_expression() {
         shape("code(int.MaxValue)"),
         "QuoteExpr(MemberExpr(PredefinedTypeExpr(PredefinedType), NameRef))"
     );
+    assert_eq!(
+        shape("code(any IShape)"),
+        "QuoteExpr(AnyType(PathType(Path(PathSegment(NameRef)))))"
+    );
+    assert_eq!(errors("let t = code(any IShape);"), Vec::<String>::new());
 }
 
-// array_initializer and new_expr: initializers, empty or not.
+// array_size and new_expr: an array is created with a size, never with
+// listed elements.
 
 #[test]
-fn array_initializers_take_every_element() {
+fn arrays_are_created_with_a_size() {
     assert_eq!(
-        shape("stackalloc int[2] { 1, 2 }"),
-        "StackallocExpr(PredefinedType, LiteralExpr, ArrayInitializer(LiteralExpr, LiteralExpr))"
+        shape("new int[n + 1]"),
+        "NewArrayExpr(PredefinedType, BinExpr(P, LiteralExpr))"
     );
-    assert_eq!(
-        shape("stackalloc int[0] { }"),
-        "StackallocExpr(PredefinedType, LiteralExpr, ArrayInitializer)"
-    );
-    assert_eq!(
-        shape("new int[] { }"),
-        "NewArrayExpr(PredefinedType, ArrayInitializer)"
-    );
+    assert_eq!(errors("let a = new int[4];"), Vec::<String>::new());
+    assert_eq!(errors("let a = stackalloc byte[4];"), Vec::<String>::new());
+    for text in [
+        "let a = new int[] { 1 };",
+        "let a = new[] { 1 };",
+        "let a = new int[2] { 1, 2 };",
+        "let a = stackalloc int[] { 1 };",
+    ] {
+        assert!(!errors(text).is_empty(), "{text}");
+    }
 }
 
 // object_initializer: every member.

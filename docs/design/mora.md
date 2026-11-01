@@ -156,7 +156,7 @@ public class UserStore
         return user;
     }
 
-    public Find(id: int): User? => _users.Get(id);
+    public Find(id: int): User? => _users[id];
 
     public All(): List<User> => _users.Values.OrderBy(u => u.Id).ToList();
 
@@ -214,7 +214,7 @@ What the program relies on, with the section that defines each:
 | `Email: string?` | `T?` is an option type; `none` is its empty value | §5.6 |
 | `private mut _nextId: int` | Fields are read-only unless marked `mut` | §6.3 |
 | `let` / `var` | Immutable and mutable locals | §7.10 |
-| `_users.Get(id)` | Lookup returning `V?` instead of throwing | §15.4 |
+| `_users[id]` | Lookup returning `V?`, `none` when the key is missing | §15.4 |
 | `OrderBy(...).ToList()` | LINQ over monomorphized iterator structs | §15.5 |
 | `async (req: Request) => ...` | Escaping async lambda; captures `store` by retain | §10.9, §12 |
 | `req.RouteValue<int>("id")?` | `Result` propagation; `HttpError` becomes a 400 response | §11.2, §16.2 |
@@ -301,7 +301,7 @@ public static Total(csv: string): Result<int, ParseError>
 
 - `//` to end of line, and `/* ... */` (not nesting, as in C#). A block comment that is not closed is error `MR0012`.
 - `///` starts a doc comment. Doc comments are **Markdown**, not the XML of C# doc comments (D-21). A doc comment attaches to the next declaration. Inline code in backticks that names a symbol, for example `` `List<T>.Add` ``, becomes a link in the LSP hover and in generated docs.
-- `#Name(...)` calls an expression macro (§9). A line that starts with `#region` or `#endregion` is a region marker: it runs to the end of the line, editors fold the code between the two, and the compiler ignores it. Any other `#`, such as a macro call that starts a statement, is not a region marker.
+- `#Name(...)` calls an expression macro (§9).
 
 ### 3.3 Identifiers
 
@@ -317,12 +317,12 @@ Reserved keywords (cannot be identifiers without `@`):
 abstract as async await bool break byte case char class const continue default do
 double else enum explicit extern false float for foreach if implicit import in
 indirect int interface internal is lazy let long macro move mut namespace new nint
-none nuint operator out params private public readonly ref return sbyte shared short
+none nuint operator out params private public ref return sbyte shared short
 sizeof stackalloc static string struct switch this true uint ulong union unique
 unsafe ushort using var weak where while yield
 ```
 
-Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows ref struct`, §8.2); `newtype` (declaration start, §6.12); `test` (section position, §15.9); `contract` (section position, §6.13), and inside a contract section `invariant`, `requires`, `fails`, `ensures`, `also`, `old` and `result`; `_` (discards in patterns and deconstruction, §7.8).
+Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows move`, `allows ref struct`, §8.2); `any` (`any IShape`, §8.4); `newtype` (declaration start, §6.12); `test` (section position, §15.9); `contract` (section position, §6.13), and inside a contract section `invariant`, `requires`, `fails`, `ensures`, `also`, `old` and `result`; `_` (discards in patterns and deconstruction, §7.8).
 
 The compiler knows only Mora's syntax (D-59). A word that is not a keyword is an identifier, and code written in another language's syntax gets the ordinary syntax error, `MR0110`.
 
@@ -461,8 +461,7 @@ Having both top-level statements and a `Main`, or more than one `Main`, is error
 
 ### 4.7 Static state
 
-- `const` declares a compile-time constant of a primitive, `string`, or an enum type, as in C#.
-- `static readonly Name: T = expr;` requires `expr` to be evaluable at compile time (§14.6). The value is placed in read-only data and is immortal.
+- `const Name: T = expr;` declares a constant. `expr` must be evaluable at compile time (§14.6), and `T` may be any type the evaluator can build: primitives, `string`, enums, plain structs, tuples, unions and arrays of these. A constant of a reference type is an immortal object in read-only data.
 - `static lazy Name: T = expr;` runs `expr` on first access. A cycle between lazy initializers is a panic (`lazy initialization cycle: A -> B -> A`) at run time, and error `MR0126` when the compiler can see the cycle statically.
 - `static mut Name: T = expr;` is mutable global state, with `expr` evaluable at compile time. In the MVP, programs are single-threaded (§12.1). Post-MVP, `static mut` of a non-`shared` type is only reachable from the main thread (OQ-6).
 
@@ -501,14 +500,14 @@ There is no universal base type, and nothing is boxed implicitly except when a v
 
 `string` is an immutable sequence of UTF-8 bytes that is always valid UTF-8 (D-14). It is a shared reference type with value equality: `==` compares contents.
 
-- `s.Length` is the length **in bytes**. It does not count UTF-16 code units. `s.Chars()` iterates `char` values; `s.Runes()` is an alias kept for readers coming from .NET's `Rune`.
+- `s.Length` is the length **in bytes**. It does not count UTF-16 code units. `s.Chars()` iterates `char` values.
 - Indexing a string by `int` (`s[i]`) is error `MR0130`. The hint offers `s.Chars().ElementAt(i)` for characters or `s.AsBytes()[i]` for bytes. Ranges `s[a..b]` slice by byte offset, returning a new `string`, and panic if an offset is not on a character boundary.
 - `s.AsSpan()` returns `ReadOnlySpan<byte>` without copying. `StringBuilder` (§15.3) builds strings.
 - String literals and `const` strings are immortal static objects; they are never retained or released at run time (§13.4).
 
 ### 5.4 Arrays
 
-`T[]` is a fixed-length array on the heap, as in C#: a shared reference type with a reference count, a length and elements stored inline. `new int[10]` requires `T : IDefault` (§8.5); `new[] { 1, 2, 3 }` and collection expressions (§7.9) create initialized arrays. Elements are mutable when the array is reached through a mutable place. `a.Length` is `int`. Out-of-bounds access panics.
+`T[]` is a fixed-length array on the heap, as in C#: a shared reference type with a reference count, a length and elements stored inline. `new int[10]` creates an array of default values and requires `T : IDefault` (§8.5); a collection expression, `let primes: int[] = [2, 3, 5];`, creates an initialized one (§7.9). Elements are mutable when the array is reached through a mutable place. `a.Length` is `int`. Out-of-bounds access panics.
 
 Multi-dimensional (`T[,]`) and jagged arrays work as `T[][]`; `T[,]` is post-MVP. Fixed-size inline arrays (`InlineArray<T, N>`) are post-MVP.
 
@@ -578,8 +577,8 @@ A function type parameter declared with the default `in` mode accepts both. A `m
 | `float` | `double` | Implicit |
 | Any numeric | Any numeric | Explicit cast `(T)x`: truncates and wraps for integers, rounds to nearest for floats, saturates float-to-int (NaN becomes 0) |
 | `T` | `T?` | Implicit |
-| `T` where `T : I` | `I` (dynamic interface value) | Implicit, boxes value types (§8.4) |
-| Interface value `I` | Concrete type `C` | Pattern `is C c` or `as C` (gives `C?`). `(C)i` is a checked cast that panics on mismatch |
+| `T` where `T : I` | `any I` (dynamic interface value) | Implicit, boxes value types (§8.4) |
+| Interface value `any I` | Concrete type `C` | Pattern `is C c` or `as C` (gives `C?`). `(C)i` is a checked cast that panics on mismatch |
 | Any `T` | Any `U` with a user-defined `implicit operator` or `explicit operator` | As declared (§6.9) |
 
 Checked conversions that can fail return options: `int.TryFrom(x)` gives `int?`. There is no implicit conversion between `bool` and integers, between `char` and integers, or from anything to `string`.
@@ -591,7 +590,7 @@ Checked conversions that can fail return options: `int.TryFrom(x)` gives `int?`.
 ```ebnf
 TypeDecl  = StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl | NewtypeDecl ;
 NewtypeDecl = Attribute* Modifier* "newtype" Identifier ":" Type ( "is" Pattern )? ( ";" | TypeBody ) ;   (* §6.12 *)
-Modifier  = "public" | "internal" | "private" | "file" | "static" | "mut" | "readonly"
+Modifier  = "public" | "internal" | "private" | "file" | "static" | "mut"
           | "unique" | "shared" | "ref" | "async" | "lazy" | "const" | "indirect"
           | "extern" ;
 FunctionDecl = Attribute* Modifier* Identifier TypeParams? "(" Params? ")" ( ":" Type )? Constraints*
@@ -650,7 +649,7 @@ public class Counter
 ```
 
 - A class is a shared reference type with identity: heap-allocated with a reference count (§10.4, §13.3).
-- **Fields are read-only unless marked `mut`** (D-15). A read-only field is assigned only in its initializer, a constructor or a memberwise `new` (§6.9). `readonly` is accepted as a redundant modifier. `{ get; set; }` and `{ get; private set; }` auto-properties have a mutable backing field; `{ get; }` does not.
+- **Fields are read-only unless marked `mut`** (D-15). A read-only field is assigned only in its initializer, a constructor or a memberwise `new` (§6.9). `{ get; set; }` and `{ get; private set; }` auto-properties have a mutable backing field; `{ get; }` does not.
 - A class gets no generated equality, hashing, printing or `with`: two objects with the same fields are still two objects. `==` on a class is error `MR0233` unless the class implements `IEquatable<T>`, by hand or with `[Equatable]` (§9.9). `ReferenceEquals(a, b)` compares identity.
 - An object's address is never observable. A value derived from identity, such as an identity hash or an object number in debug output, comes from a per-process counter and is assigned the first time it is asked for, so two runs that receive the same inputs in the same order, I/O completions and task scheduling included, produce the same values (D-61).
 - Mutating a `mut` field through any reference is allowed, as in C#. A `let` local of class type means the local cannot be reassigned; it does not freeze the object.
@@ -936,7 +935,7 @@ From highest to lowest:
 
 ### 7.3 Object creation
 
-`new T(args)`, `new T(args) { Prop = v }`, target-typed `new()` and `new(args)`, and `new[] { ... }` for arrays. `new` on a struct or union creates a value; on a class, a heap object with a strong count of one; on a unique class, a heap object owned by the receiving place.
+`new T(args)`, `new T(args) { Prop = v }`, target-typed `new()` and `new(args)`, and `new T[n]` for an array of `n` default values. Arrays with given elements come from collection expressions (§7.9). `new` on a struct or union creates a value; on a class, a heap object with a strong count of one; on a unique class, a heap object owned by the receiving place.
 
 ### 7.4 Propagation: `?`
 
@@ -1051,24 +1050,43 @@ Generics are **monomorphized** (D-11): each distinct instantiation is compiled s
 | `where T : struct` | `T` is a value type |
 | `where T : class` | `T` is a shared class |
 | `where T : unique` | `T` is a unique class |
-| `where T : move` | `T` may be move-only. Without it, `T` must be copyable (D-23) |
-| `where T : new()` | Same as `where T : IDefault` |
-| `where T : ref struct` | `T` may be a view type (C# 13 spells this `allows ref struct`; both spellings are accepted) |
+| `where T : allows move` | `T` may be move-only. Without it, `T` must be copyable (D-23) |
+| `where T : allows ref struct` | `T` may be a view type |
 
-A type parameter is **copyable by default**, so generic code written as in C# (`var a = item; var b = item;`) compiles. Containers that must hold unique values declare `where T : move`; inside them, `T` follows the move rules of §10.5. Every standard collection declares `where T : move`.
+A constraint narrows the types a parameter accepts; `allows` widens them, so the two read differently. A type that can be created with no arguments is constrained with `where T : IDefault` (§8.5).
+
+A type parameter is **copyable by default**, so generic code written as in C# (`var a = item; var b = item;`) compiles. Containers that must hold unique values declare `where T : allows move`; inside them, `T` follows the move rules of §10.5. Every standard collection declares `where T : allows move`.
 
 ### 8.3 Static dispatch
 
 A call through a constrained type parameter (`item.CompareTo(other)` with `T : IComparable<T>`) is resolved at instantiation and compiled as a direct call. This is the default and has no run-time cost.
 
+A bare interface type is never a box (D-67):
+
+- **In a parameter**, `Print(value: IDisplay)` declares an implicit type parameter: it means `Print<T>(value: T) where T : IDisplay`. Each call is monomorphized and statically dispatched.
+- **In a return type**, `Active(): IEnumerable<User>` declares an opaque type: the function returns one concrete type, which callers see only through the interface. Returning two different concrete types is error `MR0237`; the fix is to return `any IEnumerable<User>`.
+- **Anywhere else** (a field, a type argument, a local with a written type, an array element), a bare interface type is error `MR0236`, because a value stored there must be boxed; write `any I` (§8.4).
+
+```mora
+public static Print(value: IDisplay)
+{
+    Console.WriteLine(value);
+}
+
+public static TotalArea(shapes: List<any IShape>): double
+{
+    return shapes.Sum(s => s.Area());
+}
+```
+
 ### 8.4 Dynamic interface values
 
-An interface used as a type (`s: IShape`, `List<IShape>`) is a **dynamic interface value**: a pair of a data pointer and a vtable pointer (§13.6).
+`any I` (`s: any IShape`, `List<any IShape>`) is a **dynamic interface value**: a pair of a data pointer and a vtable pointer (§13.6). `any` is the only way to write one, so every box is visible in the source (D-67).
 
 - Converting a shared class to an interface value retains it; copying the value retains; it is copyable.
 - Converting a copyable struct or union **boxes** it: the value moves into a heap cell with a reference count, as in C#. Boxing is the only implicit allocation in the language. The LSP shows an inlay hint at every boxing site, and lint `boxing` (allow by default) reports them.
 - Converting a move-only value to an interface value is error `MR0230` in the MVP (OQ-10).
-- An interface can be used as a type only if it has no static abstract members and no generic methods (`MR0231`). An associated type constrained to an interface `J` is erased to the dynamic interface value `J`: through an `IEnumerable<T>` value, `GetEnumerator()` returns a boxed `IEnumerator<T>`. This keeps `GetUsers(): IEnumerable<User>` working as an interface return type, at the cost of one box per enumeration.
+- `any I` is allowed only if `I` has no static abstract members and no generic methods (`MR0231`). An associated type constrained to an interface `J` is erased to `any J`: through an `any IEnumerable<T>` value, `GetEnumerator()` returns a boxed `IEnumerator<T>`. An opaque return (§8.3), `GetUsers(): IEnumerable<User>`, keeps the concrete iterator and has no box.
 - `is C c`, `as C` and `(C)i` test the concrete type through the type identifier in the vtable (§13.6). There is no other run-time type information.
 
 ### 8.5 Built-in interfaces
@@ -1079,7 +1097,7 @@ An interface used as a type (`s: IShape`, `List<IShape>`) is a **dynamic interfa
 | `IComparable<T>` | `CompareTo(in other: T): int` | `<`, `>`, `<=`, `>=` (when the type declares them), `OrderBy`, `Sort` |
 | `IHashable` | `Hash(ref h: Hasher)` | `Dictionary`, `HashSet` |
 | `IDisplay` | `Format(ref f: Formatter, spec: ReadOnlySpan<byte>)` and `ToString(): string`, each with a default written in terms of the other | Interpolation, `Console.WriteLine`, `ToString()` |
-| `IDefault` | `static abstract Default: T { get; }` | `default`, `new T[n]`, `new()` constraint |
+| `IDefault` | `static abstract Default: T { get; }` | `default`, `new T[n]`, `[Default]` |
 | `IClone<T>` | `Clone(): T` | Explicit deep copies. Copying a class reference never clones |
 | `IEnumerable<T>` | `type Enumerator : IEnumerator<T>; GetEnumerator(): Enumerator` | `foreach`, LINQ |
 | `IEnumerator<T>` | `mut Next(): T?` | `foreach`, LINQ |
@@ -1296,7 +1314,7 @@ A borrow is cheap when the compiler can prove the borrowed place does not change
 
 An `in` borrow of a unique object is read-only all the way down: through it, the object's `mut` fields cannot be assigned (§6.4). Two `in` borrows of the same unique object in one call are therefore harmless.
 
-**Aliased places** are fields of shared class objects, array elements, closure environment slots, elements reached through a span or `Memory<T>`, and `static mut` variables. Other code can write them during a call through another reference. Collection elements are not places: `List<T>` and `Dictionary` indexers are methods whose getter returns a copy, so `F(list[i])` borrows a temporary and `ref list[i]` is error `MR0323`, as it is in C# (CS0206). `static readonly` and initialized `static lazy` variables never change and are borrowed like read-only fields. Borrowing an aliased place follows this table:
+**Aliased places** are fields of shared class objects, array elements, closure environment slots, elements reached through a span or `Memory<T>`, and `static mut` variables. Other code can write them during a call through another reference. Collection elements are not places: `List<T>` and `Dictionary` indexers are methods whose getter returns a copy, so `F(list[i])` borrows a temporary and `ref list[i]` is error `MR0323`, as it is in C# (CS0206). `const` values and initialized `static lazy` variables never change and are borrowed like read-only fields. Borrowing an aliased place follows this table:
 
 | Place | `in` borrow | `ref` borrow |
 |---|---|---|
@@ -1336,7 +1354,7 @@ The compiler tracks, for every local and parameter of a move-only type, whether 
 
 A view (§5.9) refers to memory it does not own, so the compiler keeps it inside the function that created it, using rules adapted from C#'s ref safety rules (§25). Each view has a **scope**: the function body, or a narrower block if it refers to a block's local or `stackalloc` memory.
 
-- A view type may appear only as a local, a parameter, a return value or a field of another view type. It may not be a field of a non-view type, a collection element, a type argument without `where T : ref struct`, a capture of an escaping closure, or live across an `await` (`MR0340`).
+- A view type may appear only as a local, a parameter, a return value or a field of another view type. It may not be a field of a non-view type, a collection element, a type argument without `where T : allows ref struct`, a capture of an escaping closure, or live across an `await` (`MR0340`).
 - **Returning views.** A function that returns a view returns one that refers to its arguments. At the call site, the result's scope is the narrowest scope among the arguments that are views or borrowed places. `Head(s: ReadOnlySpan<byte>): ReadOnlySpan<byte> => s[..4];` compiles; returning a span of a local array is error `MR0343`.
 - **Sources stay put.** While a view derived from a local is live (from its creation to its last use), that local may not be assigned, moved or `ref`-borrowed (`MR0341`). The diagnostic reads ``cannot change `buffer` while `span` (created on line 12) is still used on line 15``.
 - **Temporaries.** A view of a temporary that is used after the statement ends is error `MR0342`, with the hint to store the temporary in a local first.
@@ -1605,7 +1623,7 @@ Every shared class object, array, string, box and escaping closure environment s
 - **Release** is `if strong & IMMORTAL == 0 { strong -= 1; if strong == 0 { mora_rt_drop(obj) } }`.
 - `mora_rt_drop` runs the destructor, drops the fields (pushing shared children whose count falls to zero onto a thread-local work list instead of recursing), then decrements `weak` and frees the memory if it reaches zero.
 - **Weak load** returns a null pointer (`none`) if `strong == 0`, otherwise retains and returns the object.
-- String literals, `static readonly` objects and the empty array are immortal objects in read-only data.
+- String literals, `const` objects and the empty array are immortal objects in read-only data.
 - In `shared` classes (post-MVP), `strong` and `weak` are updated with atomic operations: relaxed increments, release decrements and an acquire fence before the drop, as `Arc` does in Rust. A weak load increments `strong` with a compare-and-swap loop that succeeds only while the count is nonzero, with acquire ordering, as `Weak::upgrade` does, so it never revives an object that a concurrent release is dropping.
 - The compiler emits retain and release from one lowering that has both forms, and `mora_rt_drop` and the weak-count paths exist in both forms. The MVP runtime test suite covers the atomic form, including a weak load racing the last release, though only the plain form is emitted (D-60).
 
@@ -1742,7 +1760,7 @@ Macro expansion (§9) sits between signature resolution and body checking. `mora
 
 ### 14.6 Constant evaluation
 
-`const` values, `static readonly` initializers, default parameter values, constants converted to a newtype and the defaults of refined newtypes (§6.12) are evaluated by a MIR interpreter at compile time. In the MVP the interpreter supports arithmetic, comparisons, string literals and concatenation of constants, construction of plain structs, tuples and unions, arrays of such values, and matching a value against a newtype's refinement pattern. Anything else is error `MR0460` with the hint to use `static lazy`.
+`const` values, default parameter values, constants converted to a newtype and the defaults of refined newtypes (§6.12) are evaluated by a MIR interpreter at compile time. In the MVP the interpreter supports arithmetic, comparisons, string literals and concatenation of constants, construction of plain structs, tuples and unions, arrays of such values, and matching a value against a newtype's refinement pattern. Anything else is error `MR0460` with the hint to use `static lazy`.
 
 ### 14.7 MIR
 
@@ -1834,9 +1852,9 @@ The standard library takes its names from .NET where they fit, and drops what de
 
 ### 15.1 Prelude (`Std`)
 
-Visible in every file: primitives and their static members (`int.Parse`, `int.TryParse`, `int.MaxValue`, `double.IsNaN`, ...), `string`, `Option<T>`, `Result<T, E>`, `Ok`, `Err`, `List<T>`, `Dictionary<TKey, TValue>`, `HashSet<T>`, `Span<T>`, `ReadOnlySpan<T>`, `Func`, `Action`, `Console`, `Math`, `MathF`, `Environment`, `Task`, `Future<T>`, `TimeSpan`, `Drop`, `ReferenceEquals`, `panic`, `Debug`, `Unreachable`, `Todo`, the interfaces of §8.5, `IError`, and the LINQ extension methods of §15.5.
+Visible in every file: primitives and their static members (`int.Parse`, `int.MaxValue`, `double.IsNaN`, ...), `string`, `Option<T>`, `Result<T, E>`, `Ok`, `Err`, `List<T>`, `Dictionary<TKey, TValue>`, `HashSet<T>`, `Span<T>`, `ReadOnlySpan<T>`, `Func`, `Action`, `Console`, `Math`, `MathF`, `Environment`, `Task`, `Future<T>`, `TimeSpan`, `Drop`, `ReferenceEquals`, `panic`, `Debug`, `Unreachable`, `Todo`, the interfaces of §8.5, `IError`, and the LINQ extension methods of §15.5.
 
-Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`. `int.TryParse(s, out let n)` is kept for C# familiarity and returns `bool`.
+Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`, so `if (int.Parse(text) is Ok(let n)) { ... }` parses and tests in one step.
 
 ### 15.2 Strings and text
 
@@ -1844,7 +1862,7 @@ Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`. `i
 |---|---|
 | `string` | `Length`, `IsEmpty`, `Chars()`, `AsBytes()`, `AsSpan()`, `Contains`, `StartsWith`, `EndsWith`, `IndexOf` (byte offset, `int?`), `Substring(start, length)` (byte offsets), `Split(char)`, `Split(string)`, `Trim`, `TrimStart`, `TrimEnd`, `ToUpper`, `ToLower` (ASCII and Unicode simple mappings), `Replace`, `PadLeft`, `PadRight`, `Repeat`, `Equals(other, StringComparison)`, `CompareTo`, static `Join`, `Concat`, `IsNullOrEmpty` (on `string?`), `FromUtf8(ReadOnlySpan<byte>)` returning `Result<string, Utf8Error>` |
 | `StringBuilder` | `Append(...)` for every `IDisplay`, `AppendLine`, `Length`, `Clear`, `ToString()` |
-| `Formatter` | The sink `IDisplay.Format` writes to: `Write(ReadOnlySpan<byte>)`, `Write(char)`, `Write<T : IDisplay>(in T)`, padding and alignment helpers |
+| `Formatter` | The sink `IDisplay.Format` writes to: `Write(ReadOnlySpan<byte>)`, `Write(char)`, `Write(value: IDisplay)`, padding and alignment helpers |
 | `char` | `IsDigit`, `IsLetter`, `IsWhiteSpace`, `IsUpper`, `IsLower`, `ToUpper`, `ToLower`, `ToString()`, `Utf8Length` |
 
 **Format specifiers** for interpolation holes and `ToString(spec)` on numbers: `D[n]`, `X[n]` / `x[n]`, `F[n]`, `N[n]` (thousands separators, invariant culture), `E[n]`, `G`, `P[n]`, and `R` for round-trip doubles. There is no culture support in the MVP: everything formats and parses as .NET's invariant culture does (OQ-14).
@@ -1854,7 +1872,7 @@ Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`. `i
 | Type | MVP members |
 |---|---|
 | `List<T>` | `new()`, `new(capacity)`, `Count`, `Capacity`, `this[int]`, `Add`, `AddRange`, `Insert`, `RemoveAt`, `Remove`, `Clear`, `Contains`, `IndexOf`, `Sort()`, `Sort(Comparison<T>)`, `Reverse`, `AsSpan`, `ToArray`, `ForEach`, `GetEnumerator` |
-| `Dictionary<TKey, TValue>` | `Count`, `this[key]` (get panics when missing, set inserts or replaces), `Get(key)` returning `TValue?`, `TryGetValue(key, out let v)`, `Add` (panics on duplicate, as in C#), `TryAdd`, `Remove`, `ContainsKey`, `Keys`, `Values`, `Clear`, iteration as `(Key: TKey, Value: TValue)` tuples in insertion order |
+| `Dictionary<TKey, TValue>` | `Count`, `this[key]` (get returns `TValue?`; set inserts or replaces, and setting `none` removes the key), `Add` (returns `false` and changes nothing when the key is present), `Remove`, `ContainsKey`, `Keys`, `Values`, `Clear`, iteration as `(Key: TKey, Value: TValue)` tuples in insertion order |
 | `HashSet<T>` | `Add` (returns `bool`), `Remove`, `Contains`, `Count`, `UnionWith`, `IntersectWith`, iteration |
 | `Queue<T>`, `Stack<T>` | `Enqueue`/`Dequeue` and `Push`/`Pop` returning `T?`, `Peek`, `Count` |
 | `T[]` | `Length`, indexing, `AsSpan`, `Fill`, `Array.Sort`, `Array.IndexOf` |
@@ -1863,15 +1881,33 @@ Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`. `i
 
 `Dictionary` and `HashSet` iterate in insertion order (D-29), unlike .NET's unspecified order. This makes program output reproducible, because no iteration order depends on the per-process hash keys.
 
-### 15.4 Lookups never throw
+### 15.4 Lookups never panic
 
-Every C# API that throws on a missing item has a Mora twin that returns an option: `Get` for dictionaries, `FirstOrNull`, `LastOrNull`, `SingleOrNull`, `ElementAtOrNull` for sequences, `Find` for lists. The throwing names (`First`, `Single`, `this[key]`) are kept and panic, because they signal "this cannot be missing" in C# code.
+A lookup that can miss returns an option, and a mutation that can conflict returns `bool` (D-65). A panic aborts the process (§11.4), so a missing key in one request must not stop a server.
+
+- `dict[key]` returns `TValue?`. `dict[key] = none` removes the key.
+- `First`, `Last`, `Single` and `ElementAt` return `T?`: `none` for an empty sequence, and for `Single`, also for more than one element. `Find` on a list returns `T?`.
+- `Dictionary.Add` and `HashSet.Add` return `false` when the item is already there. `Queue.Dequeue` and `Stack.Pop` return `T?`.
+
+Code that knows a value is there says so with `.Expect("message")`, which panics with that message on `none`:
+
+```mora
+if (_users[id] is User user)
+{
+    Console.WriteLine(user.Name);
+}
+let first = orders.First().Expect("orders is never empty here");
+if (!_users.Add(user.Id, user))
+{
+    Console.WriteLine($"user {user.Id} already exists");
+}
+```
 
 ### 15.5 LINQ
 
 The operators are extension methods on `IEnumerable<T>` sources. Each returns a concrete iterator struct (`WhereIterator<TSource, TPredicate>`), so a chain like `orders.Where(o => o.Paid).Select(o => o.Total).Sum()` compiles to one loop with no allocation and no virtual calls (D-11).
 
-MVP operators: `Where`, `Select`, `SelectMany`, `Take`, `Skip`, `TakeWhile`, `SkipWhile`, `Concat`, `Zip`, `Distinct`, `OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending`, `Reverse`, `GroupBy`, `ToList`, `ToArray`, `ToDictionary`, `ToHashSet`, `First`, `FirstOrNull`, `Last`, `LastOrNull`, `Single`, `SingleOrNull`, `Any`, `All`, `Count`, `Sum`, `Min`, `Max`, `Average`, `Aggregate`, `Contains`, `SequenceEqual`, `ElementAt`, `ElementAtOrNull`. Query syntax (`from x in xs where ... select ...`) is post-MVP.
+MVP operators: `Where`, `Select`, `SelectMany`, `Take`, `Skip`, `TakeWhile`, `SkipWhile`, `Concat`, `Zip`, `Distinct`, `OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending`, `Reverse`, `GroupBy`, `ToList`, `ToArray`, `ToDictionary`, `ToHashSet`, `First`, `Last`, `Single`, `Any`, `All`, `Count`, `Sum`, `Min`, `Max`, `Average`, `Aggregate`, `Contains`, `SequenceEqual`, `ElementAt`. `First`, `Last`, `Single` and `ElementAt` return options (§15.4). Query syntax (`from x in xs where ... select ...`) is post-MVP.
 
 Operators that need the whole sequence (`OrderBy`, `GroupBy`, `Reverse`, `Distinct`) buffer into a `List<T>` once when enumeration starts, as .NET does.
 
@@ -2423,7 +2459,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-20 | A collection expression with no target type is a `List<T>` | author | 7.9 |
 | D-21 | Doc comments are Markdown | author | 3.2 |
 | D-22 | Only file-scoped namespaces | author | 4.2 |
-| D-23 | Generic parameters are copyable unless declared `where T : move` | author | 8.2 |
+| D-23 | Generic parameters are copyable unless declared `where T : allows move` | author | 8.2 |
 | D-24 | Superseded by D-48: there is no fixed derive list | | |
 | D-25 | Variance keeps the C# `in`/`out` spelling when it lands | author | 8.8 |
 | D-26 | A panic aborts the process with exit code 101; there is no unwinding | author | 11.4 |
@@ -2465,6 +2501,9 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-62 | `newtype Name : T is pattern;` declares a new value type with `T`'s layout and an optional pattern refinement checked where values are created | user | 6.12 |
 | D-63 | Contracts live in `contract` sections linked to members by name, never on the signature line; the MVP reserves the word and v0.2 checks them | user | 6.13 |
 | D-64 | Unit tests live in `test` sections or sibling `.tests.mr` files, compiled only under `mora test` | user | 15.9 |
+| D-65 | A lookup that can miss returns an option and a mutation that can conflict returns `bool`; `dict[key]` is `TValue?`, and `First`, `Last`, `Single` and `ElementAt` return `T?` | user | 15.3, 15.4 |
+| D-66 | One spelling per construct: `readonly`, `static readonly`, `#region`, `new[] { }`, array initializers, several declarators in one declaration, `where T : new()` and `TryParse` are removed | user | 3.2, 4.7, 5.4, 8.2, 15.1 |
+| D-67 | A bare interface type is an implicit generic in a parameter and an opaque type in a return; a boxed interface value is written `any I` | user | 8.3, 8.4 |
 
 ## 24. Open questions
 

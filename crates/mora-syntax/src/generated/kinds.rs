@@ -14,8 +14,6 @@ pub enum SyntaxKind {
     DocComment,
     /// `/* ... */`.
     BlockComment,
-    /// A `#region` or `#endregion` line (§3.2).
-    Directive,
     /// A name, possibly with an `@` prefix.
     Ident,
     /// An integer literal, such as `0x4D2` or `10ul`.
@@ -264,8 +262,6 @@ pub enum SyntaxKind {
     PrivateKw,
     /// The keyword `public`.
     PublicKw,
-    /// The keyword `readonly`.
-    ReadonlyKw,
     /// The keyword `ref`.
     RefKw,
     /// The keyword `return`.
@@ -352,6 +348,8 @@ pub enum SyntaxKind {
     TypeKw,
     /// The contextual keyword `allows`: an identifier the parser marks in position.
     AllowsKw,
+    /// The contextual keyword `any`: an identifier the parser marks in position.
+    AnyKw,
     /// The contextual keyword `newtype`: an identifier the parser marks in position.
     NewtypeKw,
     /// The contextual keyword `test`: an identifier the parser marks in position.
@@ -488,10 +486,8 @@ pub enum SyntaxKind {
     TypeConstraint,
     /// A `KindConstraint` node.
     KindConstraint,
-    /// A `NewConstraint` node.
-    NewConstraint,
-    /// A `RefStructConstraint` node.
-    RefStructConstraint,
+    /// A `AllowsConstraint` node.
+    AllowsConstraint,
     /// A `PathType` node.
     PathType,
     /// A `PredefinedType` node.
@@ -504,6 +500,8 @@ pub enum SyntaxKind {
     TupleType,
     /// A `WeakType` node.
     WeakType,
+    /// A `AnyType` node.
+    AnyType,
     /// A `SpliceType` node.
     SpliceType,
     /// A `TupleTypeElem` node.
@@ -656,8 +654,6 @@ pub enum SyntaxKind {
     Capture,
     /// A `MemberInit` node.
     MemberInit,
-    /// A `ArrayInitializer` node.
-    ArrayInitializer,
     /// A `ConstantPattern` node.
     ConstantPattern,
     /// A `TypePattern` node.
@@ -700,7 +696,6 @@ impl SyntaxKind {
         LineComment,
         DocComment,
         BlockComment,
-        Directive,
         Ident,
         IntNumber,
         RealNumber,
@@ -825,7 +820,6 @@ impl SyntaxKind {
         ParamsKw,
         PrivateKw,
         PublicKw,
-        ReadonlyKw,
         RefKw,
         ReturnKw,
         SbyteKw,
@@ -869,6 +863,7 @@ impl SyntaxKind {
         FromKw,
         TypeKw,
         AllowsKw,
+        AnyKw,
         NewtypeKw,
         TestKw,
         ContractKw,
@@ -937,14 +932,14 @@ impl SyntaxKind {
         TypeParam,
         TypeConstraint,
         KindConstraint,
-        NewConstraint,
-        RefStructConstraint,
+        AllowsConstraint,
         PathType,
         PredefinedType,
         ArrayType,
         OptionalType,
         TupleType,
         WeakType,
+        AnyType,
         SpliceType,
         TupleTypeElem,
         LocalDeclStmt,
@@ -1021,7 +1016,6 @@ impl SyntaxKind {
         LambdaParamList,
         Capture,
         MemberInit,
-        ArrayInitializer,
         ConstantPattern,
         TypePattern,
         DeclarationPattern,
@@ -1150,7 +1144,6 @@ impl SyntaxKind {
         ParamsKw,
         PrivateKw,
         PublicKw,
-        ReadonlyKw,
         RefKw,
         ReturnKw,
         SbyteKw,
@@ -1197,6 +1190,7 @@ impl SyntaxKind {
         FromKw,
         TypeKw,
         AllowsKw,
+        AnyKw,
         NewtypeKw,
         TestKw,
         ContractKw,
@@ -1329,7 +1323,6 @@ impl SyntaxKind {
             ParamsKw => "params",
             PrivateKw => "private",
             PublicKw => "public",
-            ReadonlyKw => "readonly",
             RefKw => "ref",
             ReturnKw => "return",
             SbyteKw => "sbyte",
@@ -1373,6 +1366,7 @@ impl SyntaxKind {
             FromKw => "from",
             TypeKw => "type",
             AllowsKw => "allows",
+            AnyKw => "any",
             NewtypeKw => "newtype",
             TestKw => "test",
             ContractKw => "contract",
@@ -1439,7 +1433,6 @@ impl SyntaxKind {
             "params" => ParamsKw,
             "private" => PrivateKw,
             "public" => PublicKw,
-            "readonly" => ReadonlyKw,
             "ref" => RefKw,
             "return" => ReturnKw,
             "sbyte" => SbyteKw,
@@ -1490,6 +1483,7 @@ impl SyntaxKind {
             "from" => FromKw,
             "type" => TypeKw,
             "allows" => AllowsKw,
+            "any" => AnyKw,
             "newtype" => NewtypeKw,
             "test" => TestKw,
             "contract" => ContractKw,
@@ -1518,7 +1512,7 @@ impl SyntaxKind {
     pub fn is_trivia(self) -> bool {
         matches!(
             self,
-            Whitespace | Newline | LineComment | DocComment | BlockComment | Directive
+            Whitespace | Newline | LineComment | DocComment | BlockComment
         )
     }
 

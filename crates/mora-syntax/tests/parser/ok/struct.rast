@@ -1,5 +1,5 @@
-SourceFile@0..335
-  StructDecl@0..143
+SourceFile@0..410
+  StructDecl@0..211
     DocComment@0..25 "/// A point on the plane."
     Newline@25..26 "\n"
     Modifier@26..32
@@ -10,7 +10,7 @@ SourceFile@0..335
     Name@40..45
       Ident@40..45 "Point"
     Newline@45..46 "\n"
-    MemberList@46..143
+    MemberList@46..211
       LBrace@46..47 "{"
       Newline@47..48 "\n"
       Whitespace@48..52 "    "
@@ -80,163 +80,218 @@ SourceFile@0..335
                     Ident@136..140 "Node"
         Semicolon@140..141 ";"
       Newline@141..142 "\n"
-      RBrace@142..143 "}"
-  Newline@143..144 "\n"
-  Newline@144..145 "\n"
-  StructDecl@145..214
-    Modifier@145..151
-      PublicKw@145..151 "public"
-    Whitespace@151..152 " "
-    Modifier@152..155
-      RefKw@152..155 "ref"
-    Whitespace@155..156 " "
-    StructKw@156..162 "struct"
-    Whitespace@162..163 " "
-    Name@163..169
-      Ident@163..169 "Cursor"
-    TypeParamList@169..172
-      Lt@169..170 "<"
-      TypeParam@170..171
-        Name@170..171
-          Ident@170..171 "T"
-      Gt@171..172 ">"
-    Whitespace@172..173 " "
-    WhereClause@173..189
-      WhereKw@173..178 "where"
-      Whitespace@178..179 " "
-      NameRef@179..180
-        Ident@179..180 "T"
-      Whitespace@180..181 " "
-      Colon@181..182 ":"
-      Whitespace@182..183 " "
-      KindConstraint@183..189
-        StructKw@183..189 "struct"
-    Newline@189..190 "\n"
-    MemberList@190..214
-      LBrace@190..191 "{"
-      Newline@191..192 "\n"
-      Whitespace@192..196 "    "
-      FieldDecl@196..212
-        VariableDeclarator@196..211
-          Name@196..202
-            Ident@196..202 "_items"
-          Colon@202..203 ":"
-          Whitespace@203..204 " "
-          PathType@204..211
-            Path@204..211
-              PathSegment@204..211
-                NameRef@204..208
-                  Ident@204..208 "Span"
-                GenericArgList@208..211
-                  Lt@208..209 "<"
-                  PathType@209..210
-                    Path@209..210
-                      PathSegment@209..210
-                        NameRef@209..210
-                          Ident@209..210 "T"
-                  Gt@210..211 ">"
-        Semicolon@211..212 ";"
-      Newline@212..213 "\n"
-      RBrace@213..214 "}"
-  Newline@214..215 "\n"
-  Newline@215..216 "\n"
-  StructDecl@216..334
-    Modifier@216..222
-      PublicKw@216..222 "public"
-    Whitespace@222..223 " "
-    Modifier@223..231
-      ReadonlyKw@223..231 "readonly"
-    Whitespace@231..232 " "
-    StructKw@232..238 "struct"
-    Whitespace@238..239 " "
-    Name@239..243
-      Ident@239..243 "Pair"
-    TypeParamList@243..249
-      Lt@243..244 "<"
-      TypeParam@244..245
-        Name@244..245
-          Ident@244..245 "A"
-      Comma@245..246 ","
+      Whitespace@142..146 "    "
+      FieldDecl@146..171
+        Modifier@146..152
+          PublicKw@146..152 "public"
+        Whitespace@152..153 " "
+        VariableDeclarator@153..170
+          Name@153..158
+            Ident@153..158 "Shape"
+          Colon@158..159 ":"
+          Whitespace@159..160 " "
+          AnyType@160..170
+            AnyKw@160..163 "any"
+            Whitespace@163..164 " "
+            PathType@164..170
+              Path@164..170
+                PathSegment@164..170
+                  NameRef@164..170
+                    Ident@164..170 "IShape"
+        Semicolon@170..171 ";"
+      Newline@171..172 "\n"
+      Whitespace@172..176 "    "
+      FieldDecl@176..209
+        Modifier@176..182
+          PublicKw@176..182 "public"
+        Whitespace@182..183 " "
+        VariableDeclarator@183..208
+          Name@183..189
+            Ident@183..189 "Shapes"
+          Colon@189..190 ":"
+          Whitespace@190..191 " "
+          OptionalType@191..208
+            PathType@191..207
+              Path@191..207
+                PathSegment@191..207
+                  NameRef@191..195
+                    Ident@191..195 "List"
+                  GenericArgList@195..207
+                    Lt@195..196 "<"
+                    AnyType@196..206
+                      AnyKw@196..199 "any"
+                      Whitespace@199..200 " "
+                      PathType@200..206
+                        Path@200..206
+                          PathSegment@200..206
+                            NameRef@200..206
+                              Ident@200..206 "IShape"
+                    Gt@206..207 ">"
+            Question@207..208 "?"
+        Semicolon@208..209 ";"
+      Newline@209..210 "\n"
+      RBrace@210..211 "}"
+  Newline@211..212 "\n"
+  Newline@212..213 "\n"
+  StructDecl@213..282
+    Modifier@213..219
+      PublicKw@213..219 "public"
+    Whitespace@219..220 " "
+    Modifier@220..223
+      RefKw@220..223 "ref"
+    Whitespace@223..224 " "
+    StructKw@224..230 "struct"
+    Whitespace@230..231 " "
+    Name@231..237
+      Ident@231..237 "Cursor"
+    TypeParamList@237..240
+      Lt@237..238 "<"
+      TypeParam@238..239
+        Name@238..239
+          Ident@238..239 "T"
+      Gt@239..240 ">"
+    Whitespace@240..241 " "
+    WhereClause@241..257
+      WhereKw@241..246 "where"
       Whitespace@246..247 " "
-      TypeParam@247..248
-        Name@247..248
-          Ident@247..248 "B"
-      Gt@248..249 ">"
-    Whitespace@249..250 " "
-    BaseList@250..274
-      Colon@250..251 ":"
-      Whitespace@251..252 " "
-      PathType@252..274
-        Path@252..274
-          PathSegment@252..274
-            NameRef@252..262
-              Ident@252..262 "IEquatable"
-            GenericArgList@262..274
-              Lt@262..263 "<"
-              PathType@263..273
-                Path@263..273
-                  PathSegment@263..273
-                    NameRef@263..267
-                      Ident@263..267 "Pair"
-                    GenericArgList@267..273
-                      Lt@267..268 "<"
-                      PathType@268..269
-                        Path@268..269
-                          PathSegment@268..269
-                            NameRef@268..269
-                              Ident@268..269 "A"
-                      Comma@269..270 ","
-                      Whitespace@270..271 " "
-                      PathType@271..272
-                        Path@271..272
-                          PathSegment@271..272
-                            NameRef@271..272
-                              Ident@271..272 "B"
-                      Gt@272..273 ">"
-              Gt@273..274 ">"
-    Whitespace@274..275 " "
-    WhereClause@275..305
-      WhereKw@275..280 "where"
-      Whitespace@280..281 " "
-      NameRef@281..282
-        Ident@281..282 "A"
-      Whitespace@282..283 " "
-      Colon@283..284 ":"
-      Whitespace@284..285 " "
-      TypeConstraint@285..298
-        PathType@285..298
-          Path@285..298
-            PathSegment@285..298
-              NameRef@285..295
-                Ident@285..295 "IEquatable"
-              GenericArgList@295..298
-                Lt@295..296 "<"
-                PathType@296..297
-                  Path@296..297
-                    PathSegment@296..297
-                      NameRef@296..297
-                        Ident@296..297 "A"
-                Gt@297..298 ">"
-      Comma@298..299 ","
-      Whitespace@299..300 " "
-      NewConstraint@300..305
-        NewKw@300..303 "new"
-        LParen@303..304 "("
-        RParen@304..305 ")"
-    Whitespace@305..306 " "
-    WhereClause@306..333
-      WhereKw@306..311 "where"
-      Whitespace@311..312 " "
-      NameRef@312..313
-        Ident@312..313 "B"
-      Whitespace@313..314 " "
-      Colon@314..315 ":"
-      Whitespace@315..316 " "
-      RefStructConstraint@316..333
-        AllowsKw@316..322 "allows"
-        Whitespace@322..323 " "
-        RefKw@323..326 "ref"
-        Whitespace@326..327 " "
-        StructKw@327..333 "struct"
-    Semicolon@333..334 ";"
-  Newline@334..335 "\n"
+      NameRef@247..248
+        Ident@247..248 "T"
+      Whitespace@248..249 " "
+      Colon@249..250 ":"
+      Whitespace@250..251 " "
+      KindConstraint@251..257
+        StructKw@251..257 "struct"
+    Newline@257..258 "\n"
+    MemberList@258..282
+      LBrace@258..259 "{"
+      Newline@259..260 "\n"
+      Whitespace@260..264 "    "
+      FieldDecl@264..280
+        VariableDeclarator@264..279
+          Name@264..270
+            Ident@264..270 "_items"
+          Colon@270..271 ":"
+          Whitespace@271..272 " "
+          PathType@272..279
+            Path@272..279
+              PathSegment@272..279
+                NameRef@272..276
+                  Ident@272..276 "Span"
+                GenericArgList@276..279
+                  Lt@276..277 "<"
+                  PathType@277..278
+                    Path@277..278
+                      PathSegment@277..278
+                        NameRef@277..278
+                          Ident@277..278 "T"
+                  Gt@278..279 ">"
+        Semicolon@279..280 ";"
+      Newline@280..281 "\n"
+      RBrace@281..282 "}"
+  Newline@282..283 "\n"
+  Newline@283..284 "\n"
+  StructDecl@284..409
+    Modifier@284..290
+      PublicKw@284..290 "public"
+    Whitespace@290..291 " "
+    StructKw@291..297 "struct"
+    Whitespace@297..298 " "
+    Name@298..302
+      Ident@298..302 "Pair"
+    TypeParamList@302..308
+      Lt@302..303 "<"
+      TypeParam@303..304
+        Name@303..304
+          Ident@303..304 "A"
+      Comma@304..305 ","
+      Whitespace@305..306 " "
+      TypeParam@306..307
+        Name@306..307
+          Ident@306..307 "B"
+      Gt@307..308 ">"
+    Whitespace@308..309 " "
+    BaseList@309..333
+      Colon@309..310 ":"
+      Whitespace@310..311 " "
+      PathType@311..333
+        Path@311..333
+          PathSegment@311..333
+            NameRef@311..321
+              Ident@311..321 "IEquatable"
+            GenericArgList@321..333
+              Lt@321..322 "<"
+              PathType@322..332
+                Path@322..332
+                  PathSegment@322..332
+                    NameRef@322..326
+                      Ident@322..326 "Pair"
+                    GenericArgList@326..332
+                      Lt@326..327 "<"
+                      PathType@327..328
+                        Path@327..328
+                          PathSegment@327..328
+                            NameRef@327..328
+                              Ident@327..328 "A"
+                      Comma@328..329 ","
+                      Whitespace@329..330 " "
+                      PathType@330..331
+                        Path@330..331
+                          PathSegment@330..331
+                            NameRef@330..331
+                              Ident@330..331 "B"
+                      Gt@331..332 ">"
+              Gt@332..333 ">"
+    Whitespace@333..334 " "
+    WhereClause@334..380
+      WhereKw@334..339 "where"
+      Whitespace@339..340 " "
+      NameRef@340..341
+        Ident@340..341 "A"
+      Whitespace@341..342 " "
+      Colon@342..343 ":"
+      Whitespace@343..344 " "
+      TypeConstraint@344..357
+        PathType@344..357
+          Path@344..357
+            PathSegment@344..357
+              NameRef@344..354
+                Ident@344..354 "IEquatable"
+              GenericArgList@354..357
+                Lt@354..355 "<"
+                PathType@355..356
+                  Path@355..356
+                    PathSegment@355..356
+                      NameRef@355..356
+                        Ident@355..356 "A"
+                Gt@356..357 ">"
+      Comma@357..358 ","
+      Whitespace@358..359 " "
+      TypeConstraint@359..367
+        PathType@359..367
+          Path@359..367
+            PathSegment@359..367
+              NameRef@359..367
+                Ident@359..367 "IDefault"
+      Comma@367..368 ","
+      Whitespace@368..369 " "
+      AllowsConstraint@369..380
+        AllowsKw@369..375 "allows"
+        Whitespace@375..376 " "
+        MoveKw@376..380 "move"
+    Whitespace@380..381 " "
+    WhereClause@381..408
+      WhereKw@381..386 "where"
+      Whitespace@386..387 " "
+      NameRef@387..388
+        Ident@387..388 "B"
+      Whitespace@388..389 " "
+      Colon@389..390 ":"
+      Whitespace@390..391 " "
+      AllowsConstraint@391..408
+        AllowsKw@391..397 "allows"
+        Whitespace@397..398 " "
+        RefKw@398..401 "ref"
+        Whitespace@401..402 " "
+        StructKw@402..408 "struct"
+    Semicolon@408..409 ";"
+  Newline@409..410 "\n"

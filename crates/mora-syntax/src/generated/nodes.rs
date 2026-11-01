@@ -196,7 +196,7 @@ impl AstNode for GenericArgList {
 }
 
 /// ```text
-/// Type = PathType | PredefinedType | ArrayType | OptionalType | TupleType | WeakType | SpliceType
+/// Type = PathType | PredefinedType | ArrayType | OptionalType | TupleType | WeakType | AnyType | SpliceType
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
@@ -206,6 +206,7 @@ pub enum Type {
     OptionalType(OptionalType),
     TupleType(TupleType),
     WeakType(WeakType),
+    AnyType(AnyType),
     SpliceType(SpliceType),
 }
 
@@ -217,6 +218,7 @@ impl AstNode for Type {
             || OptionalType::can_cast(kind)
             || TupleType::can_cast(kind)
             || WeakType::can_cast(kind)
+            || AnyType::can_cast(kind)
             || SpliceType::can_cast(kind)
     }
 
@@ -240,6 +242,9 @@ impl AstNode for Type {
         if WeakType::can_cast(kind) {
             return WeakType::cast(node).map(Self::WeakType);
         }
+        if AnyType::can_cast(kind) {
+            return AnyType::cast(node).map(Self::AnyType);
+        }
         if SpliceType::can_cast(kind) {
             return SpliceType::cast(node).map(Self::SpliceType);
         }
@@ -254,6 +259,7 @@ impl AstNode for Type {
             Self::OptionalType(it) => it.syntax(),
             Self::TupleType(it) => it.syntax(),
             Self::WeakType(it) => it.syntax(),
+            Self::AnyType(it) => it.syntax(),
             Self::SpliceType(it) => it.syntax(),
         }
     }
@@ -1030,7 +1036,7 @@ impl AstNode for FunctionDecl {
 }
 
 /// ```text
-/// FieldDecl = Attribute* Modifier* VariableDeclarator (',' VariableDeclarator)* ';'
+/// FieldDecl = Attribute* Modifier* VariableDeclarator ';'
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FieldDecl {
@@ -1046,9 +1052,6 @@ impl FieldDecl {
     }
     pub fn variable_declarator(&self) -> Option<VariableDeclarator> {
         support::child(&self.syntax)
-    }
-    pub fn variable_declarators(&self) -> AstChildren<VariableDeclarator> {
-        support::children(&self.syntax)
     }
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::Semicolon])
@@ -1122,7 +1125,7 @@ impl AstNode for TypeDecl {
 }
 
 /// ```text
-/// Modifier = kind:('public' | 'internal' | 'private' | 'file' | 'static' | 'mut' | 'readonly' | 'unique' | 'shared' | 'ref' | 'async' | 'lazy' | 'const' | 'indirect' | 'extern' | 'move' | 'in' | 'out' | 'params' | 'this' | 'abstract')
+/// Modifier = kind:('public' | 'internal' | 'private' | 'file' | 'static' | 'mut' | 'unique' | 'shared' | 'ref' | 'async' | 'lazy' | 'const' | 'indirect' | 'extern' | 'move' | 'in' | 'out' | 'params' | 'this' | 'abstract')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Modifier {
@@ -1140,7 +1143,6 @@ impl Modifier {
                 SyntaxKind::FileKw,
                 SyntaxKind::StaticKw,
                 SyntaxKind::MutKw,
-                SyntaxKind::ReadonlyKw,
                 SyntaxKind::UniqueKw,
                 SyntaxKind::SharedKw,
                 SyntaxKind::RefKw,
@@ -2928,22 +2930,20 @@ impl AstNode for TypeParam {
 }
 
 /// ```text
-/// Constraint = TypeConstraint | KindConstraint | NewConstraint | RefStructConstraint
+/// Constraint = TypeConstraint | KindConstraint | AllowsConstraint
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Constraint {
     TypeConstraint(TypeConstraint),
     KindConstraint(KindConstraint),
-    NewConstraint(NewConstraint),
-    RefStructConstraint(RefStructConstraint),
+    AllowsConstraint(AllowsConstraint),
 }
 
 impl AstNode for Constraint {
     fn can_cast(kind: SyntaxKind) -> bool {
         TypeConstraint::can_cast(kind)
             || KindConstraint::can_cast(kind)
-            || NewConstraint::can_cast(kind)
-            || RefStructConstraint::can_cast(kind)
+            || AllowsConstraint::can_cast(kind)
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -2954,11 +2954,8 @@ impl AstNode for Constraint {
         if KindConstraint::can_cast(kind) {
             return KindConstraint::cast(node).map(Self::KindConstraint);
         }
-        if NewConstraint::can_cast(kind) {
-            return NewConstraint::cast(node).map(Self::NewConstraint);
-        }
-        if RefStructConstraint::can_cast(kind) {
-            return RefStructConstraint::cast(node).map(Self::RefStructConstraint);
+        if AllowsConstraint::can_cast(kind) {
+            return AllowsConstraint::cast(node).map(Self::AllowsConstraint);
         }
         None
     }
@@ -2967,8 +2964,7 @@ impl AstNode for Constraint {
         match self {
             Self::TypeConstraint(it) => it.syntax(),
             Self::KindConstraint(it) => it.syntax(),
-            Self::NewConstraint(it) => it.syntax(),
-            Self::RefStructConstraint(it) => it.syntax(),
+            Self::AllowsConstraint(it) => it.syntax(),
         }
     }
 }
@@ -3002,7 +2998,7 @@ impl AstNode for TypeConstraint {
 }
 
 /// ```text
-/// KindConstraint = kind:('struct' | 'class' | 'unique' | 'move')
+/// KindConstraint = kind:('struct' | 'class' | 'unique')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct KindConstraint {
@@ -3017,7 +3013,6 @@ impl KindConstraint {
                 SyntaxKind::StructKw,
                 SyntaxKind::ClassKw,
                 SyntaxKind::UniqueKw,
-                SyntaxKind::MoveKw,
             ],
         )
     }
@@ -3038,50 +3033,19 @@ impl AstNode for KindConstraint {
 }
 
 /// ```text
-/// NewConstraint = 'new' '(' ')'
+/// AllowsConstraint = 'allows' ('move' | 'ref' 'struct')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NewConstraint {
+pub struct AllowsConstraint {
     pub(crate) syntax: SyntaxNode,
 }
 
-impl NewConstraint {
-    pub fn new_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::NewKw])
-    }
-    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::LParen])
-    }
-    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::RParen])
-    }
-}
-
-impl AstNode for NewConstraint {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::NewConstraint
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// RefStructConstraint = 'allows'? 'ref' 'struct'
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct RefStructConstraint {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl RefStructConstraint {
+impl AllowsConstraint {
     pub fn allows_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::AllowsKw])
+    }
+    pub fn move_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::MoveKw])
     }
     pub fn ref_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::RefKw])
@@ -3091,9 +3055,9 @@ impl RefStructConstraint {
     }
 }
 
-impl AstNode for RefStructConstraint {
+impl AstNode for AllowsConstraint {
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::RefStructConstraint
+        kind == SyntaxKind::AllowsConstraint
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -3305,6 +3269,37 @@ impl WeakType {
 impl AstNode for WeakType {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::WeakType
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
+/// AnyType = 'any' PathType
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AnyType {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl AnyType {
+    pub fn any_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::AnyKw])
+    }
+    pub fn path_type(&self) -> Option<PathType> {
+        support::child(&self.syntax)
+    }
+}
+
+impl AstNode for AnyType {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::AnyType
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -3974,7 +3969,7 @@ impl AstNode for UnsafeStmt {
 }
 
 /// ```text
-/// LocalDecl = kw:('let' | 'var') VariableDeclarator (',' VariableDeclarator)*
+/// LocalDecl = kw:('let' | 'var') VariableDeclarator
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LocalDecl {
@@ -3987,9 +3982,6 @@ impl LocalDecl {
     }
     pub fn variable_declarator(&self) -> Option<VariableDeclarator> {
         support::child(&self.syntax)
-    }
-    pub fn variable_declarators(&self) -> AstChildren<VariableDeclarator> {
-        support::children(&self.syntax)
     }
 }
 
@@ -5630,7 +5622,7 @@ impl AstNode for NewExpr {
 }
 
 /// ```text
-/// NewArrayExpr = 'new' elem:Type? '[' size:Expr? ']' ArrayInitializer?
+/// NewArrayExpr = 'new' elem:Type '[' size:Expr ']'
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NewArrayExpr {
@@ -5653,9 +5645,6 @@ impl NewArrayExpr {
     pub fn r_bracket_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::RBracket])
     }
-    pub fn array_initializer(&self) -> Option<ArrayInitializer> {
-        support::child(&self.syntax)
-    }
 }
 
 impl AstNode for NewArrayExpr {
@@ -5673,7 +5662,7 @@ impl AstNode for NewArrayExpr {
 }
 
 /// ```text
-/// StackallocExpr = 'stackalloc' elem:Type? '[' size:Expr? ']' ArrayInitializer?
+/// StackallocExpr = 'stackalloc' elem:Type '[' size:Expr ']'
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StackallocExpr {
@@ -5695,9 +5684,6 @@ impl StackallocExpr {
     }
     pub fn r_bracket_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::RBracket])
-    }
-    pub fn array_initializer(&self) -> Option<ArrayInitializer> {
-        support::child(&self.syntax)
     }
 }
 
@@ -6445,46 +6431,6 @@ impl MemberInit {
 impl AstNode for MemberInit {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::MemberInit
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// ArrayInitializer = '{' (Expr (',' Expr)* ','?)? '}'
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ArrayInitializer {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl ArrayInitializer {
-    pub fn l_brace_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::LBrace])
-    }
-    pub fn expr(&self) -> Option<Expr> {
-        support::child(&self.syntax)
-    }
-    pub fn exprs(&self) -> AstChildren<Expr> {
-        support::children(&self.syntax)
-    }
-    pub fn comma_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Comma])
-    }
-    pub fn r_brace_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::RBrace])
-    }
-}
-
-impl AstNode for ArrayInitializer {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::ArrayInitializer
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
