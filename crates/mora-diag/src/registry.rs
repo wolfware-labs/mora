@@ -164,7 +164,7 @@ registry! {
     MR0451 = 451: "an `extern` function without `[Import]`",
     MR0460 = 460: "a constant expression that cannot be evaluated at compile time",
     MR0500 = 500: "an unknown key in `mora.toml`",
-    MR0501 = 501: "a dependency name that is the same as `Std`, the root namespace or another dependency's",
+    MR0501 = 501: "two dependencies with the same name, or a dependency named like `Std` or the root namespace",
     MR0510 = 510: "an API that needs a capability the target lacks",
     MR0610 = 610: "a macro's members do not match the interfaces in its `adds` clause",
     MR0611 = 611: "a splice whose value does not fit its position",
