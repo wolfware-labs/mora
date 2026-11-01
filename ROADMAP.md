@@ -953,7 +953,7 @@ Done when:
 | [M5.13](#m513-signals-and-observable) | Signals and `@Observable` | `std` | M5.4, M2.10, M4.9 |
 | [M5.14](#m514-standard-library-api-reference) | Standard library API reference | `docs` | M5.12, M5.15, M5.16, M5.17, M5.18 |
 | [M5.15](#m515-html-url-and-literal) | `Html`, `Url` and `Literal` | `std` | M5.2, M3.17 |
-| [M5.16](#m516-logging-and-tracing) | Logging and tracing | `std` | M5.8, M3.17 |
+| [M5.16](#m516-logging-and-tracing) | Logging and tracing | `std` | M5.8, M5.10, M3.17 |
 | [M5.17](#m517-secrett) | `Secret<T>` | `std` | M5.11, M5.16 |
 | [M5.18](#m518-report-and-context) | `Report` and `Context` | `std` | M5.2 |
 
@@ -1125,7 +1125,7 @@ Done when:
 
 ### M5.16 Logging and tracing
 
-Spec: [§15.10](docs/design/mora.md#1510-logging-and-tracing), [§7.14](docs/design/mora.md#714-interpolation-handlers). Crates: `std`, `mora-rt`. Blocked by: M5.8, M3.17.
+Spec: [§15.10](docs/design/mora.md#1510-logging-and-tracing), [§7.14](docs/design/mora.md#714-interpolation-handlers). Crates: `std`, `mora-rt`. Blocked by: M5.8, M5.10, M3.17.
 
 `Log.Trace` to `Log.Error` through one log message handler per level (D-107), fields named after each hole's source text with `#2` for repeats, `MORA_LOG` and `MORA_LOG_FORMAT=json`, and `Trace.Span` with its end on drop. Spawned tasks inheriting the current span come with M6.3, and redacted `Secret<T>` holes with M5.17.
 
