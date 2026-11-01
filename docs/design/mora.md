@@ -847,9 +847,10 @@ public newtype Slug : string is { Length: > 0 and <= 64 };
 - **Distinct types.** A `UserId` is not an `OrderId`, though both are `long`: passing one where the other is expected is an ordinary type mismatch.
 - **Derived members.** Equality, hashing, ordering, printing and `[Json]` come from the underlying type, so a `UserId` is a JSON number. Deserializing runs the refinement and reports a `JsonError` that names it.
 - **No derived arithmetic.** `UserId + UserId` does not compile. `[Arithmetic]` opts in to same-type `+` and `-` and to `*` and `/` by a scalar of the underlying type.
-- **Members.** A newtype may have a body with members, as a struct does. Inside it, `value` names the underlying value.
+- **Members.** A newtype may have a body with members, as a struct does. Inside it, `value` names the underlying value and is read-only; a member that needs a different value builds one through `From`.
+- **Default value.** A newtype implements `IDefault` (§8.5) when its underlying type does and that default satisfies the refinement, which constant evaluation checks. `Port`'s underlying default, `0`, fails `>= 1`, so `default(Port)`, `new Port[4]` and a `[Default]` field of type `Port` are error `MR0190`, unless the body implements `IDefault` with a valid value.
 
-The refinement is checked once, where a value is created (`From`, `Parse`, a literal, deserialization), so code that receives a `Port` never checks it again. A predicate refinement that calls a function, `newtype Email : string where EmailAddress.IsValid(value);`, comes after the MVP, once effect inference can prove the predicate pure (OQ-22).
+The refinement is checked once, where a value is created (`From`, `Parse`, a literal, deserialization, a default value), so code that receives a `Port` never checks it again. A predicate refinement that calls a function, `newtype Email : string where EmailAddress.IsValid(value);`, comes after the MVP, once effect inference can prove the predicate pure (OQ-22).
 
 ### 6.13 Contract sections [post-MVP]
 
@@ -884,7 +885,7 @@ public class Account
 | Clause | Constrains | Checked | On violation |
 |---|---|---|---|
 | `invariant cond;` | The type's state | After constructors and after every public member that may assign fields | Panic that blames the member |
-| `requires cond;` | The caller's input | Before the body, in every build unless proven | Panic that blames the caller |
+| `requires cond;` | The caller's input | Before the body, unless proven or turned off by the profile (below) | Panic that blames the caller |
 | `fails with E when cond;` | A declared failure | Before the body, in every build, because it is program behaviour | Returns `Err(E)` and the body does not run |
 | `ensures cond;` | The result and the new state | After the body, in `dev` and under `mora test`; trusted in `release` | Panic that blames the member |
 
@@ -1933,7 +1934,7 @@ test
 ```
 
 - A `test { }` section sits at file level or inside a type, and a file may have several.
-- Inside a section, `[Test]` marks a test and anything else is a helper. `[Test]` outside a test section is error `MR0145`, with a fix that moves the function into one.
+- Inside a section, `[Test]` marks a test and anything else is a helper. `[Test]` outside a test section is error `MR0145`, with a fix that moves the function into one. Files in `tests/` are exempt: each is an integration test program, and its `[Test]` functions sit at file level (§17.5).
 - Sections, their tests and their helpers are compiled only under `mora test`. They never reach a `build` or `run` binary and raise no dead-code warnings.
 - A section at file level sees what the folder sees. A section inside a type also sees the type's `private` members.
 - `Order.tests.mr` next to `Order.mr` is a test section in its entirety, for tests that outgrow the file.
