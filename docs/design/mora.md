@@ -1156,11 +1156,11 @@ Reassigning a `let` local is error `MR0182`. Lint `prefer-let` (warn by default)
 ### 7.12 Arithmetic
 
 - **Numeric promotion.** The binary operators `+`, `-`, `*`, `/`, `%`, `+%`, `-%`, `*%`, `&`, `|`, `^`, `==`, `!=`, `<`, `>`, `<=` and `>=` on two numeric operands pick one type to work in:
-  1. An unsuffixed integer literal operand takes the other operand's type when that type is numeric and holds the literal's value exactly (§3.5).
+  1. An unsuffixed integer literal operand takes the other operand's type when that type is numeric and holds the literal's value exactly, and an unsuffixed real literal operand takes the other operand's type when it is `float` or `double` (§3.5), so `x * 0.5` with `x: float` works in `float`.
   2. If both operands have the same type and it is `int`, `uint`, `nint`, `nuint`, `long`, `ulong`, `float` or `double`, the operation works in that type.
   3. Otherwise it works in the first of `int`, `uint`, `long`, `ulong`, `float` and `double` that both operands convert to implicitly (§5.10), so `byte + byte` is `int`, `int + uint` is `long` and `int + float` is `double`. When there is none, as for `long` and `ulong`, the expression is an error and an explicit cast `(T)x` on one operand is the fix. §5.10 has no implicit conversion to or from `nint` and `nuint`, so they mix with another integer type only through an explicit cast.
 
-  The result has that type; comparisons give `bool`. Among numeric types, `&`, `|` and `^` are defined only on integer types.
+  The result has that type; comparisons give `bool`. Among numeric types, `&`, `|`, `^`, `+%`, `-%` and `*%` are defined only on integer types.
 - **Unary operators.** Unary `+`, `-` and `~` widen `byte`, `sbyte`, `short` and `ushort` to `int`; `-x` on a `uint` gives a `long`, and on a `ulong` is an error.
 - **Overflow** in `+`, `-`, `*`, unary `-`, `++` and `--` panics in debug builds and wraps in release builds, unless the profile sets `overflow-checks = true` (§17.2). `+%`, `-%`, `*%` and their compound forms always wrap (D-12).
 - Integer division and remainder by zero panic in every build. `int.MinValue / -1` panics.
