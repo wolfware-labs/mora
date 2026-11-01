@@ -1201,7 +1201,7 @@ Done when:
 
 - UI tests for every code.
 - `async (req: Request) => ...` infers its future type from the target.
-- `blocking-in-async` reports an `async` function that calls `File.ReadAllText` two calls down, and shows the path.
+- `blocking-in-async` reports an `async` function that reaches a test function marked `@Blocking` two calls down, and shows the path.
 
 ### M6.2 Async lowering
 
@@ -1295,7 +1295,7 @@ Done when:
 |---|---|---|---|
 | [M7.1](#m71-formatter) | Formatter | `fmt` | M1.4 |
 | [M7.2](#m72-language-server-core-and-diagnostics) | Language server: core and diagnostics | `lsp` | M4.9 |
-| [M7.3](#m73-language-server-navigation) | Language server: navigation | `lsp` | M7.2 |
+| [M7.3](#m73-language-server-navigation) | Language server: navigation | `lsp` | M7.2, M3.18 |
 | [M7.4](#m74-language-server-editing-aids) | Language server: editing aids | `lsp` | M7.3 |
 | [M7.5](#m75-vs-code-extension) | VS Code extension | `vscode` | M7.4 |
 | [M7.6](#m76-repl) | REPL | `repl` | M4.9 |
@@ -1331,7 +1331,7 @@ Done when:
 
 ### M7.3 Language server: navigation
 
-Spec: [§17.8](docs/design/mora.md#178-language-server). Crates: `mora-lsp`. Blocked by: M7.2.
+Spec: [§17.8](docs/design/mora.md#178-language-server). Crates: `mora-lsp`. Blocked by: M7.2, M3.18.
 
 Hover with types, doc comments and effect sets (§6.14), go to definition (including into `std/`), find references, document and workspace symbols.
 
