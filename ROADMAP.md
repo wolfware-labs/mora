@@ -552,7 +552,7 @@ Spec: [§5.8](docs/design/mora.md#58-function-types), [§7.6](docs/design/mora.m
 
 Done when:
 
-- Run tests for C#-compatible capture semantics (a counter incremented by an escaping lambda).
+- Run tests for capture semantics (§10.9): a counter that an escaping lambda increments is seen by the enclosing function.
 - UI tests for each closure error.
 - A non-escaping lambda allocates nothing (allocation counter in the debug runtime).
 
@@ -624,7 +624,7 @@ Done when:
 | [M3.15](#m315-attributes-cfg-lint-levels-and-obsolete) | Attributes: `Cfg`, lint levels and `Obsolete` | `check` | M3.14 |
 | [M3.16](#m316-platform-capabilities-and-standard-library-layers) | Platform capabilities and standard library layers | `std` | M3.15 |
 | [M3.17](#m317-interpolation-handlers) | Interpolation handlers | `hir` | M3.10 |
-| [M3.18](#m318-effect-inference-and-uses-bounds) | Effect inference and `uses` bounds | `check` | M3.11, M3.16, M3.17 |
+| [M3.18](#m318-effect-inference-and-uses-bounds) | Effect inference and `uses` bounds | `check` | M2.11, M3.11, M3.16, M3.17 |
 
 ### M3.1 Unions
 
@@ -657,7 +657,7 @@ Every pattern of §7.8, `is` expressions with definite assignment of bindings, o
 Done when:
 
 - One run test per pattern kind.
-- Bindings in `is` are usable exactly where the C# rules say.
+- Bindings in `is` are usable exactly where the `is` expression is known to be true (§7.8).
 
 ### M3.4 Exhaustiveness and reachability
 
@@ -817,9 +817,9 @@ Done when:
 
 ### M3.18 Effect inference and `uses` bounds
 
-Spec: [§6.14](docs/design/mora.md#614-effects), [§6.9](docs/design/mora.md#69-members). Crates: `mora-hir`, `mora-cli`. Blocked by: M3.11, M3.16, M3.17.
+Spec: [§6.14](docs/design/mora.md#614-effects), [§6.9](docs/design/mora.md#69-members). Crates: `mora-hir`, `mora-mir`, `mora-check`, `mora-cli`. Blocked by: M2.11, M3.11, M3.16, M3.17.
 
-Effect sets per function (D-102) from `@RequiresCapability`, `@Blocking`, `extern` functions (`ffi`) and `Secret<T>.Use` (`secret`), inferred per strongly connected component of the call graph and per generic instantiation, with closures passed to `in` parameters charged to the caller and `dyn` for calls through escaping function values and `any I` without a bound. `uses` bounds on functions, interface methods and function types, checked with `MR0250` and the call path that brings the effect in, and `mora explain-effects`. The getter cheapness check `MR0251` (D-103) with `@Cheap` trusted inside `Std`, the part of `MR0252` about capabilities and `dyn` calls, and lint `skipped-hole-effects`. Hover and the inlay hint read the same data and arrive with the language server.
+Effect sets per function (D-102) from `@RequiresCapability`, `@Blocking`, `extern` functions (`ffi`) and `Secret<T>.Use` (`secret`), inferred per strongly connected component of the call graph and per generic instantiation, with closures passed to `in` parameters charged to the caller and `dyn` for calls through escaping function values and `any I` without a bound. `uses` bounds on functions, interface methods and function types, checked with `MR0250` and the call path that brings the effect in, and `mora explain-effects`. The getter cheapness check `MR0251` (D-103) with `@Cheap` trusted inside `Std`, the part of `MR0252` about capabilities and `dyn` calls, and lint `skipped-hole-effects`. Hover (M7.3) and the inlay hint (M7.4) read the same data.
 
 Done when:
 
@@ -969,7 +969,7 @@ Done when:
 | [M5.15](#m515-logging-and-tracing) | Logging and tracing | `std` | M5.8, M5.10, M3.17 |
 | [M5.16](#m516-secrett) | `Secret<T>` | `std` | M5.11, M5.15, M3.18 |
 | [M5.17](#m517-report-and-context) | `Report` and `Context` | `std` | M5.2 |
-| [M5.18](#m518-standard-library-api-reference) | Standard library API reference | `docs` | M5.12, M5.14, M5.15, M5.16, M5.17 |
+| [M5.18](#m518-standard-library-api-reference) | Standard library API reference | `docs` | M5.9, M5.12, M5.13, M5.14, M5.15, M5.16, M5.17 |
 
 ### M5.1 Standard library internals
 
@@ -1166,7 +1166,7 @@ Done when:
 
 ### M5.18 Standard library API reference
 
-Spec: [§15](docs/design/mora.md#15-standard-library-mvp-surface). Crates: `xtask`, `std`. Blocked by: M5.12, M5.14, M5.15, M5.16, M5.17.
+Spec: [§15](docs/design/mora.md#15-standard-library-mvp-surface). Crates: `xtask`, `std`. Blocked by: M5.9, M5.12, M5.13, M5.14, M5.15, M5.16, M5.17.
 
 `cargo xtask std-docs` generates HTML reference pages from `std/` doc comments, linking backtick symbol names, and checks that every member §15 lists exists.
 
@@ -1333,7 +1333,7 @@ Done when:
 
 Spec: [§17.8](docs/design/mora.md#178-language-server). Crates: `mora-lsp`. Blocked by: M7.2.
 
-Hover with types and doc comments, go to definition (including into `std/`), find references, document and workspace symbols.
+Hover with types, doc comments and effect sets (§6.14), go to definition (including into `std/`), find references, document and workspace symbols.
 
 Done when:
 
@@ -1343,7 +1343,7 @@ Done when:
 
 Spec: [§17.8](docs/design/mora.md#178-language-server), [§9.8](docs/design/mora.md#98-seeing-and-debugging-expansions). Crates: `mora-lsp`. Blocked by: M7.3.
 
-Completion for members, locals, types, namespaces and keywords; signature help; formatting through `mora-fmt`; inlay hints for inferred types, boxing sites and shared captures; and "Show expansion" for macros.
+Completion for members, locals, types, namespaces and keywords; signature help; formatting through `mora-fmt`; inlay hints for inferred types, effect sets after a signature, boxing sites and shared captures; and "Show expansion" for macros.
 
 Done when:
 
