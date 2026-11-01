@@ -227,22 +227,19 @@ fn an_unclosed_index_stops_at_the_end() {
     assert_eq!(errors("let _ = a[1,"), ["expected `]`", "expected `;`"]);
 }
 
-// switch_expr_body: a switch expression may have no arms.
+// switch_head: a switch expression may have no arms.
 
 #[test]
 fn a_switch_expression_may_be_empty() {
-    assert_eq!(shape("x switch { }"), "SwitchExpr(P)");
+    assert_eq!(shape("switch (x) { }"), "SwitchExpr(P, SwitchArmList)");
 }
 
-// at_decl_expr: `out a` is a declaration only when a name follows the type.
+// arg_inner: `out` is not a parameter mode.
 
 #[test]
-fn out_with_one_name_passes_a_variable() {
-    assert_eq!(
-        outline("g(f(out a));").0,
-        "SourceFile(ExprStmt(CallExpr(P)))"
-    );
-    assert_eq!(errors("g(f(out a));"), Vec::<String>::new());
+fn out_is_not_an_argument_mode() {
+    assert!(!errors("g(f(out a));").is_empty());
+    assert_eq!(errors("g(f(ref a));"), Vec::<String>::new());
 }
 
 // interp_string: an unclosed hole skips to its `}`.
@@ -328,12 +325,12 @@ fn a_list_pattern_may_be_empty() {
 // statement_inner: `switch` starts a statement only before `(`.
 
 #[test]
-fn switch_without_parentheses_is_not_a_statement() {
+fn switch_without_parentheses_reports_them() {
     assert_eq!(
         outline("switch x { }"),
         (
-            "SourceFile(Error, ExprStmt(P), Block)".into(),
-            vec!["expected a statement".into(), "expected `;`".into()]
+            "SourceFile(SwitchStmt(P, SwitchArmList))".into(),
+            vec!["expected `(`".into(), "expected `)`".into()]
         )
     );
 }
@@ -345,29 +342,94 @@ fn return_without_a_semicolon_reports_only_the_semicolon() {
     assert_eq!(errors("F() { return }"), ["expected `;`"]);
 }
 
-// switch_stmt and switch_section.
+// switch_head: one switch with arms, as a statement and as an expression.
 
 #[test]
-fn switch_statements_take_their_sections() {
+fn switch_statements_take_arms() {
     assert_eq!(errors("switch (x) { }"), Vec::<String>::new());
     assert_eq!(
-        outline("switch (x) { case 1: break; }").0,
-        "SourceFile(SwitchStmt(P, SwitchSection(CaseLabel(ConstantPattern(LiteralExpr)), BreakStmt)))"
-    );
-    // `default` without `:` starts an expression, not a label.
-    assert_eq!(
-        outline("switch (x) { case 1: default(int).ToString(); break; }").0,
-        "SourceFile(SwitchStmt(P, SwitchSection(CaseLabel(ConstantPattern(LiteralExpr)), ExprStmt(CallExpr(MemberExpr(DefaultExpr(PredefinedType), NameRef))), BreakStmt)))"
+        outline("switch (x) { 1 => F(), _ => G(), }").0,
+        "SourceFile(SwitchStmt(P, SwitchArmList(SwitchArm(ConstantPattern(LiteralExpr), CallExpr(P)), SwitchArm(DiscardPattern, CallExpr(P)))))"
     );
 }
 
 #[test]
-fn statements_before_the_first_label_are_one_error() {
+fn a_block_arm_needs_no_comma() {
     assert_eq!(
-        outline("switch (x) { f(); g(); case 1: break; }"),
+        outline("switch (x) { 1 => { F(); } _ => G() }"),
         (
-            "SourceFile(SwitchStmt(P, Error(ExprStmt(CallExpr(P)), ExprStmt(CallExpr(P))), SwitchSection(CaseLabel(ConstantPattern(LiteralExpr)), BreakStmt)))".into(),
-            vec!["expected `case` or `default`".into()]
+            "SourceFile(SwitchStmt(P, SwitchArmList(SwitchArm(ConstantPattern(LiteralExpr), Block(ExprStmt(CallExpr(P)))), SwitchArm(DiscardPattern, CallExpr(P)))))".into(),
+            vec![]
         )
+    );
+    // After an expression arm, a missing comma ends the arms.
+    assert_eq!(
+        errors("switch (x) { 1 => F() _ => G() }")[0],
+        "expected `}`"
+    );
+}
+
+#[test]
+fn a_switch_expression_is_a_primary() {
+    assert_eq!(
+        shape("switch (x) { _ => 1 } + 2"),
+        "BinExpr(SwitchExpr(P, SwitchArmList(SwitchArm(DiscardPattern, LiteralExpr))), LiteralExpr)"
+    );
+}
+
+// types::arrow: `->` is reported with a fix to `=>`, then read as `=>`.
+
+#[test]
+fn a_thin_arrow_gets_a_fix_to_the_fat_arrow() {
+    for text in [
+        "let f: (int) -> int = g;",
+        "let f = x -> x + 1;",
+        "let f = (x: int) -> x;",
+    ] {
+        let parsed = parse(text);
+        assert_eq!(parsed.errors().len(), 1, "{text}");
+        let error = &parsed.errors()[0];
+        assert_eq!(error.message, "expected `=>`", "{text}");
+        assert_eq!(&text[error.range], "->", "{text}");
+        let fixed = error.fix.as_ref().unwrap().apply(text);
+        assert_eq!(fixed, text.replace("->", "=>"));
+        assert!(parse(&fixed).errors().is_empty(), "{fixed}");
+    }
+}
+
+// types::member_ty: after a member's name or a function's parameters, `=>`
+// starts the body, so a function type there needs parentheses.
+
+#[test]
+fn a_tuple_typed_member_keeps_its_body() {
+    let (tree, errors) =
+        outline("class A { Pair(): (int, int) => (1, 2); Two: (int, int) => (1, 2); }");
+    assert!(errors.is_empty(), "{errors:?}");
+    assert!(!tree.contains("FnType"), "{tree}");
+    assert!(tree.contains("PropertyDecl"), "{tree}");
+}
+
+#[test]
+fn a_parenthesized_function_type_is_a_field() {
+    let (tree, errors) = outline("class A { OnTick: ((int) => ()); }");
+    assert!(errors.is_empty(), "{errors:?}");
+    assert!(tree.contains("FieldDecl"), "{tree}");
+    assert!(tree.contains("FnType"), "{tree}");
+}
+
+#[test]
+fn a_parameter_takes_a_bare_function_type() {
+    let (tree, errors) = outline("Sort(compare: (int, int) => int, done: () => ()) { }");
+    assert!(errors.is_empty(), "{errors:?}");
+    assert_eq!(tree.matches("FnType").count(), 2, "{tree}");
+}
+
+// scan_type_no_fn: a cast never takes a lambda for a function type.
+
+#[test]
+fn a_parenthesized_lambda_is_not_a_cast() {
+    assert_eq!(
+        shape("((x) => x)(5)"),
+        "CallExpr(ParenExpr(LambdaExpr(LambdaParamList(LambdaParam(Name)), P)))"
     );
 }

@@ -90,7 +90,7 @@ TypeDecl =
 | InterfaceDecl
 
 // §6.1 Modifier list, plus the ones the spec uses elsewhere:
-//   'move' (consuming methods §6.4, params §10.3), 'in' 'out' (param modes §10.3),
+//   'move' (consuming methods §6.4, params §10.3), 'in' (param mode §10.3),
 //   'params' (§6.9), 'this' (extension methods §6.9),
 //   'abstract' (`static abstract` interface members only, §6.8, §8.5).
 // `ref struct` and `unique class` are a modifier plus the declaration keyword.
@@ -99,15 +99,12 @@ Modifier =
     'public' | 'internal' | 'private' | 'file'
   | 'static' | 'mut' | 'unique' | 'shared' | 'ref'
   | 'async' | 'lazy' | 'const' | 'indirect' | 'extern'
-  | 'move' | 'in' | 'out' | 'params' | 'this' | 'abstract'
+  | 'move' | 'in' | 'params' | 'this' | 'abstract'
   )
 
-// §6.11. `[Json]`, `[Cfg(Os = "linux")]`, `[Allow("MR2001"), MustUse]`.
+// §6.11. `@Json`, `@Cfg(Os = "linux")`, `@Allow("MR2001")`: one attribute per `@`.
 Attribute =
-  '[' AttributeItem (',' AttributeItem)* ','? ']'
-
-AttributeItem =
-  Path AttributeArgList?
+  '@' Path AttributeArgList?
 
 AttributeArgList =
   '(' (AttributeArg (',' AttributeArg)* ','?)? ')'
@@ -193,7 +190,6 @@ Member =
 | ConstructorDecl
 | DestructorDecl
 | OperatorDecl
-| ConversionOperatorDecl
 | AssocTypeDecl
 | StructDecl
 | ClassDecl
@@ -224,7 +220,7 @@ ParamList =
   '(' (Param (',' Param)* ','?)? ')'
 
 // `amount: decimal`, `ref p: Point`, `port: int = 80`.
-// `in`/`ref`/`out`/`move`/`params`/`this` are Modifiers (§10.3, §6.9).
+// `in`/`ref`/`move`/`params`/`this` are Modifiers (§10.3, §6.9).
 Param =
   Attribute* Modifier* Name ':' Type ('=' default:Expr)?
 
@@ -276,7 +272,9 @@ DestructorDecl =
   '~' Name '(' ')'
   (Block | ExprBody ';')
 
-// §6.9. `public static operator +(a: Vec, b: Vec): Vec => ...`
+// §6.9. `public static operator +(a: Vec, b: Vec): Vec => ...`. The
+// comparison operators parse here and are rejected later (MR0238): they
+// come from `IEquatable<T>` and `IComparable<T>` (§8.5).
 OperatorDecl =
   Attribute* Modifier*
   'operator'
@@ -287,12 +285,6 @@ OperatorDecl =
   | '++' | '--'
   )
   ParamList (':' ret:Type)?
-  (Block | ExprBody ';' | ';')
-
-// §6.9. `public static implicit operator AppError(e: IoError) => Io(e);`
-ConversionOperatorDecl =
-  Attribute* Modifier*
-  kind:('implicit' | 'explicit') 'operator' Type ParamList
   (Block | ExprBody ';' | ';')
 
 // §8.7. `type Enumerator : IEnumerator<T>;` and `type Enumerator = ListEnumerator<T>;`
@@ -347,11 +339,12 @@ Type =
 | ArrayType
 | OptionalType
 | TupleType
+| FnType
 | WeakType
 | AnyType
 | SpliceType
 
-// `User`, `List<int>`, `Std.Json.JsonValue`, `Func<int, bool>` (§5.8).
+// `User`, `List<int>`, `Std.Json.JsonValue` (§5.1).
 PathType =
   Path
 
@@ -377,6 +370,11 @@ TupleType =
 
 TupleTypeElem =
   (Name ':')? Type
+
+// §5.8. `(int, int) => bool`, `() => ()`, `(string) => Task`: the
+// parameter types in parentheses, then the result type.
+FnType =
+  params:TupleType '=>' ret:Type
 
 // §10.7. `public Parent: weak Node;`
 WeakType =
@@ -420,7 +418,7 @@ Block =
 UnsafeStmt =
   'unsafe' Block
 
-// `[Cfg(...)]` on a statement (§6.11).
+// `@Cfg(...)` on a statement (§6.11).
 AttributedStmt =
   Attribute Attribute* Stmt
 
@@ -499,22 +497,10 @@ ContinueStmt =
 ReturnStmt =
   'return' Expr? ';'
 
-// §7.7. Sections end at the next label; no fall-through.
+// §7.7. A `switch` that starts a statement; its arms' values are
+// discarded.
 SwitchStmt =
-  'switch' '(' scrutinee:Expr ')' '{' SwitchSection* '}'
-
-SwitchSection =
-  SwitchLabel SwitchLabel* Stmt*
-
-SwitchLabel =
-  CaseLabel
-| DefaultLabel
-
-CaseLabel =
-  'case' Pattern WhenClause? ':'
-
-DefaultLabel =
-  'default' ':'
+  'switch' '(' scrutinee:Expr ')' SwitchArmList
 
 WhenClause =
   'when' Expr
@@ -527,7 +513,7 @@ WhenClause =
 //   primary   x.y x?.y f(x) a[i] a?[i] x++ x-- new nameof default sizeof x?
 //   unary     + - ! ~ ++x --x ^x (T)x await           (right)
 //   range     x..y x.. ..y ..                           (none)
-//   switch, with                                        (left)
+//   with                                                (left)
 //   * / % *%   then  + - +% -%   then  << >> >>>
 //   < > <= >= is as   then  == !=
 //   &  then  ^  then  |   then  &&  then  ||
@@ -625,7 +611,7 @@ CollectionElem =
 MemberExpr =
   receiver:Expr op:('.' | '?.') (NameRef | Splice) GenericArgList?
 
-// `f(x)`, `F(ref x)`, `G(out let y)`, `F(name: v)` (§7.2).
+// `f(x)`, `F(ref x)`, `F(name: v)` (§7.2).
 CallExpr =
   callee:Expr ArgList
 
@@ -633,11 +619,7 @@ ArgList =
   '(' (Arg (',' Arg)* ','?)? ')'
 
 Arg =
-  (name:NameRef ':')? mode:('ref' | 'out' | 'in' | 'move')? (Expr | DeclExpr)
-
-// `out var y`, `out let y`, `out let y: int` (§7.2, §10.3).
-DeclExpr =
-  kw:('let' | 'var') Name (':' Type)?
+  (name:NameRef ':')? mode:('ref' | 'in' | 'move')? Expr
 
 // `a[i]`, `a?[i]`, `s[1..^1]`.
 IndexExpr =
@@ -666,12 +648,16 @@ AwaitExpr =
 RangeExpr =
   start:Expr? '..' end:Expr?
 
-// §7.7.
+// §7.7. `switch (x) { p => e, ... }` as an expression.
 SwitchExpr =
-  scrutinee:Expr 'switch' '{' (SwitchArm (',' SwitchArm)* ','?)? '}'
+  'switch' '(' scrutinee:Expr ')' SwitchArmList
+
+// A comma separates arms; after a block it may be left out.
+SwitchArmList =
+  '{' (SwitchArm ','?)* '}'
 
 SwitchArm =
-  Pattern WhenClause? '=>' Expr
+  Pattern WhenClause? '=>' (Block | Expr)
 
 // §6.5. `user with { Name = "Ada" }`.
 WithExpr =

@@ -269,7 +269,7 @@ impl Tokens {
 /// The words of the reserved-keyword block of §3.4.
 fn reserved_keywords(spec: &str) -> Result<Vec<String>, String> {
     let start = spec
-        .find("Reserved keywords (cannot be identifiers without `@`):")
+        .find("Reserved keywords (never identifiers):")
         .ok_or("the spec has no reserved-keyword block in §3.4")?;
     let block = &spec[start..];
     let open = block
@@ -985,7 +985,7 @@ pub fn stale(outputs: &[(PathBuf, String)]) -> Vec<PathBuf> {
 mod tests {
     use super::*;
 
-    const SPEC: &str = "Reserved keywords (cannot be identifiers without `@`):\n\n```text\nclass if\nstruct\n```\n\nContextual keywords (keywords only in the listed position): `get`, `set` (accessors); `when`.\n\nNext paragraph `ignored`.\n";
+    const SPEC: &str = "Reserved keywords (never identifiers):\n\n```text\nclass if\nstruct\n```\n\nContextual keywords (keywords only in the listed position): `get`, `set` (accessors); `when`.\n\nNext paragraph `ignored`.\n";
 
     #[test]
     fn keywords_come_from_the_spec() {
@@ -1001,7 +1001,7 @@ mod tests {
     fn the_real_spec_has_both_keyword_lists() {
         let spec = std::fs::read_to_string(crate::root().join(crate::error_codes::SPEC)).unwrap();
         let tokens = Tokens::from_spec(&spec).unwrap();
-        assert_eq!(tokens.keywords.len(), 73);
+        assert_eq!(tokens.keywords.len(), 70);
         assert!(tokens.contextual.contains(&"adds".to_owned()));
     }
 

@@ -7,11 +7,11 @@ public interface IShape : IDisplay
     type Points : IEnumerable<Point>;
 }
 
-[Derive]
+@Derive
 public macro Equatable(t: TypeInfo) adds IEquatable<T>
 {
     return code { };
 }
 
-[Import("c")]
+@Import("c")
 static extern puts(s: ReadOnlySpan<byte>): int;

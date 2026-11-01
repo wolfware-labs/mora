@@ -195,7 +195,7 @@ fn a_destructor_is_a_member_only() {
 
 #[test]
 fn a_member_cannot_be_an_attributed_statement() {
-    for text in ["class A { public 1; }", "class A { [X] 1; }"] {
+    for text in ["class A { public 1; }", "class A { @X 1; }"] {
         assert!(!has(text, K::AttributedStmt), "{text:?}");
         assert_eq!(
             messages(text),
@@ -234,40 +234,44 @@ fn an_operator_is_a_member_only() {
     assert_eq!(messages(text)[0], "expected a statement");
 }
 
-// `at_attribute`: a `[` opens an attribute only when it names something and
-// a declaration or a statement follows.
+// Brackets never start an attribute: `@` does (§6.11).
 
 #[test]
-fn a_bracketed_literal_is_not_an_attribute() {
-    let text = "[1] x;";
-    assert!(!has(text, K::Attribute));
-    assert_eq!(messages(text), ["expected `;`"]);
-}
-
-#[test]
-fn brackets_at_the_end_of_the_file_are_not_an_attribute() {
-    let text = "[A]";
-    assert!(!has(text, K::Attribute));
-    assert_eq!(messages(text), ["expected `;`"]);
+fn a_bracketed_name_is_a_collection() {
+    for text in ["[1] x;", "[A]"] {
+        assert!(!has(text, K::Attribute), "{text:?}");
+        assert!(has(text, K::CollectionExpr), "{text:?}");
+        assert_eq!(messages(text), ["expected `;`"], "{text:?}");
+    }
 }
 
 #[test]
 fn an_unclosed_attribute_ends_at_the_end_of_the_file() {
-    assert_eq!(messages("[Json"), ["expected `]`", "expected `;`"]);
+    assert_eq!(
+        messages("@Cfg(Debug"),
+        ["expected `)`", "expected a statement"]
+    );
 }
 
 #[test]
 fn an_attribute_before_a_keyword_declaration() {
-    let text = "[Json] struct S {}";
+    let text = "@Json struct S {}";
     assert_clean_with(text, K::Attribute);
-    assert!(node(text, K::StructDecl).text().starts_with("[Json]"));
+    assert!(node(text, K::StructDecl).text().starts_with("@Json"));
 }
 
 #[test]
 fn an_attribute_before_a_block_statement() {
-    let text = "[Trace] do { } while (x);";
+    let text = "@Trace do { } while (x);";
     assert_clean_with(text, K::AttributedStmt);
-    assert!(node(text, K::AttributedStmt).text().starts_with("[Trace]"));
+    assert!(node(text, K::AttributedStmt).text().starts_with("@Trace"));
+}
+
+#[test]
+fn each_attribute_takes_its_own_sign() {
+    let text = "@Json @Cfg(Debug = true) struct S {}";
+    assert_clean_with(text, K::StructDecl);
+    assert_eq!(count(text, K::Attribute), 2);
 }
 
 // `record`, `required` and `init` are names, not keywords.
@@ -313,14 +317,13 @@ fn required_is_not_a_modifier() {
 // `attribute`: trailing commas and arguments without a name.
 
 #[test]
-fn attribute_lists_take_a_trailing_comma() {
-    assert_clean_with("[Json,] struct S {}", K::AttributeItem);
-    assert_clean_with("[Cfg(a,)] struct S {}", K::AttributeArg);
+fn attribute_arguments_take_a_trailing_comma() {
+    assert_clean_with("@Cfg(a,) struct S {}", K::AttributeArg);
 }
 
 #[test]
 fn an_attribute_argument_without_a_name() {
-    let text = "[Cfg(Debug)] struct S {}";
+    let text = "@Cfg(Debug) struct S {}";
     assert_clean_with(text, K::AttributeArg);
     assert_eq!(node(text, K::AttributeArg).text(), "Debug");
 }
@@ -424,7 +427,7 @@ fn a_property_is_a_member_only() {
 
 #[test]
 fn an_attributed_local_stays_a_statement() {
-    let text = "[Cfg(Debug = true)] let x = 1;";
+    let text = "@Cfg(Debug = true) let x = 1;";
     assert_clean_with(text, K::AttributedStmt);
     assert!(!has(text, K::FieldDecl));
 }
@@ -493,7 +496,7 @@ fn a_field_needs_a_plain_name_and_a_place_for_fields() {
         node("class A { IShape.X: int; }", K::FieldDecl).text(),
         "X: int;"
     );
-    assert!(!has("[A] x: int;", K::FieldDecl));
+    assert!(!has("@A x: int;", K::FieldDecl));
 }
 
 // `at_any`: `any` starts a boxed interface type only before a name.

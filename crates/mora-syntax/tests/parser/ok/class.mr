@@ -26,13 +26,17 @@ public class Counter
 
     public Max<T>(a: T, b: T): T where T : IComparable<T> => a;
 
-    public Add(in other: Counter, ref total: int, out seen: int, params rest: ReadOnlySpan<int>, port: int = 80) { }
+    public Add(in other: Counter, ref total: int, params rest: ReadOnlySpan<int>, port: int = 80) { }
+
+    public Sort(compare: (int, int) => int, done: () => ()) { }
+
+    public OnTick: ((int) => ());
+
+    public Pair(): (int, int) => (1, 2);
 
     public static operator +(a: Counter, b: Counter): Counter => a;
 
-    public static operator >=(a: Counter, b: Counter): bool => true;
-
-    public static implicit operator string(c: Counter) => c.Name;
+    public static operator -(a: Counter): Counter => a;
 
     IShape.Area(): float => 0.0f;
 

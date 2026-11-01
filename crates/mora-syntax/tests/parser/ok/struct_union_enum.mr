@@ -9,7 +9,7 @@ public union Json
 {
     Null,
     Bool(Value: bool),
-    [Default] Number(Value: double),
+    @Default Number(Value: double),
     indirect Array(Items: List<Json>);
 
     public IsNull: bool => false;

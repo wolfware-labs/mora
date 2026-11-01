@@ -136,8 +136,12 @@ pub(crate) enum Event {
     Finish,
     /// Take `n_raw` adjacent tokens as one token of `kind`: `>>` from two `>`.
     Token { kind: SyntaxKind, n_raw: usize },
-    /// Report `MR0110` at the next token.
-    Error { message: String },
+    /// Report `MR0110` at the next token. With `fix`, the error offers to
+    /// replace the token it wraps: a fix message and the replacement text.
+    Error {
+        message: String,
+        fix: Option<(String, String)>,
+    },
     /// A `Start` that was abandoned or moved.
     Tombstone,
 }
@@ -334,6 +338,21 @@ impl<'t> Parser<'t> {
     pub(crate) fn error(&mut self, message: impl Into<String>) {
         self.events.push(Event::Error {
             message: message.into(),
+            fix: None,
+        });
+    }
+
+    /// Reports `MR0110` on the next token, which the caller then takes,
+    /// with a fix that replaces that token by `replacement`.
+    pub(crate) fn error_with_fix(
+        &mut self,
+        message: impl Into<String>,
+        fix: impl Into<String>,
+        replacement: impl Into<String>,
+    ) {
+        self.events.push(Event::Error {
+            message: message.into(),
+            fix: Some((fix.into(), replacement.into())),
         });
     }
 }
