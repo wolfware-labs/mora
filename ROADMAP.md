@@ -599,7 +599,7 @@ Done when:
 
 ## M3: Expressive core
 
-**Goal.** Unions, enums, patterns, options, results, operators, generics, interfaces, statics and local imports.
+**Goal.** Unions, enums, patterns, options, results, operators, generics, interfaces, statics and local path dependencies.
 
 **Exit criteria.** Run and UI tests for every construct of §§5 to 8; every §2.4 example runs.
 
