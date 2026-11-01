@@ -1101,7 +1101,7 @@ public static TotalArea(shapes: List<any IShape>): double
 | `IDefault` | `static abstract Default: T { get; }` | `default`, `new T[n]`, `[Default]` |
 | `IClone<T>` | `Clone(): T` | Explicit deep copies. Copying a class reference never clones |
 | `IEnumerable<T>` | `type Enumerator : IEnumerator<T>; GetEnumerator(): Enumerator` | `foreach`, LINQ |
-| `IEnumerator<T>` | `mut Next(): T?` | `foreach`, LINQ |
+| `IEnumerator<T>` | `mut Next(): T?`; default `SizeHint(): (Lower: int, Upper: int?)`, which returns `(0, none)` | `foreach`, LINQ |
 | `IParse<T>` | `static abstract Parse(text: ReadOnlySpan<byte>): Result<T, ParseError>` | `int.Parse`, `RouteValue<T>`, query values |
 | `INumber<T>` | Arithmetic and comparison operators, `Zero`, `One`, `MinValue`, `MaxValue` as static abstract members | Generic math over primitives |
 
@@ -1447,7 +1447,7 @@ Allocation and layout guarantees hold in every build profile, so a test that cou
 1. **Stack promotion.** A class or unique object of at most 1 KiB, or an array of constant length within that size, never touches the heap when its reference is used only in locals of the creating function, as an `in` argument to a parameter that does not escape, as the receiver of a method whose `this` does not escape, or by a non-escaping closure, and when it does not outlive its loop iteration. A function's promoted objects total at most 16 KiB (§14.18, OQ-23).
 2. **Futures.** `await` on a call to an async function that is not recursive (§12.3) allocates nothing. `Task.Spawn` allocates once, converting to `Future<T>` allocates once, and an `await` that recurses into its own async function allocates once per call (§12.3).
 3. **LINQ and loops.** A chain of the standard operators over an array, span or `List<T>` compiles to one loop with no allocation and no calls into the operators' iterator types. `foreach` over an array or span, and `for (var i = 0; i < a.Length; i++)` over an array or span local or parameter that the loop does not assign, have no per-element bounds check (§14.17).
-4. **Strings.** A string of at most 15 bytes never allocates. `a + b + ...` and `$"..."` allocate at most once (§13.4).
+4. **Strings.** A string of at most 15 bytes never allocates. `a + b + ...` allocates at most once, and so does `$"..."` when every hole is a primitive, a `string` or a type whose `IDisplay` implementation does not allocate. Allocations made inside a user's `Format` or `ToString` are counted separately (§13.4).
 5. **In-place updates.** `with` on a value at its last use whose count is one updates it in place, and `+=` on a local string at its last use appends in place when its allocation has room; a loop of `+=` on an unaliased local string runs in amortized linear time (§14.19).
 6. **Options.** `T?` is the same size as `T` for every type §13.5 lists as having a niche.
 7. **Copy elision.** A value returned by `return new S(...)`, by `return local` when every return path returns that local, as an aggregate literal, or by a call assigned to a fresh local or field is constructed in its final place (D-79).
@@ -1645,7 +1645,7 @@ Every shared class object, array, heap string, box and escaping closure environm
 There is no type pointer. After monomorphization every retain, release and drop site knows the concrete type, and a dynamic interface value carries its drop function in its vtable (§13.6). Each concrete type gets a generated drop function, called directly, so it can be inlined. The debug runtime keeps a `meta` word (size, alignment, drop function, type id, type name) for the leak report and the cycle finder (§10.11), in a prefix before the header, so field offsets are the same in both builds. The identity number of D-61 lives in a side table keyed by the object, so it needs no header space.
 
 - **Retain** is `if strong & IMMORTAL == 0 { strong += 1 }`, emitted inline. A count that would reach 2^31 aborts with `reference count overflow`.
-- **Release** is `if strong & IMMORTAL == 0 { strong -= 1; if strong == 0 { mora_rt_drop(obj, T_drop, size) } }`. The release site knows the concrete type, so it passes that type's generated drop function and the allocation size; for a heap string or array the size comes from the length. Releasing a dynamic interface value takes the drop function and size from its vtable (§13.6).
+- **Release** is `if strong & IMMORTAL == 0 { strong -= 1; if strong == 0 { mora_rt_drop(obj, T_drop, size) } }`. The release site knows the concrete type, so it passes that type's generated drop function and the allocation size; for an array it comes from the length, and for a heap string from the capacity stored in the object, never from the length. Releasing a dynamic interface value takes the drop function and size from its vtable (§13.6).
 - `mora_rt_drop(obj, drop, size)` calls `drop`: the destructor, then the fields. Each shared child whose count falls to zero is pushed onto a thread-local work list as an `(object, drop function, size)` entry instead of being dropped recursively. It then decrements `weak` and, if `weak` reaches zero, frees the memory with `mora_rt_free_sized(obj, size)`.
 - **Weak load** returns a null pointer (`none`) if `strong == 0`, otherwise retains and returns the object.
 - String literals, `const` objects and the empty array are immortal objects in read-only data.
@@ -1656,8 +1656,8 @@ There is no type pointer. After monomorphization every retain, release and drop 
 
 ### 13.4 Strings and arrays
 
-- `string`: 16 bytes (D-75). An **inline** string holds up to 15 bytes, with its length and a tag in the last byte. A **heap** string holds a pointer to `{ header, bytes }` and its length. Copying a heap string retains it and copying an inline one does not; equality compares lengths first. `string?` uses a spare tag value for `none`, so it is also 16 bytes. The bytes are valid UTF-8 and never change while another reference can see them. Maximum length is `int.MaxValue` bytes. `AsMemory()` on an inline string first moves its bytes to a heap string, one allocation, because a `Memory<T>` may outlive the place that holds the string.
-- Concatenation allocates at most once: `a + b + c` lowers to one `Concat` that computes the total length first, and `$"..."` formats into a stack buffer and allocates once at the end. A result of at most 15 bytes allocates nothing.
+- `string`: 16 bytes (D-75). An **inline** string holds up to 15 bytes, with its length and a tag in the last byte. A **heap** string holds a pointer to `{ header, capacity: u32, bytes[capacity] }` and its length; `capacity` can exceed the length after an in-place append (§14.19). Copying a heap string retains it and copying an inline one does not; equality compares lengths first. `string?` uses a spare tag value for `none`, so it is also 16 bytes. The bytes are valid UTF-8 and never change while another reference can see them. Maximum length is `int.MaxValue` bytes. `AsMemory()` on an inline string first moves its bytes to a heap string, one allocation, because a `Memory<T>` may outlive the place that holds the string.
+- Concatenation allocates at most once: `a + b + c` lowers to one `Concat` that computes the total length first, and `$"..."` formats into a stack buffer and allocates the result once at the end; allocations inside a hole's own `Format` or `ToString` come on top. A result of at most 15 bytes allocates nothing.
 - `T[]`: one pointer to `{ header, length: u32, padding to align(T), elements }`.
 - `List<T>`: a shared class holding `{ items: T[] capacity buffer, count: int, borrows: int, version: int }`.
 
@@ -1899,7 +1899,7 @@ Cranelift optimizes one function at a time, so the inlining that LINQ chains and
 
 For each parameter of a counted type, and for `this`, a summary says whether the reference can **escape**: be stored in a field, array element, collection, static, escaping closure or spawned future; be returned; be converted to `any I` or captured by `[weak x]`; or be passed to a parameter that escapes, or through `any I` or a function value. The summary is computed over the whole program, with a fixed point over each cycle of the call graph that starts from "does not escape", so it does not depend on inlining (D-69).
 
-A `new` that meets the rule of §10.13 is placed in the creating function's frame, or in its state if it is async. A promoted shared object keeps its header, so any callee can retain and release it, but its count returns to one by the end of its scope, where the compiler emits its drop and no free. The destructor runs at the same point as it would on the heap. The debug runtime checks `strong == 1 && weak == 0` before that drop and aborts with `internal error: stack object escaped (type T)` otherwise. A promoted `List<T>` also gets its first buffer, up to 256 bytes, in the frame, and moves it to the heap when it grows past that; this part is best-effort.
+A `new` that meets the rule of §10.13 is placed in the creating function's frame, or in its state if it is async. A promoted shared object keeps its header, so any callee can retain and release it, but its count returns to one by the end of its scope, where the compiler emits its drop and no free. The destructor runs at the same point as it would on the heap. The debug runtime checks `strong == 1 && weak == 1` (no weak reference besides the implicit one of §13.3) before that drop and aborts with `internal error: stack object escaped (type T)` otherwise. A promoted `List<T>` also gets its first buffer, up to 256 bytes, in the frame, and moves it to the heap when it grows past that; this part is best-effort.
 
 Hover shows a parameter that does not escape as `scoped`. The word is not a keyword in the MVP (OQ-25). Because the summary looks into callees, editing a callee can change where a caller's object lives; `mora explain-cost --diff` reports the change.
 
@@ -1907,10 +1907,10 @@ Hover shows a parameter that does not escape as `scoped`. The word is not a keyw
 
 Two idioms reuse a value's storage when nothing else refers to it (D-71):
 
-- **`with`.** `x with { F = v }`, where `x` is at its last use, checks `strong == 1 && weak == 0` at run time. When it holds, it releases the old `F`, stores `v` and returns `x`; otherwise it copies and then sets. A struct stored inline has nothing to reuse, since `with` on it is already a copy that scalar replacement removes.
+- **`with`.** `x with { F = v }`, where `x` is at its last use, checks `strong == 1 && weak == 1` at run time: one strong reference and no weak reference besides the implicit one of §13.3. When it holds, it releases the old `F`, stores `v` and returns `x`; otherwise it copies and then sets. A struct stored inline has nothing to reuse, since `with` on it is already a copy that scalar replacement removes.
 - **String append.** `s += t` and `s = s + t`, where `s` is a local at its last use, append in place when `s` is a unique heap string whose allocation has room (§13.1). Otherwise the string moves to a new allocation that grows by half again, so repeated appends run in amortized linear time. No other reference sees the change, so strings stay immutable to every observer.
 
-Reuse needs `weak == 0`, because a weak reference could otherwise load the new value instead of `none`. Rebuilding an `indirect` union in place and reusing any freed cell for a new allocation of the same size are post-MVP.
+Reuse needs `weak == 1`, that is no weak reference besides the implicit one, because a weak reference could otherwise load the new value instead of `none`. Rebuilding an `indirect` union in place and reusing any freed cell for a new allocation of the same size are post-MVP.
 
 ## 15. Standard library (MVP surface)
 
@@ -1983,7 +1983,7 @@ MVP operators: `Where`, `Select`, `SelectMany`, `Take`, `Skip`, `TakeWhile`, `Sk
 
 Operators that need the whole sequence (`OrderBy`, `GroupBy`, `Reverse`, `Distinct`) buffer into a `List<T>` once when enumeration starts, as .NET does.
 
-`IEnumerator<T>` has a default member `SizeHint`, which returns a lower bound and, when known, the exact count. The operators pass it on (`Select` keeps it; `Where` keeps only an upper bound). `ToList`, `ToArray` and `ToDictionary` on a source with an exact count allocate exactly once. `OrderBy(...).ToList()` sorts its buffer in place and hands it to the result instead of copying it (D-81). A chain of these operators compiles to one loop with no allocation (§10.13, §14.17).
+`IEnumerator<T>.SizeHint()` (§8.5) returns how many items remain: at least `Lower`, and at most `Upper` when that is known. `Lower == Upper` means the count is exact. Arrays, spans and collections report an exact count. The operators pass it on: `Select` keeps it, and `Where` keeps only the upper bound, as `(0, Upper)`. `ToList`, `ToArray` and `ToDictionary` on a source with an exact count allocate exactly once. `OrderBy(...).ToList()` sorts its buffer in place and hands it to the result instead of copying it (D-81). A chain of these operators compiles to one loop with no allocation (§10.13, §14.17).
 
 ### 15.6 Console, environment and time
 
