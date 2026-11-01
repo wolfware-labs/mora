@@ -1,0 +1,18 @@
+error[MR0121]: the folder `src/2d` does not give a namespace name
+ --> src/2d/Shape.mr:1:1
+  |
+1 | internal class Shape { //~ ERROR MR0121
+  | ^ this file is in `src/2d`
+  |
+  = note: a folder's name in PascalCase names its namespace, and `2d` does not give an identifier
+
+error[MR0121]: the folders `src/HttpClient` and `src/http-client` both give the namespace `UsersApi.HttpClient`
+ --> src/http-client/Timeout.mr:1:1
+  |
+1 | internal class Timeout { //~ ERROR MR0121
+  | ^ this file is in `src/http-client`
+  |
+ ::: src/HttpClient/Retry.mr:1:1
+  |
+1 | internal class Retry {
+  | - this file is in `src/HttpClient`

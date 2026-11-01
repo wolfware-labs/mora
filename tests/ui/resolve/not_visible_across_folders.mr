@@ -1,0 +1,23 @@
+// An item without a visibility modifier is visible only in its folder.
+//@ project name=users-api
+//@ file src/Program.mr
+using UsersApi.Store.UserStore; //~ ERROR MR0129
+using UsersApi.Store.Cache; //~ ERROR MR0129
+using UsersApi.Store.Index;
+using UsersApi.Store.Index.Entry; //~ ERROR MR0129
+
+let count = 0;
+//@ file src/Store/UserStore.mr
+@Json
+class UserStore {
+}
+
+file class Cache {
+}
+
+internal class Index {
+    private class Entry {
+    }
+}
+//@ file src/Store/Reader.mr
+using UsersApi.Store.UserStore;

@@ -1,0 +1,10 @@
+error[MR0124]: `Main` and top-level statements are both entry points
+ --> tests/ui/entry/main_and_statements.mr:4:1
+  |
+2 | Console.WriteLine("hello");
+  | --------------------------- the top-level statements start here
+3 |
+4 | Main() { //~ ERROR MR0124
+  | ^^^^ a second entry point
+  |
+  = note: an app has exactly one entry point: top-level statements in the entry file, or one `Main`

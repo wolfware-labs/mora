@@ -1,0 +1,386 @@
+use la_arena::{Arena, Idx};
+use mora_span::{Db, SourceFile, TextRange, TextSize};
+use mora_syntax::ast::{self, AstNode};
+use mora_syntax::lexer::ident_name;
+use mora_syntax::{Parse, SyntaxKind, SyntaxNode};
+
+/// The syntax tree of a file.
+#[salsa::tracked(returns(ref))]
+pub fn parse(db: &dyn Db, file: SourceFile) -> Parse {
+    mora_syntax::parse(file.text(db))
+}
+
+/// What a file declares, without positions: an edit that changes no
+/// declaration, such as one inside a function body, gives an equal tree.
+#[salsa::tracked(returns(ref))]
+pub fn item_tree(db: &dyn Db, file: SourceFile) -> ItemTree {
+    lower(&parse(db, file).tree()).0
+}
+
+/// Where the parts of [`item_tree`] are in the text, for diagnostics.
+#[salsa::tracked(returns(ref))]
+pub fn item_source_map(db: &dyn Db, file: SourceFile) -> ItemSourceMap {
+    lower(&parse(db, file).tree()).1
+}
+
+/// An index into [`ItemTree::items`].
+pub type ItemIdx = Idx<Item>;
+
+/// The declarations of one file (§4.2).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ItemTree {
+    /// Every item, nested ones included.
+    items: Arena<Item>,
+    /// The items declared at namespace level, in the order of the text.
+    top_level: Vec<ItemIdx>,
+    /// The `using` directives, in the order of the text.
+    usings: Vec<Using>,
+    /// Whether the file has statements at top level (§4.6).
+    has_statements: bool,
+}
+
+impl ItemTree {
+    pub fn item(&self, idx: ItemIdx) -> &Item {
+        &self.items[idx]
+    }
+
+    /// Every item with its index, nested ones included.
+    pub fn items(&self) -> impl Iterator<Item = (ItemIdx, &Item)> {
+        self.items.iter()
+    }
+
+    /// The items declared at namespace level, in the order of the text.
+    pub fn top_level(&self) -> &[ItemIdx] {
+        &self.top_level
+    }
+
+    /// The `using` directives, in the order of the text.
+    pub fn usings(&self) -> &[Using] {
+        &self.usings
+    }
+
+    pub fn has_statements(&self) -> bool {
+        self.has_statements
+    }
+}
+
+/// A declaration that has a name: a type, a function, a macro, or a
+/// constant or static at namespace level.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Item {
+    /// The declared name, in NFC.
+    pub name: String,
+    /// What kind of declaration it is.
+    pub kind: ItemKind,
+    /// The visibility as written; [`Visibility::Folder`] when none is.
+    pub visibility: Visibility,
+    /// Whether the declaration has the `static` modifier.
+    pub is_static: bool,
+    /// The type it is declared in, `None` at namespace level.
+    pub parent: Option<ItemIdx>,
+    /// The nested types and the functions it declares, in the order of the text.
+    pub members: Vec<ItemIdx>,
+}
+
+/// What an item declares. `Field` is a `const` or `static` at namespace
+/// level (§4.7).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ItemKind {
+    Struct,
+    Class,
+    Union,
+    Enum,
+    Interface,
+    Function,
+    Macro,
+    Field,
+}
+
+impl ItemKind {
+    /// Whether the item is a type, which can contain other items.
+    pub fn is_type(self) -> bool {
+        matches!(
+            self,
+            Self::Struct | Self::Class | Self::Union | Self::Enum | Self::Interface
+        )
+    }
+}
+
+/// Who can see a declaration (§4.5), narrowest first, so the effective
+/// visibility of a nested item is the minimum along its parents.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Visibility {
+    /// `private`: the enclosing type.
+    Private,
+    /// `file`: the declaring file.
+    File,
+    /// No modifier: the declaring folder, that is its namespace (D-97).
+    Folder,
+    /// `internal`: the project.
+    Internal,
+    /// `public`: every project that depends on this one.
+    Public,
+}
+
+impl Visibility {
+    /// The modifier that gives this visibility, `None` for the folder default.
+    pub fn keyword(self) -> Option<&'static str> {
+        match self {
+            Self::Private => Some("private"),
+            Self::File => Some("file"),
+            Self::Folder => None,
+            Self::Internal => Some("internal"),
+            Self::Public => Some("public"),
+        }
+    }
+}
+
+/// A `using` directive (§4.3).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Using {
+    /// `global using`: it applies to every file of the project.
+    pub global: bool,
+    /// `using static`: it opens the members of a type.
+    pub is_static: bool,
+    /// The name of `using Name = ...;`.
+    pub alias: Option<String>,
+    /// The segments of the path, in NFC, without generic arguments.
+    pub path: Vec<String>,
+}
+
+/// The text ranges of an [`ItemTree`], in the same order.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ItemSourceMap {
+    /// One entry per item, indexed like [`ItemTree::items`].
+    items: Vec<ItemSource>,
+    /// One entry per `using` directive.
+    usings: Vec<UsingSource>,
+    /// The first top-level statement.
+    first_statement: Option<TextRange>,
+}
+
+impl ItemSourceMap {
+    pub fn item(&self, idx: ItemIdx) -> &ItemSource {
+        &self.items[u32::from(idx.into_raw()) as usize]
+    }
+
+    pub fn using(&self, index: usize) -> &UsingSource {
+        &self.usings[index]
+    }
+
+    pub fn first_statement(&self) -> Option<TextRange> {
+        self.first_statement
+    }
+}
+
+/// Where an item is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ItemSource {
+    /// The declared name.
+    pub name: TextRange,
+    /// Where a modifier goes: the first modifier, or the declaration itself
+    /// when it has none. Attributes come before it.
+    pub modifiers_start: TextSize,
+    /// The visibility modifier, when there is one.
+    pub visibility: Option<TextRange>,
+}
+
+/// Where a `using` directive is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UsingSource {
+    /// Each segment of the path.
+    pub segments: Vec<TextRange>,
+}
+
+/// Builds the item tree and its source map in one walk, so their indexes agree.
+fn lower(file: &ast::SourceFile) -> (ItemTree, ItemSourceMap) {
+    let mut lower = Lower::default();
+    for using in file.using_directives() {
+        lower.using(&using);
+    }
+    for top in file.top_level_items() {
+        match top {
+            ast::TopLevelItem::Item(item) => {
+                if let Some(idx) = lower.item(item.syntax(), None) {
+                    lower.tree.top_level.push(idx);
+                }
+            }
+            ast::TopLevelItem::Stmt(ast::Stmt::EmptyStmt(_)) => {}
+            ast::TopLevelItem::Stmt(stmt) => {
+                lower.tree.has_statements = true;
+                if lower.map.first_statement.is_none() {
+                    lower.map.first_statement = Some(stmt.syntax().text_range());
+                }
+            }
+        }
+    }
+    (lower.tree, lower.map)
+}
+
+#[derive(Default)]
+struct Lower {
+    tree: ItemTree,
+    map: ItemSourceMap,
+}
+
+/// The parts of a declaration the item tree keeps.
+struct Decl {
+    kind: ItemKind,
+    name: Option<ast::Name>,
+    modifiers: Vec<ast::Modifier>,
+    members: Vec<ast::Member>,
+}
+
+impl Lower {
+    fn using(&mut self, using: &ast::UsingDirective) {
+        let Some(path) = using.path() else {
+            return;
+        };
+        let mut segments = Vec::new();
+        let mut ranges = Vec::new();
+        for segment in path.path_segments() {
+            let Some(token) = segment.name_ref().and_then(|name| name.ident_token()) else {
+                return;
+            };
+            segments.push(ident_name(token.text()).into_owned());
+            ranges.push(token.text_range());
+        }
+        if segments.is_empty() {
+            return;
+        }
+        let alias = using
+            .using_alias()
+            .and_then(|alias| alias.name())
+            .and_then(|name| name.ident_token())
+            .map(|token| ident_name(token.text()).into_owned());
+        self.tree.usings.push(Using {
+            global: using.global_token().is_some(),
+            is_static: using.static_token().is_some(),
+            alias,
+            path: segments,
+        });
+        self.map.usings.push(UsingSource { segments: ranges });
+    }
+
+    /// Adds the declaration `node` and its nested types and functions.
+    /// Declarations without a name, and kinds the tree does not keep, give `None`.
+    fn item(&mut self, node: &SyntaxNode, parent: Option<ItemIdx>) -> Option<ItemIdx> {
+        let decl = decl(node, parent.is_some())?;
+        let name = decl.name?.ident_token()?;
+        let mut visibility = Visibility::Folder;
+        let mut visibility_range = None;
+        let mut is_static = false;
+        for modifier in &decl.modifiers {
+            let Some(token) = modifier.kind() else {
+                continue;
+            };
+            let written = match token.kind() {
+                SyntaxKind::PrivateKw => Visibility::Private,
+                SyntaxKind::FileKw => Visibility::File,
+                SyntaxKind::InternalKw => Visibility::Internal,
+                SyntaxKind::PublicKw => Visibility::Public,
+                SyntaxKind::StaticKw => {
+                    is_static = true;
+                    continue;
+                }
+                _ => continue,
+            };
+            if visibility_range.is_none() {
+                visibility = written;
+                visibility_range = Some(token.text_range());
+            }
+        }
+        let idx = self.tree.items.alloc(Item {
+            name: ident_name(name.text()).into_owned(),
+            kind: decl.kind,
+            visibility,
+            is_static,
+            parent,
+            members: Vec::new(),
+        });
+        self.map.items.push(ItemSource {
+            name: name.text_range(),
+            modifiers_start: modifiers_start(node),
+            visibility: visibility_range,
+        });
+        let members: Vec<_> = decl
+            .members
+            .iter()
+            .filter_map(|member| self.item(member.syntax(), Some(idx)))
+            .collect();
+        self.tree.items[idx].members = members;
+        Some(idx)
+    }
+}
+
+/// The parts of a declaration. Members keep nested types and functions
+/// only; namespace level keeps every named item.
+fn decl(node: &SyntaxNode, member: bool) -> Option<Decl> {
+    let node = node.clone();
+    let decl = |kind, name, modifiers: ast::AstChildren<ast::Modifier>, members: Vec<_>| Decl {
+        kind,
+        name,
+        modifiers: modifiers.collect(),
+        members,
+    };
+    let members = |list: Option<ast::MemberList>| {
+        list.map(|list| list.members().collect())
+            .unwrap_or_default()
+    };
+    if let Some(it) = ast::StructDecl::cast(node.clone()) {
+        let list = members(it.member_list());
+        return Some(decl(ItemKind::Struct, it.name(), it.modifiers(), list));
+    }
+    if let Some(it) = ast::ClassDecl::cast(node.clone()) {
+        let list = members(it.member_list());
+        return Some(decl(ItemKind::Class, it.name(), it.modifiers(), list));
+    }
+    if let Some(it) = ast::UnionDecl::cast(node.clone()) {
+        let list = it
+            .union_body()
+            .map(|body| body.members().collect())
+            .unwrap_or_default();
+        return Some(decl(ItemKind::Union, it.name(), it.modifiers(), list));
+    }
+    if let Some(it) = ast::EnumDecl::cast(node.clone()) {
+        return Some(decl(ItemKind::Enum, it.name(), it.modifiers(), Vec::new()));
+    }
+    if let Some(it) = ast::InterfaceDecl::cast(node.clone()) {
+        let list = members(it.member_list());
+        return Some(decl(ItemKind::Interface, it.name(), it.modifiers(), list));
+    }
+    if let Some(it) = ast::FunctionDecl::cast(node.clone()) {
+        // `IShape.Area(): float => ...` implements an interface member; it
+        // declares no name of its own.
+        if it.explicit_impl().is_some() {
+            return None;
+        }
+        return Some(decl(
+            ItemKind::Function,
+            it.name(),
+            it.modifiers(),
+            Vec::new(),
+        ));
+    }
+    if member {
+        return None;
+    }
+    if let Some(it) = ast::MacroDecl::cast(node.clone()) {
+        return Some(decl(ItemKind::Macro, it.name(), it.modifiers(), Vec::new()));
+    }
+    if let Some(it) = ast::FieldDecl::cast(node) {
+        let name = it.variable_declarator().and_then(|v| v.name());
+        return Some(decl(ItemKind::Field, name, it.modifiers(), Vec::new()));
+    }
+    None
+}
+
+/// The start of the first child of a declaration that is not an attribute
+/// or trivia: where its modifiers start, or its keyword when it has none.
+fn modifiers_start(node: &SyntaxNode) -> TextSize {
+    node.children_with_tokens()
+        .find(|element| !element.kind().is_trivia() && element.kind() != SyntaxKind::Attribute)
+        .map_or(node.text_range().start(), |element| {
+            element.text_range().start()
+        })
+}

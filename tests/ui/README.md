@@ -16,3 +16,22 @@ cargo test -p mora-testkit --test ui -- --bless [filter...]
 ```
 
 Filters run only the cases whose path contains one of them.
+
+## Projects and several files
+
+A case is the entry file, `src/Program.mr`, of an app named `app`, whose root namespace is `App`. Lines that start with `//@` change that:
+
+```mora
+// Text before the first file line may only be comments.
+//@ project kind=lib name=users-api
+//@ file src/Store/UserStore.mr
+internal class UserStore {
+}
+//@ file src/Program.mr
+using UsersApi.Store.UserStore;
+```
+
+- `//@ project` sets the manifest values `kind` (`app` or `lib`), `name`, `namespace` and `entry`, each optional, as `key=value` pairs. It comes before the first `//@ file` line.
+- `//@ file` starts a file at the path after it, which starts with `src/`. The lines after it, up to the next `//@ file` line, are its text, so its line numbers start after the `//@ file` line.
+
+Annotations belong to the file they are in, and the snapshot shows each file under its own path. A case without `//@ file` lines is shown under the case's path.

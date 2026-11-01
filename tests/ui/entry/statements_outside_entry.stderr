@@ -1,0 +1,5 @@
+error[MR0125]: top-level statements are allowed only in the entry file `src/Program.mr`
+ --> src/Setup.mr:5:1
+  |
+5 | Setup(); //~ ERROR MR0125
+  | ^^^^^^^^ a top-level statement

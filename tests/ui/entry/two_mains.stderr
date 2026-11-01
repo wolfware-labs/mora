@@ -1,0 +1,12 @@
+error[MR0124]: more than one `Main` function
+ --> src/Tools/Main.mr:1:1
+  |
+1 | Main(args: string[]): int { //~ ERROR MR0124
+  | ^^^^ a second entry point
+  |
+ ::: src/App.mr:2:12
+  |
+2 |     static Main() {
+  |            ---- the first `Main` is here
+  |
+  = note: an app has exactly one entry point: top-level statements in the entry file, or one `Main`

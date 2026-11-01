@@ -1,0 +1,6 @@
+// Top-level statements and `Main` are both entry points.
+Console.WriteLine("hello");
+
+Main() { //~ ERROR MR0124
+    Console.WriteLine("hello from Main");
+}
