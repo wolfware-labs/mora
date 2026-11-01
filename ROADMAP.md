@@ -1022,11 +1022,13 @@ Done when:
 
 Spec: [§15.6](docs/design/mora.md#156-console-environment-and-time). Crates: `std`, `mora-rt`. Blocked by: M5.2.
 
-The members of §15.6: `Console` input and error output, `Environment`, `TimeSpan`, `Stopwatch`, UTC `DateTime` with ISO 8601, `Random`, `Math` and `MathF`, with `@RequiresCapability` tags.
+The members of §15.6: `Console` input and error output, `Environment`, `Random`, `Math` and `MathF`, and the time types of D-111 (`Clock`, `Instant`, `MonoTime`, `TimeSpan`, `Stopwatch`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Period`) and lint `wall-clock-duration`, all with `@RequiresCapability` tags.
 
 Done when:
 
-- `DateTime.UtcNow.ToString("O")` matches the ISO 8601 format.
+- `Clock.Now().ToString()` matches RFC 3339 in UTC, and `Instant.Parse` reads it back.
+- `LocalDate.Of(2026, 2, 30)` is an `Err`, and January 31 plus `Period.Months(1)` is the last day of February.
+- A UI test for `wall-clock-duration` and its fix.
 - `Console.ReadLine()` returns `none` at end of input.
 
 ### M5.9 Files, directories and paths
@@ -1066,11 +1068,12 @@ Done when:
 
 Spec: [§15.9](docs/design/mora.md#159-testing), [§17.5](docs/design/mora.md#175-test-runner). Crates: `std`, `mora-driver`, `mora-cli`, `mora-testkit`. Blocked by: M5.7.
 
-`@Test`, `Std.Testing.Assert`, `Assert.Panics` in a child process, unit tests in `src/` and integration tests in `tests/`, one process per test, `--leak-check` on by default, and the output format of §17.5.
+`@Test`, `Std.Testing.Assert`, `Assert.Panics` in a child process, unit tests in `src/` and integration tests in `tests/`, one process per test, `--leak-check` on by default, the output format of §17.5, and test seeds (D-109): one seed per run for `Random.Shared` (and for the scheduler once M6.3 lands), printed on failure and replayed with `--seed`.
 
 Done when:
 
 - A project with a passing, a failing, a panicking and an ignored test prints `Passed: 1, Failed: 2, Ignored: 1` and exits 1.
+- A test that fails for some values of `Random.Shared` prints its seed, and `--seed` with that seed fails it again with the same values.
 
 ### M5.13 Signals and `@Observable`
 
@@ -1115,7 +1118,7 @@ Done when:
 
 Spec: [§12.2](docs/design/mora.md#122-async-functions-and-futures), [§10.3](docs/design/mora.md#103-parameter-modes), [§7.4](docs/design/mora.md#74-propagation-). Crates: `mora-hir`, `std`. Blocked by: M5.7.
 
-`async` functions, methods and lambdas, `Future<T>` as a unique `@MustUse` cold type (D-27), `await`, `MR0312`, `MR0313` and `MR0400` to `MR0403`, and the `await e?` rule.
+`async` functions, methods and lambdas, `Future<T>` as a unique `@MustUse` cold type (D-27), `await`, `MR0312`, `MR0313` and `MR0400` to `MR0404`, and the `await e?` rule.
 
 Done when:
 
@@ -1135,14 +1138,16 @@ Done when:
 
 ### M6.3 Executor, tasks and cancellation
 
-Spec: [§12.4](docs/design/mora.md#124-tasks), [§12.5](docs/design/mora.md#125-cancellation). Crates: `mora-rt`, `std`. Blocked by: M6.2.
+Spec: [§12.1](docs/design/mora.md#121-execution-model-in-the-mvp), [§12.4](docs/design/mora.md#124-tasks), [§12.5](docs/design/mora.md#125-cancellation). Crates: `mora-rt`, `std`. Blocked by: M6.2.
 
-The single-threaded executor and wakers, `Task.WhenAll`, `WhenAny`, `Scope`, `Spawn`, `TaskHandle<T>`, `Delay`, `Yield` and `Timeout`, cancellation by drop, and cancellation of detached tasks when `Main` returns.
+The World seam in the per-thread context (D-109) with a seeded choice among ready tasks under `mora test`, the single-threaded executor and wakers, `Task.WhenAll`, `WhenAny`, a fail-fast `Scope` (D-110), `SpawnDetached` with lint `detached-task`, `TaskHandle<T>`, `Delay`, `Yield`, inherited deadlines with `WithTimeout`, `WithDeadline` and `Remaining`, cancellation by drop, and cancellation of detached tasks when `Main` returns.
 
 Done when:
 
 - `WhenAll` of two 100 ms delays completes in under 150 ms.
-- `Timeout` cancels its future and the future's destructors run.
+- `WithTimeout` cancels its future at the deadline and the future's destructors run; a nested `WithTimeout` with a longer duration keeps the outer deadline.
+- A scope child that returns `Err` cancels a sibling blocked in `Delay` and the scope returns that `Err`, without the body awaiting the child.
+- Under one seed, a test with three tasks that interleave at `Yield` produces the same order on every run.
 
 ### M6.4 Async entry points
 
@@ -1181,7 +1186,7 @@ Done when:
 
 Spec: [§16.1](docs/design/mora.md#161-http-server-stdnethttp), [§16.2](docs/design/mora.md#162-httperror). Crates: `std`. Blocked by: M6.6, M5.11.
 
-`WebApp`, `WebAppOptions`, `--urls` and `MORA_URLS`, `Map*` with `move` handlers, the routing rules of §16.1 (404, 405 with `Allow`, duplicate panics), `Request`, `RouteValue<T>`, `ReadTextAsync`, `ReadJsonAsync<T>`, `Response`, `Results`, `HttpError` with its conversions, request logging, and graceful shutdown on SIGINT, SIGTERM and Ctrl+Break.
+`WebApp`, `WebAppOptions`, `--urls` and `MORA_URLS`, `Map*` with `move` handlers, the routing rules of §16.1 (404, 405 with `Allow`, duplicate panics), `Request`, `RouteValue<T>`, `ReadTextAsync`, `ReadJsonAsync<T>`, `Response`, `Results`, `HttpError` with its conversions, request deadlines from `WebAppOptions.RequestTimeout` (503 when one passes), request logging, and graceful shutdown on SIGINT, SIGTERM and Ctrl+Break.
 
 Done when:
 
