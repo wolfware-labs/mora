@@ -181,17 +181,11 @@ pub(crate) fn name_ref(p: &mut Parser<'_>) {
     m.complete(p, K::NameRef);
 }
 
-/// A path: `List<int>`, `Std.Json.JsonValue`, `Core::Parse`. In a type,
+/// A path: `List<int>`, `Std.Json.JsonValue`, `Core.Parse`. In a type,
 /// `<` always opens generic arguments; in an expression, only when the
 /// lookahead of §14.4 says so.
 pub(crate) fn path(p: &mut Parser<'_>, in_type: bool) {
     let m = p.start();
-    if p.at(K::Ident) && p.nth_at(1, K::ColonColon) {
-        let q = p.start();
-        name_ref(p);
-        p.bump(K::ColonColon);
-        q.complete(p, K::AliasQualifier);
-    }
     path_segment(p, in_type);
     // In an expression a path is one segment: later dots are member access.
     while in_type && p.at(K::Dot) && p.nth(1) == K::Ident {
@@ -324,9 +318,6 @@ fn scan(input: &Input<'_>, at: usize, functions: bool) -> Option<usize> {
         }
         K::Ident => {
             let mut i = at;
-            if input.kind(i + 1) == K::ColonColon {
-                i += 2;
-            }
             loop {
                 if input.kind(i) != K::Ident {
                     return None;

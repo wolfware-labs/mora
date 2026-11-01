@@ -363,7 +363,6 @@ pub(crate) fn describe(kind: SyntaxKind) -> String {
         Some(text) => format!("`{text}`"),
         None => match kind {
             K::Ident => "an identifier".into(),
-            K::String => "a string".into(),
             _ => format!("{kind:?}"),
         },
     }

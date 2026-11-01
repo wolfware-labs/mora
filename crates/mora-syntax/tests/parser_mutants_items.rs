@@ -59,8 +59,8 @@ fn a_weak_field_type_parses() {
     assert!(has(text, K::FieldDecl));
 }
 
-// `scan_type`: a splice type, a tuple type, an alias-qualified, nested or
-// array type before `{` makes a property.
+// `scan_type`: a splice type, a tuple type, a nested or array type before
+// `{` makes a property.
 
 #[test]
 fn a_spread_splice_type_makes_a_property() {
@@ -96,12 +96,6 @@ fn a_tuple_type_makes_a_property() {
 }
 
 #[test]
-fn an_alias_qualified_type_makes_a_property() {
-    let text = assert_property_type("Alias::T");
-    assert!(has(&text, K::AliasQualifier));
-}
-
-#[test]
 fn a_nested_generic_type_makes_a_property() {
     assert_property_type("Outer<int>.Inner");
 }
@@ -134,16 +128,11 @@ fn conditional_parts_skip_whitespace() {
     assert_eq!(cond.r#else().unwrap().syntax().text(), "c");
 }
 
-// `describe`: how errors name an identifier and a string.
+// `describe`: how errors name an identifier.
 
 #[test]
 fn a_missing_name_is_an_identifier() {
     assert_eq!(messages("class { }"), ["expected an identifier"]);
-}
-
-#[test]
-fn a_missing_import_path_is_a_string() {
-    assert_eq!(messages("import Core from ;"), ["expected a string"]);
 }
 
 // `nth_text`: `and` after a type in a pattern combines patterns.
@@ -508,4 +497,68 @@ fn any_alone_is_a_type_name() {
         assert!(!has(text, K::AnyType), "{text}");
     }
     assert_clean_with("struct S { X: any IShape; }", K::AnyType);
+}
+
+// `at_extension` and `extension_decl`: an extension block is a top-level
+// declaration with one receiver (§6.9).
+
+#[test]
+fn an_extension_block_has_its_parts() {
+    let text = "public extension<T>(xs: List<T>) where T : INumber<T> { Sum(): T => xs[0]; }";
+    assert_clean_with(text, K::ExtensionDecl);
+    let block = ast::ExtensionDecl::cast(node(text, K::ExtensionDecl)).unwrap();
+    assert_eq!(block.modifiers().count(), 1);
+    assert!(block.extension_token().is_some());
+    assert!(block.type_param_list().is_some());
+    assert_eq!(block.param().unwrap().syntax().text(), "xs: List<T>");
+    assert_eq!(block.where_clauses().count(), 1);
+    assert_eq!(block.member_list().unwrap().members().count(), 1);
+}
+
+#[test]
+fn an_extension_without_a_body_is_a_call() {
+    for text in ["extension(names);", "extension(names", "extension;"] {
+        assert!(!has(text, K::ExtensionDecl), "{text}");
+    }
+    assert!(has("extension(names);", K::CallExpr));
+}
+
+#[test]
+fn extension_blocks_are_not_members() {
+    let text = "class A { extension(x: int) { } }";
+    assert!(!has(text, K::ExtensionDecl));
+    assert!(has(text, K::FunctionDecl));
+}
+
+// `top_level`: `using` directives come before the declarations (§4.2).
+
+#[test]
+fn a_using_after_a_declaration_is_reported() {
+    assert_eq!(
+        messages("using A;\nglobal using B;\nclass C { }"),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        messages("class C { }\nusing A;"),
+        ["`using` directives come before the declarations"]
+    );
+    assert_eq!(
+        messages("F();\nglobal using A;"),
+        ["`using` directives come before the declarations"]
+    );
+}
+
+// Removed forms are ordinary syntax errors (D-96, D-98).
+
+#[test]
+fn removed_forms_are_syntax_errors() {
+    for text in [
+        "namespace App;",
+        "import Core;",
+        "let x = Core::Parse(1);",
+        "F(this s: string): int => 1;",
+    ] {
+        assert!(!messages(text).is_empty(), "{text}");
+    }
+    assert!(!has("F(this s: string): int => 1;", K::Modifier));
 }

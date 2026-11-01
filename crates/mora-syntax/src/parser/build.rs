@@ -203,15 +203,14 @@ impl Sink<'_> {
 fn attaches_comments(kind: SyntaxKind) -> bool {
     matches!(
         kind,
-        K::ImportDecl
-            | K::UsingDirective
-            | K::FileNamespace
+        K::UsingDirective
             | K::StructDecl
             | K::ClassDecl
             | K::UnionDecl
             | K::EnumDecl
             | K::InterfaceDecl
             | K::MacroDecl
+            | K::ExtensionDecl
             | K::FunctionDecl
             | K::FieldDecl
             | K::PropertyDecl

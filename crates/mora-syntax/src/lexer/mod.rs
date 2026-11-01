@@ -249,8 +249,6 @@ enum Raw {
     Comma,
     #[token(":")]
     Colon,
-    #[token("::")]
-    ColonColon,
     #[token(";")]
     Semicolon,
     #[token("?")]
@@ -364,7 +362,6 @@ impl Raw {
             Raw::DotDot => SyntaxKind::DotDot,
             Raw::Comma => SyntaxKind::Comma,
             Raw::Colon => SyntaxKind::Colon,
-            Raw::ColonColon => SyntaxKind::ColonColon,
             Raw::Semicolon => SyntaxKind::Semicolon,
             Raw::Question => SyntaxKind::Question,
             Raw::QuestionQuestion => SyntaxKind::QuestionQuestion,
@@ -552,7 +549,7 @@ impl<'a> Lexer<'a> {
                 self.replace_top(Frame::Text(s));
                 return;
             }
-            if rest.starts_with(':') && !rest.starts_with("::") {
+            if rest.starts_with(':') {
                 let plain = s.delim_len == 0;
                 let stop = |c: char| c == '}' || (plain && (c == '"' || c == '\n'));
                 let len = rest.find(stop).unwrap_or(rest.len());

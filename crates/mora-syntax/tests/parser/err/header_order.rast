@@ -1,19 +1,27 @@
-SourceFile@0..86
-  ImportDecl@0..12
-    ImportKw@0..6 "import"
-    Whitespace@6..7 " "
-    Name@7..11
-      Ident@7..11 "Core"
-    Semicolon@11..12 ";"
-  Newline@12..13 "\n"
-  FileNamespace@13..27
-    NamespaceKw@13..22 "namespace"
-    Whitespace@22..23 " "
-    Path@23..26
-      PathSegment@23..26
-        NameRef@23..26
-          Ident@23..26 "App"
-    Semicolon@26..27 ";"
+SourceFile@0..44
+  UsingDirective@0..15
+    UsingKw@0..5 "using"
+    Whitespace@5..6 " "
+    Path@6..14
+      PathSegment@6..9
+        NameRef@6..9
+          Ident@6..9 "Std"
+      Dot@9..10 "."
+      PathSegment@10..14
+        NameRef@10..14
+          Ident@10..14 "Json"
+    Semicolon@14..15 ";"
+  Newline@15..16 "\n"
+  ClassDecl@16..27
+    ClassKw@16..21 "class"
+    Whitespace@21..22 " "
+    Name@22..23
+      Ident@22..23 "C"
+    Whitespace@23..24 " "
+    MemberList@24..27
+      LBrace@24..25 "{"
+      Whitespace@25..26 " "
+      RBrace@26..27 "}"
   Newline@27..28 "\n"
   UsingDirective@28..43
     UsingKw@28..33 "using"
@@ -25,36 +33,7 @@ SourceFile@0..86
       Dot@37..38 "."
       PathSegment@38..42
         NameRef@38..42
-          Ident@38..42 "Json"
+          Ident@38..42 "Text"
     Semicolon@42..43 ";"
   Newline@43..44 "\n"
-  ClassDecl@44..55
-    ClassKw@44..49 "class"
-    Whitespace@49..50 " "
-    Name@50..51
-      Ident@50..51 "C"
-    Whitespace@51..52 " "
-    MemberList@52..55
-      LBrace@52..53 "{"
-      Whitespace@53..54 " "
-      RBrace@54..55 "}"
-  Newline@55..56 "\n"
-  ImportDecl@56..68
-    ImportKw@56..62 "import"
-    Whitespace@62..63 " "
-    Name@63..67
-      Ident@63..67 "Late"
-    Semicolon@67..68 ";"
-  Newline@68..69 "\n"
-  FileNamespace@69..85
-    NamespaceKw@69..78 "namespace"
-    Whitespace@78..79 " "
-    Path@79..84
-      PathSegment@79..84
-        NameRef@79..84
-          Ident@79..84 "Again"
-    Semicolon@84..85 ";"
-  Newline@85..86 "\n"
-error MR0110 27..27: `using` directives come after the imports and before the namespace and the declarations
-error MR0110 55..55: `import` declarations come first in a file
-error MR0110 68..68: a file has one `namespace`, after its imports and usings and before its declarations
+error MR0110 27..27: `using` directives come before the declarations

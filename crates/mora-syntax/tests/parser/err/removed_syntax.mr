@@ -1,0 +1,5 @@
+namespace App;
+import Core from "../core";
+let x = Core::Parse(1);
+Twice(this n: int): int => n * 2;
+class After { }

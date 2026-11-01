@@ -1,0 +1,153 @@
+SourceFile@0..117
+  ExprStmt@0..9
+    PathExpr@0..9
+      Path@0..9
+        PathSegment@0..9
+          NameRef@0..9
+            Ident@0..9 "namespace"
+  Whitespace@9..10 " "
+  ExprStmt@10..14
+    PathExpr@10..13
+      Path@10..13
+        PathSegment@10..13
+          NameRef@10..13
+            Ident@10..13 "App"
+    Semicolon@13..14 ";"
+  Newline@14..15 "\n"
+  Error@15..21
+    ImportKw@15..21 "import"
+  Whitespace@21..22 " "
+  ExprStmt@22..26
+    PathExpr@22..26
+      Path@22..26
+        PathSegment@22..26
+          NameRef@22..26
+            Ident@22..26 "Core"
+  Whitespace@26..27 " "
+  ExprStmt@27..31
+    PathExpr@27..31
+      Path@27..31
+        PathSegment@27..31
+          NameRef@27..31
+            Ident@27..31 "from"
+  Whitespace@31..32 " "
+  ExprStmt@32..42
+    LiteralExpr@32..41
+      String@32..41 "\"../core\""
+    Semicolon@41..42 ";"
+  Newline@42..43 "\n"
+  LocalDeclStmt@43..55
+    LocalDecl@43..55
+      LetKw@43..46 "let"
+      Whitespace@46..47 " "
+      VariableDeclarator@47..55
+        Name@47..48
+          Ident@47..48 "x"
+        Whitespace@48..49 " "
+        Eq@49..50 "="
+        Whitespace@50..51 " "
+        PathExpr@51..55
+          Path@51..55
+            PathSegment@51..55
+              NameRef@51..55
+                Ident@51..55 "Core"
+  Error@55..56
+    Colon@55..56 ":"
+  Error@56..57
+    Colon@56..57 ":"
+  ExprStmt@57..66
+    CallExpr@57..65
+      PathExpr@57..62
+        Path@57..62
+          PathSegment@57..62
+            NameRef@57..62
+              Ident@57..62 "Parse"
+      ArgList@62..65
+        LParen@62..63 "("
+        Arg@63..64
+          LiteralExpr@63..64
+            IntNumber@63..64 "1"
+        RParen@64..65 ")"
+    Semicolon@65..66 ";"
+  Newline@66..67 "\n"
+  FunctionDecl@67..73
+    Name@67..72
+      Ident@67..72 "Twice"
+    ParamList@72..73
+      LParen@72..73 "("
+      Param@73..73
+        Name@73..73
+  ExprStmt@73..77
+    ThisExpr@73..77
+      ThisKw@73..77 "this"
+  Whitespace@77..78 " "
+  ExprStmt@78..79
+    PathExpr@78..79
+      Path@78..79
+        PathSegment@78..79
+          NameRef@78..79
+            Ident@78..79 "n"
+  Error@79..80
+    Colon@79..80 ":"
+  Whitespace@80..81 " "
+  ExprStmt@81..84
+    PredefinedTypeExpr@81..84
+      PredefinedType@81..84
+        IntKw@81..84 "int"
+  Error@84..85
+    RParen@84..85 ")"
+  Error@85..86
+    Colon@85..86 ":"
+  Whitespace@86..87 " "
+  ExprStmt@87..90
+    PredefinedTypeExpr@87..90
+      PredefinedType@87..90
+        IntKw@87..90 "int"
+  Whitespace@90..91 " "
+  Error@91..93
+    FatArrow@91..93 "=>"
+  Whitespace@93..94 " "
+  ExprStmt@94..100
+    BinExpr@94..99
+      PathExpr@94..95
+        Path@94..95
+          PathSegment@94..95
+            NameRef@94..95
+              Ident@94..95 "n"
+      Whitespace@95..96 " "
+      Star@96..97 "*"
+      Whitespace@97..98 " "
+      LiteralExpr@98..99
+        IntNumber@98..99 "2"
+    Semicolon@99..100 ";"
+  Newline@100..101 "\n"
+  ClassDecl@101..116
+    ClassKw@101..106 "class"
+    Whitespace@106..107 " "
+    Name@107..112
+      Ident@107..112 "After"
+    Whitespace@112..113 " "
+    MemberList@113..116
+      LBrace@113..114 "{"
+      Whitespace@114..115 " "
+      RBrace@115..116 "}"
+  Newline@116..117 "\n"
+error MR0110 9..9: expected `;`
+error MR0110 15..21: expected a statement
+error MR0110 26..26: expected `;`
+error MR0110 31..31: expected `;`
+error MR0110 55..55: expected `;`
+error MR0110 55..56: expected a statement
+error MR0110 56..57: expected a statement
+error MR0110 73..73: expected an identifier
+error MR0110 73..73: expected `:` and a type
+error MR0110 73..73: expected `)`
+error MR0110 73..73: expected `;`
+error MR0110 77..77: expected `;`
+error MR0110 79..79: expected `;`
+error MR0110 79..80: expected a statement
+error MR0110 84..84: expected `;`
+error MR0110 84..85: expected a statement
+error MR0110 85..86: expected a statement
+error MR0110 90..90: expected `;`
+error MR0110 91..93: expected a statement
