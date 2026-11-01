@@ -1131,7 +1131,7 @@ Done when:
 - A project with a passing, a failing, a panicking and an ignored test prints `Passed: 1, Failed: 2, Ignored: 1` and exits 1.
 - A test that fails for some values of `Random.Shared` prints its seed, and `--seed` with that seed fails it again with the same values.
 - A doc-comment example with a wrong `// expect:` line fails under its example name, and an `// error: MRnnnn` example passes when that code is reported.
-- `Assert.Snapshot` fails after the value changes, `mora test --bless` rewrites the file, and the next run passes.
+- `Assert.Snapshot` and `Assert.SnapshotJson` fail after the value changes, a second snapshot in the same test uses `<test>.2.snap`, `mora test --bless` rewrites every file the test uses, and the next run passes.
 
 ### M5.13 Signals and `@Observable`
 
