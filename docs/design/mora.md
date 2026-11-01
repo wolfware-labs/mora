@@ -995,12 +995,12 @@ public interface IComparer<T> {
 public Sort<T>(items: List<T>, compare: (T, T) => int uses none) { ... }
 ```
 
-- **Vocabulary.** The capabilities of §18.6: `fs.read`, `fs.write`, `net.outbound`, `net.listen`, `env`, `clock`, `random`, `process` and `ffi`; `fs` and `net` name both of their halves. The analysis also reports two facts that are not capabilities: `blocking`, a call that blocks the executor thread (§12.1), and `dyn`, a call to code the compiler cannot see.
-- **Sources.** A function marked `@RequiresCapability("...")` uses that capability, a function marked `@Blocking` is blocking, and an `extern` function uses `ffi` (§6.11). Nothing else introduces an effect; the standard library carries the marks.
+- **Vocabulary.** The capabilities of §18.6: `fs.read`, `fs.write`, `net.outbound`, `net.listen`, `env`, `clock`, `random`, `process` and `ffi`; `fs` and `net` name both of their halves. The analysis also reports three facts that are not capabilities: `blocking`, a call that blocks the executor thread (§12.1), `dyn`, a call to code the compiler cannot see, and `secret`, a read of a secret's plaintext through `Secret<T>.Use` (§15.11).
+- **Sources.** A function marked `@RequiresCapability("...")` uses that capability, a function marked `@Blocking` is blocking, an `extern` function uses `ffi` (§6.11), and a call of `Secret<T>.Use` is `secret` (§15.11). Nothing else introduces an effect; the standard library carries the marks.
 - **Inference.** A function's effect set is the union of the effects of the code written inside it, including the lambdas it creates, and of the functions it calls, computed per strongly connected component of the call graph so that recursion needs no annotation. A call through a function-typed `in` parameter adds nothing to the callee: the closure passed there is a view known at the call site (§5.8, §10.9), so its effects are added to the caller. A generic function is analyzed per instantiation, so `list.Sort(compare)` uses exactly what `compare` uses.
 - **Dynamic calls.** A call through an escaping function value or an `any I` value adds `dyn`, unless the function type or the interface method has a bound, which then stands for the call.
 - **Attribution.** An effect is charged to the function, and so to the package, whose code performs it. A lambda written in an app and passed into a library carries the app's effects, not the library's. Authority travels with values and closures, never with the call stack, which lets §18.6 check grants per package without effect parameters.
-- **Bounds.** `uses` follows the return type, or the parameter list when there is none, and comes before `where` and the body. It names one capability, several in parentheses (`uses (fs.read, clock)`), or `none`. An inferred capability outside the bound, or a `dyn` call, is error `MR0250`, which prints the call path that brings it in. A bound on an interface method is checked against every implementation, and a bound on a function type against every lambda or method converted to it. `blocking` is not a capability and is never bounded.
+- **Bounds.** `uses` follows the return type, or the parameter list when there is none, and comes before `where` and the body. It names one capability, several in parentheses (`uses (fs.read, clock)`), or `none`. An inferred capability outside the bound, or a `dyn` call, is error `MR0250`, which prints the call path that brings it in. A bound on an interface method is checked against every implementation, and a bound on a function type against every lambda or method converted to it. `blocking` and `secret` are not capabilities and are never bounded.
 - **`uses none` means no capability.** It does not mean that the function allocates nothing, mutates nothing or never panics; those are separate facts (§6.9).
 - **Seeing effects.** Hover shows a function's set, and an optional inlay hint shows it after the signature. `mora explain-effects <function>` prints each effect with the call path that introduces it: `clock <- DateTime.UtcNow at src/Price.mr:12`.
 - **`blocking-in-async`** (lint, warn by default) reports an `async` function whose set contains `blocking`, with the path, however many calls down the blocking call is.
@@ -1158,7 +1158,44 @@ Reassigning a `let` local is error `MR0182`. Lint `prefer-let` (warn by default)
 - `sizeof(T)` gives the size in bytes of a value type at compile time.
 - `x with { F = v }` on structs (§6.2).
 - `^i` is an index from the end and `a..b` a range, for arrays, spans, lists and strings.
-- String interpolation (§3.5) formats each hole through `IDisplay` (§8.6). When the target is a `ref Formatter` parameter the parts are written directly into it; otherwise the expression allocates one `string`.
+- String interpolation (§3.5) builds the type its target asks for when that type is an interpolation handler (§7.14). Otherwise it formats each hole through `IDisplay` (§8.6): when the target is a `ref Formatter` parameter the parts are written directly into it, and in every other position the expression allocates one `string`.
+
+### 7.14 Interpolation handlers
+
+An interpolated string builds whatever type its target asks for. A query, an HTML fragment or a log message is written as `$"..."`, its literal parts stay trusted text, and its holes reach the target as typed values rather than as text pasted in (D-105).
+
+```mora
+let page: Html = $"<p class=\"greeting\">Hello, {user.Name}</p>";      // the name is escaped as element text
+let link: Url = $"https://api.example.com/users/{id}/orders?status={status}";  // each hole encoded for its component
+Log.Info($"created user {user.Id} from {req.Path}");                     // fields user.Id and req.Path (§15.10)
+
+let name = ReadName();
+let bad: Html = name;            // error: `string` does not convert to `Html`
+```
+
+A type is an interpolation handler when it implements `IInterpolate<T>`, and a hole's type takes part when it implements `IHole<T>` for that handler:
+
+```mora
+public interface IInterpolate<TSelf> {
+    static abstract Begin(literalBytes: int, holeCount: int): TSelf;
+    Enabled: bool => true;            // false skips every part that follows
+    mut AppendLiteral(text: Literal);
+    mut AppendHole<T>(value: T, format: Literal, source: Literal) where T : IHole<TSelf>;
+}
+
+public interface IHole<THandler> {
+    AppendTo(ref handler: THandler, format: Literal);
+}
+```
+
+- **Lowering.** When the target type of `$"..."` implements `IInterpolate<T>`, the compiler calls `T.Begin` with the total length of the literal parts and the number of holes, then, if `Enabled` is `true`, `AppendLiteral` for each literal part and `AppendHole` for each hole, in source order. The calls are statically dispatched and inlined like any other generic code (§8.3). The handler value is the expression's value. When `Enabled` is `false` no part is appended and no hole expression is evaluated, which is how a disabled log level costs one branch.
+- **Holes.** `format` holds the text after the hole's expression, alignment included (`,10:F2`), and is empty when there is none. `source` is the hole's expression as written (`user.Id`), which log handlers use as a field name. A hole whose type does not implement `IHole<T>` for the handler is the usual unsatisfied-constraint error, which names the missing implementation.
+- **`Literal`** is text the compiler knows (§15.2): the literal parts of an interpolated string, and a string literal or `const` string written where a `Literal` is expected. Only the compiler creates one, and no function turns a run-time `string` into a `Literal`. Since a handler's trusted text arrives only as `Literal`, text read at run time can never become markup, a query or a command line.
+- **No conversion from `string`.** A handler type does not implement `IFrom<string>`, so `let bad: Html = name;` does not compile. A handler that needs an escape hatch offers a named function, such as `Html.Unchecked(text)`, and lint `unchecked-injection` (warn by default) flags every call.
+- **Skipped holes.** Lint `skipped-hole-effects` (warn by default) flags a hole that mutates state or uses a capability (§6.14) when the handler's `Enabled` is not the default, because that hole may not run.
+- With no handler as target, an interpolated string is a `string` as before, or writes into a `ref Formatter` (§7.13).
+
+The MVP standard library has three handlers: `Html` and `Url` (§15.2) and the log message handler (§15.10). Handlers for SQL and for process command lines follow the same protocol and come with the database and process libraries, which are post-MVP. A static check of the literal parts at compile time, so that a malformed template is a compile error, is post-MVP too.
 
 ## 8. Generics and interfaces
 
@@ -1228,6 +1265,8 @@ public static TotalArea(shapes: List<any IShape>): double {
 | `IEnumerator<T>` | `mut Next(): T?`; default `SizeHint(): (Lower: int, Upper: int?)`, which returns `(0, none)` | `foreach`, LINQ |
 | `IFuture<T>` | `mut Poll(ref waker: Waker): Poll<T>` | `await`, `Task.*` (§12.2) |
 | `IParse<T>` | `static abstract Parse(text: ReadOnlySpan<byte>): Result<T, ParseError>` | `int.Parse`, `RouteValue<T>`, query values |
+| `IInterpolate<TSelf>` | `static abstract Begin(literalBytes: int, holeCount: int): TSelf`; default `Enabled: bool`, which is `true`; `mut AppendLiteral(text: Literal)`; `mut AppendHole<T>(value: T, format: Literal, source: Literal) where T : IHole<TSelf>` | Interpolated strings with a handler target (§7.14) |
+| `IHole<THandler>` | `AppendTo(ref handler: THandler, format: Literal)` | Holes of an interpolated string with a handler target (§7.14) |
 | `INumber<T>` | Arithmetic and comparison operators, `Zero`, `One`, `MinValue`, `MaxValue` as static abstract members | Generic math over primitives |
 
 A type that implements `IDisplay` MUST override at least one of `Format` and `ToString` (`MR0232`); most types override `ToString()`. Because there is no `object`, a type has no `ToString()`, `Equals` or `GetHashCode` unless it implements these interfaces, generates them with a macro or is a type that gets them generated, such as a struct (§8.6). Using `==` on a type without `IEquatable<T>` is error `MR0233`, whose hint suggests `@Equatable` or `ReferenceEquals(a, b)` for identity of shared classes.
@@ -1374,7 +1413,7 @@ These macros replace a fixed derive list; the compiler has no special knowledge 
 | `@Default` | `IDefault` from field initializers or field defaults; for unions, the case marked `@Default` | `IDefault` |
 | `@Clone` | `IClone<T>`, cloning fields that implement `IClone` and copying the rest | copyable or `IClone` |
 | `@Json` | `IJsonSerialize` and `IJsonDeserialize` (§16.3) | `IJsonSerialize` / `IJsonDeserialize` |
-| `@Error` | On a union or struct: `IError`, and for each case with a single field marked `@From`, `IFrom<F>` for that field's type `F`, wrapping the value in the case; never on an `indirect` case (§11.3) | `IDisplay` on the type |
+| `@Error` | On a union or struct: `IError`, with `Code`, `PublicMessage` and `HttpStatus` from `@Code`, `@Public` and `@Status` on each case (§11.2), and for each case with a single field marked `@From`, `IFrom<F>` for that field's type `F`, wrapping the value in the case; never on an `indirect` case (§11.3) | `IDisplay` on the type |
 | `@Arithmetic` | On a newtype (§6.12): same-type `+` and `-`, and `*` and `/` by a value of the underlying type; on a refined newtype each result is checked against the refinement | The underlying type has those operators |
 | `@Observable` | On a class: for each `mut` field `X` of type `F`, a method `SetX(value: F)`, marked `@SoleWriter("X")`, that assigns the field and, when the value changed, emits on a generated field `XChanged: Signal<F>` (§15.8); a `stored` getter whose inputs include `X` gets its own signal, which `SetX` emits after the recalculation. Because `SetX` is the field's sole writer, every other assignment to `X` is `MR0253` (§6.11), so no change goes unnotified. Other macros never see the generated signals (§9.6), so `@Equatable`, `@Display` or `@Json` on the same class ignore them | `IEquatable` on `mut` fields |
 | `#Assert(condition)` | An assertion that, on failure, prints the condition's source text and the values of its operands: `assertion failed: total > 0 (total = -3)` | |
@@ -1607,15 +1646,21 @@ Any type can be an error type. The standard library's errors are unions or struc
 
 ```mora
 public interface IError : IDisplay {
-    Source: IError? => none;    // the underlying error, if any
+    Source: IError? => none;           // the underlying error, if any
+    Code: string;                      // stable and dotted: "checkout.card_declined"
+    PublicMessage: string? => none;    // text safe to show a client; none means internal
+    HttpStatus: int? => none;          // the status an HTTP response for it uses (§16.2)
 }
 ```
 
-The MVP standard library defines `IoError`, `ParseError`, `FormatError`, `JsonError` and `HttpError` (§15, §16). An application usually declares one union per layer, with the standard-library macro `@Error` (§9.9):
+One error serves three readers (D-108). `Code` is for programs: alerting, dashboards and clients branch on it, never on message text, so it stays the same when the message changes. `PublicMessage` is the only text that may reach an end user, and an error without one is internal. `ToString()` and the `Source` chain are for developers and go to the log (§15.10).
+
+The MVP standard library defines `IoError`, `ParseError`, `FormatError`, `JsonError` and `HttpError` (§15, §16), whose codes start with `io.`, `parse.`, `format.`, `json.` and `http.`. An application usually declares one union per layer, with the standard-library macro `@Error` (§9.9):
 
 ```mora
 @Error
 public union AppError {
+    @Status(404) @Public("Not found.")
     NotFound(What: string),
     Io(@From Inner: IoError),
     Json(@From Inner: JsonError);
@@ -1627,6 +1672,8 @@ public union AppError {
     };
 }
 ```
+
+`@Error` gives each case its `Code`, `PublicMessage` and `HttpStatus` from the attributes `@Code("...")`, `@Public("...")` and `@Status(n)` on the case. A case without `@Code` gets the type's name and the case's name in snake case, joined by a dot: `app_error.not_found`. On a struct the attributes go on the type. Cases without `@Public` are internal, so `Io` and `Json` above never show their text to a client.
 
 ### 11.3 Conversions in `?`
 
@@ -1652,6 +1699,7 @@ A panic happens on:
 | Division by zero | `division by zero` |
 | Structural change during a view or enumeration | §10.10 |
 | Failed checked cast `(C)i` or enum cast | `cannot cast IShape holding Rect to Circle` |
+| A hole where an `Html` or `Url` handler cannot encode it (§15.2) | `Html hole inside <script> is not supported` |
 | `Debug.Assert(cond)` (debug builds) | `assertion failed: <condition source text>` |
 | `Unreachable()`, `Todo()` | `entered unreachable code` / `not yet implemented` |
 | Lazy static initialization cycle | §4.7 |
@@ -1663,6 +1711,22 @@ A panic prints `panic at src/Store.mr:42:17: <message>` to stderr and, in debug 
 `panic`, `Unreachable` and `Todo` are expressions of the never type, which converts to any type, so `let x = cond ? 1 : panic("no");` compiles. The never type cannot be named in source.
 
 Whether a panic in one task of a server should end only that task is OQ-1.
+
+### 11.5 Reports
+
+A library returns typed errors, so that callers can match on the cases. An application that only needs to report a failure, with what it was doing when it failed, returns `Report` instead (D-108):
+
+```mora
+LoadConfig(path: string): Result<Config, Report> {
+    let text = File.ReadAllText(path).Context(() => $"reading config {path}")?;
+    let config = Json.Deserialize<Config>(text).Context("parsing the config")?;
+    return config;
+}
+```
+
+- `Report` holds the error as `any IError` and a list of context lines, and implements `IError`. Its `Code`, `PublicMessage` and `HttpStatus` are the wrapped error's. `ToString()` prints the newest context line first, then the older ones, then the error and its `Source` chain.
+- `Context(message)` on a `Result<T, E>` with `E : IError` turns an `Err` into a `Report` with that line, and on a `Result<T, Report>` it adds a line. `Report()` converts without a line. Both do nothing to an `Ok`. A message that is a string literal costs nothing, and a message with holes is passed as a lambda, `() => $"..."`, so that it is built only when there is an error.
+- `?` never converts to `Report` by itself. Wrapping an error boxes it, and a conversion used implicitly does not allocate (§5.10), so `Report` does not implement `IFrom<E>`. A bare `?` on a `Result<T, IoError>` in a function that returns `Result<U, Report>` is error `MR0201`, with fixes that add `.Report()` or `.Context("...")`. The allocation is then written in the code, and it happens only on the error path.
 
 ## 12. Async and concurrency
 
@@ -2051,7 +2115,7 @@ The standard library takes its names from .NET where they fit, and drops what de
 
 ### 15.1 Prelude (`Std`)
 
-Visible in every file: primitives and their static members (`int.Parse`, `int.MaxValue`, `double.IsNaN`, ...), `string`, `Option<T>`, `Result<T, E>`, `Ok`, `Err`, `List<T>`, `Dictionary<TKey, TValue>`, `HashSet<T>`, `Span<T>`, `ReadOnlySpan<T>`, `Func`, `Action`, `Console`, `Math`, `MathF`, `Environment`, `Task`, `Future<T>`, `TimeSpan`, `Drop`, `ReferenceEquals`, `panic`, `Debug`, `Unreachable`, `Todo`, the interfaces of §8.5, `IError`, and the LINQ operators of §15.5.
+Visible in every file: primitives and their static members (`int.Parse`, `int.MaxValue`, `double.IsNaN`, ...), `string`, `Option<T>`, `Result<T, E>`, `Ok`, `Err`, `List<T>`, `Dictionary<TKey, TValue>`, `HashSet<T>`, `Span<T>`, `ReadOnlySpan<T>`, `Func`, `Action`, `Console`, `Math`, `MathF`, `Environment`, `Task`, `Future<T>`, `TimeSpan`, `Drop`, `ReferenceEquals`, `panic`, `Debug`, `Unreachable`, `Todo`, the interfaces of §8.5, `IError`, `Report`, `Literal`, `Log`, `Trace`, `Secret<T>`, and the LINQ operators of §15.5.
 
 Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`, so `if (int.Parse(text) is Ok(let n)) { ... }` parses and tests in one step.
 
@@ -2063,6 +2127,9 @@ Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`, so
 | `StringBuilder` | `Append(...)` for every `IDisplay`, `AppendLine`, `Length`, `Clear`, `ToString()` |
 | `Formatter` | The sink `IDisplay.Format` writes to: `Write(ReadOnlySpan<byte>)`, `Write(char)`, `Write(value: IDisplay)`, padding and alignment helpers |
 | `char` | `IsDigit`, `IsLetter`, `IsWhiteSpace`, `IsUpper`, `IsLower`, `ToUpper`, `ToLower`, `ToString()`, `Utf8Length` |
+| `Literal` | Text the compiler knows (§7.14): `Length`, `AsSpan()`, `ToString()`, `IDisplay`. Only the compiler creates one |
+| `Html` | An interpolation handler (§7.14). Literal parts are trusted markup. A hole is escaped for where it stands, element text or a quoted attribute value, and a hole anywhere else (inside `<script>` or `<style>`, in an unquoted attribute, or in a tag or attribute name) panics with the context it found. Holes: any `IDisplay`, whose text is escaped, and `Html`, which is inserted as it is. `Html.Unchecked(text: string)`, `ToString()` |
+| `Url` | An interpolation handler (§7.14). Literal parts are the URL's structure. A hole is percent-encoded for its component: a path segment, a query name or value, or the fragment. A hole in the scheme or the host panics. Holes: any `IDisplay`. `Url.Unchecked(text: string)`, `ToString()` |
 
 `Split` returns a lazy iterator struct, as the LINQ operators do, so `foreach (let field in csv.Split(','))` allocates only the pieces longer than 15 bytes (§13.4); `ToList()` on it builds a list.
 
@@ -2190,7 +2257,53 @@ A `@Benchmark` function takes no parameters and may return a value, which the ru
 
 `@Test(MaxAllocations = 0)` fails a test that allocates more than the given number of times, and `Assert.AllocatesAtMost(3, () => Handle(request))` checks one call. Both read the runtime's allocation counter (§13.1), and the count is the same in every build profile (§10.13).
 
-### 15.10 What is not in the MVP
+### 15.10 Logging and tracing
+
+`Log.Trace`, `Log.Debug`, `Log.Info`, `Log.Warn` and `Log.Error` take an interpolated string whose target is the log message handler (§7.14), so an ordinary message is also a structured event (D-107):
+
+```mora
+Log.Info($"created user {user.Id} for {req.Path}");
+```
+
+- **The event** records the template, `created user {user.Id} for {req.Path}`, one field per hole named after the hole's source text (`user.Id = 7`, `req.Path = "/users"`), the level, the time and the current span. The field names come from the string itself, so they cannot drift away from the values.
+- **Levels.** `MORA_LOG` sets the lowest level written: `trace`, `debug`, `info` (the default), `warn` or `error`. A call below it costs one branch: the handler is not `Enabled`, so no hole is evaluated (§7.14).
+- **Output** goes to stderr, one line per event: `2026-10-26T20:15:03.120Z INFO created user 7 for /users`. With `MORA_LOG_FORMAT=json` each event is one JSON object per line, with the template, the fields, the level, the time and the span.
+- **No capability.** Logging is ambient: any code, libraries included, logs without a grant, and a log call or span adds nothing to the caller's effect set (§6.14), even though it reads the clock and writes to stderr, so a `uses none` function may log. A `Secret<T>` hole prints redacted (§15.11).
+- **Spans.** `Trace.Span($"...")` starts a span with the same template and fields and returns a move-only value. The span ends when that value is dropped, which happens on every exit path, `?` included (§10.8), and its end records the duration. Events and spans started while it is live belong to it, and a task inherits the span that is current where it is spawned (§12.4). Moving the value into a spawned task hands the span over on purpose.
+
+```mora
+LoadUser(id: int): Result<User, Report> {
+    let span = Trace.Span($"load user {id}");     // lives to the end of the function
+    let text = File.ReadAllText($"users/{id}.json").Report()?;  // an early return ends the span too
+    return Json.Deserialize<User>(text).Report();
+}
+```
+
+A span local is never reported as unused, since keeping it alive is its purpose. The request log of §16.1 is one `Info` event per request. Export to OpenTelemetry is post-MVP.
+
+### 15.11 Secrets
+
+`Secret<T>` holds a value that must not leak: a password, a token, a connection string (D-106).
+
+```mora
+@Json
+public struct Settings {
+    public DatabaseUrl: Secret<string>;
+    public Port: int;
+}
+
+let settings = Json.Deserialize<Settings>(text)?;
+Log.Info($"loaded {settings.DatabaseUrl}");          // writes Secret<string>(***)
+let token = settings.DatabaseUrl.Use(bytes => Sign(bytes, payload));
+```
+
+- **Printing.** `IDisplay` writes `Secret<string>(***)`, so interpolation, logging, `Console` and error messages never show the value.
+- **Reading.** `Use<R>(f: (ReadOnlySpan<byte>) => R): R` is the only way to the plaintext. The span is a view (§10.6), so it cannot outlive the call. Copying the bytes out inside `f` is possible but visible, and lint `secret-copied` (warn by default) flags it. Each call of `Use` adds the fact `secret` to the calling function (§6.14), so `mora explain-effects` shows every place that reads a secret.
+- **Erasing.** A secret keeps its own copy of the bytes, and its destructor overwrites them with zeros before the memory is freed, at the point §10.8 fixes. `Secret<T>` has a destructor, so it is move-only (§10.2) and copies cannot multiply unseen; `Clone()` makes a second one explicitly. `new Secret<string>(value)` copies `value` in and does not erase it, so secrets are best read straight into a `Secret<T>`, as JSON deserialization does.
+- **Serialization.** `@Json` (§16.3) reads a `Secret<T>` field but never writes one: on a type with such a field it generates only `IJsonDeserialize`, so `Json.Serialize` of it is an unsatisfied-constraint error whose note names the field. `@JsonSecret` on the field writes the plaintext and lets the type be serialized.
+- In the MVP, `T` is `string` or `byte[]`.
+
+### 15.12 What is not in the MVP
 
 Threads and synchronization (`Thread`, `Mutex`, `Atomic`, `Channel` across threads), HTTP client, TLS, async file I/O, regular expressions, `decimal`, time zones, cultures, compression, cryptography beyond hashing for collections, processes (`Process.Start`), and serialization formats other than JSON. Each is a candidate for post-MVP milestones (§22).
 
@@ -2206,7 +2319,7 @@ app.MapGet("/health", async (req: Request) => Results.Ok());
 await app.RunAsync("127.0.0.1:8080")?;            // address argument overrides configuration
 ```
 
-**Handlers.** A handler is a function from `Request` to a future of `Result<Response, HttpError>`, written as an async lambda and taken as a `move` parameter, so it becomes an escaping closure (§10.9). The route table stores handlers of different types together, so when a request arrives the router boxes the handler's future with `Future.Box`: one allocation per request, counted in the §20.6 budget. `MapGet`, `MapPost`, `MapPut`, `MapPatch`, `MapDelete` and `Map(method, pattern, handler)` register them. A handler that returns `Err(httpError)` produces the response that error describes (§16.2).
+**Handlers.** A handler is a function from `Request` to a future of `Result<Response, E>`, for any error type `E : IError` (D-108), written as an async lambda and taken as a `move` parameter, so it becomes an escaping closure (§10.9). `HttpError` is the error type of the built-in failures, and an application returns its own error types directly, with no conversion to `HttpError`. `MapGet`, `MapPost`, `MapPut`, `MapPatch`, `MapDelete` and `Map(method, pattern, handler)` register them. They are generic over `E`, so each registration compiles a wrapper that turns `Err(e)` into the response §16.2 describes, reading `e`'s members without boxing it. The route table stores these wrappers together, so when a request arrives the router boxes the wrapper's future with `Future.Box`: one allocation per request, counted in the §20.6 budget.
 
 **Routing.** Patterns are literal segments and `{name}` parameters, plus an optional trailing `{*rest}`. Routes are matched by segment, literal segments before parameters, and the first registration wins among equal routes. A path that matches no route returns 404; a path that matches only with another method returns 405 with an `Allow` header. Duplicate registrations panic at startup.
 
@@ -2224,7 +2337,7 @@ await app.RunAsync("127.0.0.1:8080")?;            // address argument overrides 
 
 **Allocation** (D-80). Each connection task takes a read buffer and a write buffer from a pool. A `Request` keeps offsets into the request-head buffer, and `Headers.Get(name)` builds its `string` only when called, usually inline (§13.4). `Request` and `Response` live in the connection task's state (§12.3). `Results.Json(value)` keeps the value and serializes it straight into the write buffer when the response is written, with no intermediate `string`. A warm `GET /users/1` in §2.2 makes at most 3 heap allocations (§20.6).
 
-**Logging.** One line per request to stderr, `2026-10-26T20:15:03.120Z GET /users/1 200 0.4ms`, unless `WebAppOptions.RequestLog` is `false`.
+**Logging.** One `Info` event per request (§15.10), with the fields `method`, `path`, `status` and `elapsed`, written as `2026-10-26T20:15:03.120Z INFO GET /users/1 200 0.4ms`, unless `WebAppOptions.RequestLog` is `false`. Each request runs in its own span, whose id is the request's trace id.
 
 ### 16.2 `HttpError`
 
@@ -2240,6 +2353,14 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
     public static From(e: ParseError): HttpError => BadRequest(e.ToString());
 }
 ```
+
+`HttpError` implements the members of `IError` (§11.2): its codes are `http.bad_request`, `http.not_found`, `http.payload_too_large`, `http.unsupported_media_type` and `http.status`, its `HttpStatus` is the case's status, and every case is public: `BadRequest` and `Status` show their `Message`, and the other cases the reason phrase of their status.
+
+**Responses for errors.** A handler's `Err(e)` becomes a response through `e`'s `IError` members, the same way for `HttpError` and for an application's errors (D-108):
+
+- An error with a `PublicMessage` gets the status `HttpStatus`, or 500 when that is `none`, and the body `{"error":"<PublicMessage>"}` with `Content-Type: application/json`.
+- An internal error, with no `PublicMessage`, gets status 500 and an `application/problem+json` body (RFC 9457) holding only the code and the request's trace id: `{"type":"about:blank","title":"Internal Server Error","status":500,"code":"app_error.io","traceId":"4bf92f3577b34da6"}`. Its text never reaches the client.
+- An internal error is also logged as one `Error` event with the code, `ToString()` and the `Source` chain, in the request's span, so the trace id in the response finds the full story in the log.
 
 `RouteValue<int>("id")` on `abc` returns `BadRequest("route value 'id' is not a valid int")`. `ReadJsonAsync<T>()` returns `UnsupportedMediaType` when the request has a `Content-Type` other than `application/json` (a missing header is accepted), and `BadRequest` for malformed or mistyped JSON.
 
@@ -2265,6 +2386,7 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
 | `Dictionary<string, T>` | objects |
 | Unions | `{"type": "circle", "radius": 1.5}`: a `type` discriminator with the camelCase case name, then the case fields. `@JsonTag("kind")` renames the discriminator |
 | `DateTime` | ISO 8601 string |
+| `Secret<T>` | read as its value; never written unless the field has `@JsonSecret` (§15.11) |
 
 `JsonError` carries the line, column and a message. Its `ToString()` is `at line 1, column 2: expected string`, which is how §2.2's expected output is produced.
 
@@ -2636,10 +2758,10 @@ Mora is built in thin vertical slices: each milestone runs real programs end to 
 | **M0: Foundations** | Repository, CI on Linux, macOS and Windows, workspace crates and layering check, spans and diagnostics, error-code registry, test harnesses (UI, run, spec examples), `mora-rt` skeleton built for every Tier 1 target | CI green on all three OSes; harnesses run an empty suite; `cargo xtask layers` enforces §14.2 |
 | **M1: Hello, native** | Lexer and full parser with a lossless tree, name resolution and type checking for namespaces, functions, structs, primitives, strings, locals and control flow, MIR lowering, Cranelift code generation, linking on every Tier 1 target, with identical code folding on Linux and Windows, `Console.WriteLine` with interpolation, `mora build`, `run` and `check` | §2.1 builds and runs on every Tier 1 target in CI; the M1 run tests pass through JIT and AOT |
 | **M2: Memory model** | Classes, structs, unique classes, parameter modes, move checking, drop elaboration, destructors, aliased-place borrows, views and spans, weak references, closures, ARC insertion and optimization with ownership and modification summaries, release at last use, the bundled allocator and 8-byte header, 16-byte strings, niche layouts, copy elision, inlining and scalar replacement, stack promotion, reuse for `with` and string `+=`, allocation counters and `MaxAllocations` tests, debug runtime leak tracking | The suite of §20.3 passes; the §10.13 snapshots pass |
-| **M3: Expressive core** | Unions, enums, patterns and exhaustiveness, options and `none` with flow narrowing, `Result` and `?`, operators and conversions, generics and monomorphization, interfaces with static and dynamic dispatch, associated types, indexers, extension blocks, tuples, collection expressions, newtypes and refinements | Run and UI tests for every construct of §§5 to 8; every §2.4 example runs |
+| **M3: Expressive core** | Unions, enums, patterns and exhaustiveness, options and `none` with flow narrowing, `Result` and `?`, operators and conversions, generics and monomorphization, interfaces with static and dynamic dispatch, associated types, indexers, extension blocks, tuples, collection expressions, interpolation handlers, newtypes and refinements | Run and UI tests for every construct of §§5 to 8; every §2.4 example runs |
 | **M4: Macros** | `macro` declarations, `code` quoting and splices, hygiene, the `Std.Meta` model, the sandboxed JIT runner and its cache, `mora expand`, `MacroTest`, and the standard-library macros of §9.9 except `@Json` | Every §9 example runs; `@Equatable`, `@Hashable`, `@Comparable`, `@Display`, `@Default`, `@Clone` and `#Assert` pass their `MacroTest` suites; structs get their automatic implementations from these macros |
-| **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `@Json` macro, `Std.Testing`, `mora test` and `test` sections, insertion-ordered hash tables, collection sizing, SIMD text kernels, bounds-check removal, `mora explain-cost` | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; chains of streaming LINQ operators meet §15.5 with no allocation |
-| **M6: Async and HTTP** | Async lowering, inline futures and pooled task blocks, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server with pooled buffers, routing, results, `HttpError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
+| **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `@Json` macro, `Html` and `Url`, logging and tracing, `Secret<T>`, `Report`, `Std.Testing`, `mora test` and `test` sections, insertion-ordered hash tables, collection sizing, SIMD text kernels, bounds-check removal, `mora explain-cost` | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; chains of streaming LINQ operators meet §15.5 with no allocation |
+| **M6: Async and HTTP** | Async lowering, inline futures and pooled task blocks, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server with pooled buffers, routing, results, `HttpError` and error responses from `IError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
 | **M7: Developer experience and v0.1** | Language server with the cost lens, VS Code extension, formatter, REPL, `mora bench`, `mora new` templates, `mora explain` and error pages, documentation site with the language tour, installers, release workflow, budgets | v0.1.0 published on every channel of §19.3; §1.5 holds; budgets of §20.6 measured and either met or revised in this document |
 | M8: WebAssembly and libraries | §18.1 to §18.4 | post-MVP |
 | M9: Packages and capabilities | §18.5, §18.6 | post-MVP |
@@ -2758,6 +2880,10 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-102 | Effects are inferred per function from capability-marked std functions, charged to the code that performs them, and bounded where written with `uses`; `uses none` means no capability; lint `blocking-in-async` | user | 6.14, 9.7, 14.8, 18.6 |
 | D-103 | `=>` getters and index `get` accessors are checked to be cheap (no heap allocation, loop, mutation or failure, `MR0251`), trusting `Std` functions marked `@Cheap` not to loop (`MR0254` outside `Std`); a `stored` getter is recalculated when an input is written, and its inputs are writable only inside its type (`MR0252`) | user | 6.9, 6.11, 15.3 |
 | D-104 | Change notification is the `@Observable` macro over `Signal<T>`, not a language feature; its generated `SetX` is marked `@SoleWriter`, so any other assignment to an observed field is `MR0253`; cached `memo` getters are post-MVP | user | 6.11, 9.9, 15.8 |
+| D-105 | An interpolated string builds the handler type its target asks for (`IInterpolate<T>`, `IHole<T>`); trusted text arrives only as the compiler-made `Literal`, and `string` never converts to a handler type such as `Html` or `Url` | user | 7.13, 7.14, 8.5, 15.2 |
+| D-106 | `Secret<T>` prints redacted, is read only through a view in `Use`, is erased by its destructor, is move-only, and is never serialized without `@JsonSecret` | user | 6.14, 15.11, 16.3 |
+| D-107 | Logging takes interpolated strings and records each hole as a field named after its source text; a disabled level skips the holes; spans end when their value is dropped; logging needs no capability | user | 15.10, 16.1 |
+| D-108 | `IError` carries `Code`, `PublicMessage` and `HttpStatus`; HTTP handlers return any `E : IError` and the server maps it without boxing, showing only public messages; `Report` collects context and is reached explicitly with `.Context(...)` or `.Report()`, never by a bare `?` | user | 11.2, 11.5, 16.1, 16.2 |
 
 ## 24. Open questions
 
