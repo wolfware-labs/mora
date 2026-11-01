@@ -535,6 +535,8 @@ public union Result<T, E> {
 }
 ```
 
+Both parameters allow move-only types (`allows move`, §8.2), as `Option<T>` does for every `T` (§5.6), so a result can carry a unique value or a move-only error; such a result is itself move-only (§10.2).
+
 `Result<T, E>` is the only way to report a recoverable error (§11). Members: `IsOk`, `IsErr`, `Value` (panics on `Err`), `Error` (panics on `Ok`), `Expect(string)`, `Map`, `MapError`, `AndThen`, `GetValueOrDefault(T)`. A discarded `Result` is warning `MR2002`; write `_ = expr;` to discard it on purpose.
 
 `Result<T, E>` implements `IFrom<T>` (§5.10, §11.3), so `return value;` works in a function that returns `Result<T, E>`. When `T` and `E` are the same type the conversion is ambiguous and the compiler requires `Ok(value)` (`MR0132`).
@@ -1180,8 +1182,8 @@ public interface IInterpolate<TSelf> {
     static abstract Begin(literalBytes: int, holeCount: int): TSelf;
     Enabled: bool => true;            // false skips every part that follows
     mut AppendLiteral(text: Literal);
-    mut AppendHole<T>(value: T, format: Literal, source: Literal) where T : IHole<TSelf>;
-    mut AppendDisplay<T>(value: T, format: Literal, source: Literal) where T : IDisplay;
+    mut AppendHole<T>(value: T, format: Literal, source: Literal) where T : IHole<TSelf>, allows move;
+    mut AppendDisplay<T>(value: T, format: Literal, source: Literal) where T : IDisplay, allows move;
 }
 
 public interface IHole<THandler> {
@@ -1190,7 +1192,7 @@ public interface IHole<THandler> {
 ```
 
 - **Lowering.** When the target type of `$"..."` implements `IInterpolate<T>`, the compiler calls `T.Begin` with the total length of the literal parts and the number of holes, then, if `Enabled` is `true`, `AppendLiteral` for each literal part and one call for each hole, in source order. The calls are statically dispatched and inlined like any other generic code (§8.3). The handler value is the expression's value. When `Enabled` is `false` no part is appended and no hole expression is evaluated, which is how a disabled log level costs one branch.
-- **Holes.** A hole whose type implements `IHole<T>` for the handler goes to `AppendHole`, so a handler can take some types specially, as `Html` takes a nested `Html` fragment. Any other hole whose type implements `IDisplay` goes to `AppendDisplay`, which receives the value itself, not its text, so the handler decides how to encode it. A hole with neither is an error that names both interfaces. `format` holds the text after the hole's expression, alignment included (`,10:F2`), and is empty when there is none. `source` is the hole's expression as written (`user.Id`), which log handlers use as a field name.
+- **Holes.** A hole whose type implements `IHole<T>` for the handler goes to `AppendHole`, so a handler can take some types specially, as `Html` takes a nested `Html` fragment. Any other hole whose type implements `IDisplay` goes to `AppendDisplay`, which receives the value itself, not its text, so the handler decides how to encode it. A hole with neither is an error that names both interfaces. A hole is borrowed for the call (§10.3), so a move-only value such as a `Secret<T>` can be a hole and stays where it is. `format` holds the text after the hole's expression, alignment included (`,10:F2`), and is empty when there is none. `source` is the hole's expression as written (`user.Id`), which log handlers use as a field name.
 - **`Literal`** is text the compiler knows (§15.2): the literal parts of an interpolated string, and a string literal or `const` string written where a `Literal` is expected. Only the compiler creates one, and no function turns a run-time `string` into a `Literal`. Since a handler's trusted text arrives only as `Literal`, text read at run time becomes markup, a query or a command line only through a named escape hatch such as `Html.Unchecked`, which is linted (below).
 - **No conversion from `string`.** A handler type does not implement `IFrom<string>`, so `let bad: Html = name;` does not compile. A handler that needs an escape hatch offers a named function, such as `Html.Unchecked(text)`, and lint `unchecked-injection` (warn by default) flags every call.
 - **Skipped holes.** Lint `skipped-hole-effects` (warn by default) flags a hole that mutates state or uses a capability (§6.14) when the handler's `Enabled` is not the default, because that hole may not run.
@@ -1266,7 +1268,7 @@ public static TotalArea(shapes: List<any IShape>): double {
 | `IEnumerator<T>` | `mut Next(): T?`; default `SizeHint(): (Lower: int, Upper: int?)`, which returns `(0, none)` | `foreach`, LINQ |
 | `IFuture<T>` | `mut Poll(ref waker: Waker): Poll<T>` | `await`, `Task.*` (§12.2) |
 | `IParse<T>` | `static abstract Parse(text: ReadOnlySpan<byte>): Result<T, ParseError>` | `int.Parse`, `RouteValue<T>`, query values |
-| `IInterpolate<TSelf>` | `static abstract Begin(literalBytes: int, holeCount: int): TSelf`; default `Enabled: bool`, which is `true`; `mut AppendLiteral(text: Literal)`; `mut AppendHole<T>(value: T, format: Literal, source: Literal) where T : IHole<TSelf>`; `mut AppendDisplay<T>(value: T, format: Literal, source: Literal) where T : IDisplay` | Interpolated strings with a handler target (§7.14) |
+| `IInterpolate<TSelf>` | `static abstract Begin(literalBytes: int, holeCount: int): TSelf`; default `Enabled: bool`, which is `true`; `mut AppendLiteral(text: Literal)`; `mut AppendHole<T>(value: T, format: Literal, source: Literal) where T : IHole<TSelf>, allows move`; `mut AppendDisplay<T>(value: T, format: Literal, source: Literal) where T : IDisplay, allows move` | Interpolated strings with a handler target (§7.14) |
 | `IHole<THandler>` | `AppendTo(ref handler: THandler, format: Literal)` | Holes of an interpolated string with a handler target (§7.14) |
 | `INumber<T>` | Arithmetic and comparison operators, `Zero`, `One`, `MinValue`, `MaxValue` as static abstract members | Generic math over primitives |
 
@@ -1419,7 +1421,7 @@ These macros replace a fixed derive list; the compiler has no special knowledge 
 | `@Observable` | On a class: for each `mut` field `X` of type `F`, a method `SetX(value: F)`, marked `@SoleWriter("X")`, that assigns the field and, when the value changed, emits on a generated field `XChanged: Signal<F>` (§15.8); a `stored` getter whose inputs include `X` gets its own signal, which `SetX` emits after the recalculation. Because `SetX` is the field's sole writer, every other assignment to `X` is `MR0253` (§6.11), so no change goes unnotified. Other macros never see the generated signals (§9.6), so `@Equatable`, `@Display` or `@Json` on the same class ignore them | `IEquatable` on `mut` fields |
 | `#Assert(condition)` | An assertion that, on failure, prints the condition's source text and the values of its operands: `assertion failed: total > 0 (total = -3)` | |
 
-**Helper attributes.** A macro may read attributes on the members and cases of the declaration it processes: `@Json` reads `@JsonName`, `@JsonIgnore`, `@JsonStrict`, `@JsonTag` and `@JsonSecret`, `@Error` reads `@From`, `@Code`, `@Public` and `@Status`, and `@Default` reads `@Default` on a union case. A helper attribute does nothing by itself, and one on a declaration that no macro reading it processes is error `MR0615`.
+**Helper attributes.** A macro may read attributes on the declaration it processes and on that declaration's members and cases: `@Json` reads `@JsonName`, `@JsonIgnore`, `@JsonStrict`, `@JsonTag` and `@JsonSecret`, `@Error` reads `@From`, `@Code`, `@Public` and `@Status`, and `@Default` reads `@Default` on a union case. A helper attribute does nothing by itself, and one placed anywhere else is error `MR0615`.
 
 A `weak` field is skipped by `Equatable`, `Hashable` and `Comparable`, and printed as `<weak>` by `Display`. These macros read a type's `Fields`; getters are computed from fields, so they are not compared, hashed, printed or serialized.
 
@@ -2361,7 +2363,7 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
 
 **Responses for errors.** A handler's `Err(e)` becomes a response through `e`'s `IError` members, the same way for `HttpError` and for an application's errors (D-108):
 
-- An error with a `PublicMessage` gets the status `HttpStatus`, or 500 when that is `none`, and the body `{"error":"<PublicMessage>"}` with `Content-Type: application/json`, the message written as an escaped JSON string.
+- An error with a `PublicMessage` gets the status `HttpStatus`, or 500 when that is `none` or outside 100 to 599 (the server then also logs a `Warn` event naming the error's code), and the body `{"error":"<PublicMessage>"}` with `Content-Type: application/json`, the message written as an escaped JSON string.
 - An internal error, with no `PublicMessage`, gets status 500 and an `application/problem+json` body (RFC 9457) with the standard `type`, `title` and `status` members and, beyond them, only the code and the request's trace id: `{"type":"about:blank","title":"Internal Server Error","status":500,"code":"app_error.io","traceId":"4bf92f3577b34da6"}`. Its text never reaches the client.
 - An internal error is also logged as one `Error` event with the code, `ToString()` and the `Source` chain, in the request's span, so the trace id in the response finds the full story in the log.
 
@@ -2371,7 +2373,7 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
 
 **Values.** `JsonValue` is the union shown in §6.6 (named `JsonValue` in the library). `Json.Parse(string)` and `Json.Parse(ReadOnlySpan<byte>)` return `Result<JsonValue, JsonError>`; `JsonValue.ToString()` writes compact JSON and `ToString("indented")` indented JSON.
 
-**Typed serialization.** The `@Json` macro (§9.9) generates `IJsonSerialize` and `IJsonDeserialize` for structs, classes, unions and enums. `Json.Serialize<T>(in value: T)` returns a `string`; `Json.Deserialize<T>(text)` returns `Result<T, JsonError>`. The generated code writes and reads tokens directly, with no intermediate `JsonValue` and no reflection. Serializers write property names as precomputed, already escaped byte literals, and numbers straight into the output buffer. Deserializers pick a field by the key's length and then compare it eight bytes at a time: each complete 8-byte chunk with one load, and the remaining bytes one by one, so no load reads past the key.
+**Typed serialization.** The `@Json` macro (§9.9) generates `IJsonSerialize` and `IJsonDeserialize` for structs, classes, unions and enums. `Json.Serialize<T>(in value: T)` returns a `string`; `Json.Deserialize<T>(text)` returns `Result<T, JsonError>`. Both declare `where T : allows move`, so a type with a move-only field, such as a `Secret<T>`, is read and written like any other. The generated code writes and reads tokens directly, with no intermediate `JsonValue` and no reflection. Serializers write property names as precomputed, already escaped byte literals, and numbers straight into the output buffer. Deserializers pick a field by the key's length and then compare it eight bytes at a time: each complete 8-byte chunk with one load, and the remaining bytes one by one, so no load reads past the key.
 
 | Mora | JSON |
 |---|---|
