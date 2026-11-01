@@ -135,6 +135,7 @@ registry! {
     MR0251 = 251: "a getter or index `get` accessor allocates, loops, mutates or can fail",
     MR0252 = 252: "a `stored` getter reads an input writable outside its type, uses a capability or makes a `dyn` call",
     MR0253 = 253: "a field assigned outside the method marked `@SoleWriter` for it",
+    MR0254 = 254: "`@Cheap` outside the standard library",
     MR0260 = 260: "a constant outside a newtype's refinement",
     MR0300 = 300: "a moved-from variable is used",
     MR0301 = 301: "one field moved out of a local",

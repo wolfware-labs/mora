@@ -987,12 +987,13 @@ Done when:
 
 Spec: [§15.3](docs/design/mora.md#153-collections), [§15.4](docs/design/mora.md#154-lookups-never-throw). Crates: `std`, `mora-rt`. Blocked by: M5.4.
 
-Insertion-ordered `Dictionary` (D-29) with SipHash-1-3 and per-process keys, the members of §15.3 and §15.4 including `Get` returning `TValue?`, `HashSet`, `Queue` and `Stack`.
+Insertion-ordered `Dictionary` (D-29) with SipHash-1-3 and per-process keys, the members of §15.3 and §15.4 including `Get` returning `TValue?`, `HashSet`, `Queue` and `Stack`. The `Dictionary` index `get` and `Count`, and `HashSet.Contains` and `Count`, are marked `@Cheap` (D-103), and `@Cheap` outside `Std` is `MR0254`.
 
 Done when:
 
 - Iteration order equals insertion order after removals and re-insertions.
 - `Add` of a duplicate key panics; `TryAdd` returns `false`.
+- UI test: a getter that reads `dict[key]` passes the getter check, and `@Cheap` on a function outside `Std` is `MR0254`.
 
 ### M5.6 Enumeration protocol and foreach
 
