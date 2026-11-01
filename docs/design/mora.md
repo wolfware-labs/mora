@@ -70,12 +70,15 @@ These would make Mora a failure even if every test passed:
 
 The MVP is done when the program in §2.2, a REST API with JSON request and response bodies, builds with `mora build` into a native executable on Linux, macOS and Windows (x86_64 and aarch64 where §19.1 lists them), passes its integration tests in CI on all three, and a developer new to Mora can install the toolchain with one command, open the project in VS Code and get diagnostics, hover types and go-to-definition.
 
-Two release lines follow from that:
+The release lines follow from that:
 
 | Line | Milestones | Contents |
 |---|---|---|
 | **MVP (v0.1)** | M0 to M7 | Native compilation with Cranelift, the memory model, the expressive core, macros, the standard library core, async with a single-threaded executor, HTTP/1.1 server, JSON, LSP, VS Code extension, formatter, REPL, installers |
-| **Post-MVP (v0.2 and later)** | M8 onwards | WebAssembly target and `.wasm` libraries, packages and URL imports, capability enforcement, threads and `shared` classes, class inheritance, more macro kinds, arenas, registry and signing, LLVM release backend, Component Model, embedded targets |
+| **v0.2** | M8, M9, M16 | WebAssembly target and `.wasm` libraries, a stable plugin ABI, packages and URL imports, capability enforcement, semantic diff and semver checks, editions, `mora query`, `context` and `mcp` |
+| **v0.3** | M14, M15, M17 | Contract sections, property tests, unit algebra, compile-time evaluation, the simulated World, test caching, record and replay, hot reload, time zones, `@Config`, retry policies |
+| **v0.4** | M10, M11, M18 | Threads and `shared` classes, worker processes, class inheritance, `async?`, more macro kinds, arenas, `decimal`, general reuse, vector types, devirtualization |
+| **v0.5** | M12, M13 | Registry and signing, LLVM release backend, Component Model, embedded targets |
 
 ### 1.6 How to read this document
 
@@ -2898,9 +2901,14 @@ Mora is built in thin vertical slices: each milestone runs real programs end to 
 | M8: WebAssembly and libraries | §18.1 to §18.4 | post-MVP |
 | M9: Packages and capabilities | §18.5, §18.6 | post-MVP |
 | M10: Threads | §12.6, OQ-6, OQ-7 | post-MVP |
-| M11: Language growth | Inheritance, variance, iterators, retroactive implementations, arenas, unsafe, more macro kinds (OQ-3, 4, 5, 9, 11, 13; §9.10) | post-MVP |
+| M11: Language growth | Inheritance, variance, iterators, retroactive implementations, arenas, unsafe, `decimal`, `async?`, more macro kinds (OQ-3, 4, 5, 9, 11, 13; §9.10) | post-MVP |
 | M12: Registry and signing | §18.7 | post-MVP |
 | M13: Backends and targets | LLVM release backend, Component Model, Windows debug info, embedded targets | post-MVP |
+| M14: Contracts and checked types | §6.13, `where` predicates, property tests, unit algebra, compile-time evaluation | post-MVP |
+| M15: Test and run tooling | Simulated World, test caching, record and replay, hot reload | post-MVP |
+| M16: Agent tooling and API evolution | `mora query`, `context` and `mcp`, JSON Schema, semantic diff and semver, editions | post-MVP |
+| M17: Standard library growth | Time zones, `@Config`, retry policies, `Task.Shield` | post-MVP |
+| M18: Optimizer | General reuse, MIR deduplication, vector types, devirtualization, `@NoAlloc` | post-MVP |
 
 ## 23. Decisions register
 
@@ -3023,6 +3031,12 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-113 | Each fix carries an applicability, `safe`, `review` or `placeholder`; `mora fix` applies `safe` fixes unless told otherwise and checks again; `mora check --watch` streams diagnostics; JSON output carries a `schema` version and is deterministic; `mora query`, `mora context` and `mora mcp` are post-MVP | user | 17.1, 17.6, 17.10 |
 | D-114 | Doc-comment examples whose first line is `// expect:`, `// error:` or `// warning:` are tests that `mora test` runs; `Assert.Snapshot` compares output with files in `tests/snapshots/`, and `mora test --bless` rewrites them | user | 3.2, 15.9, 17.1, 17.5, 20.4 |
 | D-115 | Every construct parses without types, the ungrammar is the normative grammar and is fuzzed against the parser, the formatter writes the `?` forms of §7.4 one way, implicit steps show as inlay hints, and `mora check` warns about unformatted files (`MR2030`). Amends D-41 | user | 1.6, 14.4, 17.1, 17.7, 17.8, 20.1 |
+| D-116 | Rejected: algebraic effect handlers; resumable handlers need stack capture or CPS, which conflicts with state-machine futures (D-27, D-28) and drop elaboration, and the World plus effect inference cover testing and injection | user | 12.1 |
+| D-117 | Rejected: content-addressed code storage; code stays in text files, and per-definition semantic hashes give provenance and change detection | user | 18.5 |
+| D-118 | Rejected: LLM client, prompt and cost-budget types in the language or std; provider APIs change too often for std, and clients belong in packages | user | 15 |
+| D-119 | Rejected: model-backed or other non-deterministic steps inside the compiler or `mora fix`; a build is a pure function of its inputs, and `mora fix` applies only fixes the compiler generates | user | 17.1 |
+| D-120 | Rejected: database migrations and feature flags as language features; `@Config`, `@Cfg(Feature = ...)` and macros cover what the language owes them | user | 17.2 |
+| D-121 | Rejected: stackful green threads to remove async colouring; async stays stackless (D-27, D-28), and `async?`, `blocking-in-async` and structured concurrency reduce the cost | user | 12.1 |
 
 ## 24. Open questions
 
