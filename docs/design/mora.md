@@ -129,36 +129,32 @@ kind = "app"
 `src/Model.mr`:
 
 ```mora
-namespace UsersApi;
+@Json
+struct User(Id: int, Name: string, Email: string?);
 
 @Json
-public struct User(Id: int, Name: string, Email: string?);
-
-@Json
-public struct NewUser(Name: string, Email: string?);
+struct NewUser(Name: string, Email: string?);
 ```
 
 `src/UserStore.mr`:
 
 ```mora
-namespace UsersApi;
-
-public class UserStore {
+class UserStore {
     private mut _nextId: int = 1;
-    private _users: Dictionary<int, User> = new();
+    private _users: Dictionary<int, User> = [];
 
-    public Add(input: NewUser): User {
+    Add(input: NewUser): User {
         let user = new User(_nextId, input.Name, input.Email);
         _nextId += 1;
         _users[user.Id] = user;
         return user;
     }
 
-    public Find(id: int): User? => _users[id];
+    Find(id: int): User? => _users[id];
 
-    public All(): List<User> => _users.Values.OrderBy(u => u.Id).ToList();
+    All(): List<User> => _users.Values.OrderBy(u => u.Id).ToList();
 
-    public Remove(id: int): bool => _users.Remove(id);
+    Remove(id: int): bool => _users.Remove(id);
 }
 ```
 
@@ -166,7 +162,6 @@ public class UserStore {
 
 ```mora
 using Std.Net.Http;
-using UsersApi;
 
 let store = new UserStore();
 let app = WebApp.Create(args);
@@ -202,8 +197,11 @@ What the program relies on, with the section that defines each:
 
 | Line | Feature | Section |
 |---|---|---|
+| `src/Model.mr` | A file's namespace comes from its folder; all three files are in the root namespace `UsersApi` | §4.2 |
+| `class UserStore`, `Add(...)` | A declaration without a visibility modifier is visible in its folder | §4.5 |
 | `@Json` | Standard-library macro that generates JSON serialization | §9.9, §16.3 |
-| `struct User(...)` | Value with public read-only fields, a positional constructor and generated equality | §6.2, §6.5 |
+| `struct User(...)` | Value with read-only fields, a positional constructor and generated equality | §6.2, §6.5 |
+| `= []` | An empty collection of the target type, here a `Dictionary` | §7.9 |
 | `Email: string?` | `T?` is an option type; `none` is its empty value | §5.6 |
 | `private mut _nextId: int` | Fields are read-only unless marked `mut` | §6.3 |
 | `let` / `var` | Immutable and mutable locals | §7.10 |
@@ -309,9 +307,9 @@ stackalloc static string struct switch this true uint ulong union unique unsafe
 ushort using var weak where while yield
 ```
 
-`out` has no meaning in the MVP; it stays reserved for variance annotations (§8.8).
+`out` has no meaning in the MVP; it stays reserved for variance annotations (§8.8). `import` has no meaning in the MVP either; it stays reserved for inline imports in scripts (§18.5).
 
-Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows move`, `allows ref struct`, §8.2); `any` (`any IShape`, §8.4); `newtype` (declaration start, §6.12); `test` (section position, §15.9); `contract` (section position, §6.13), and inside a contract section `invariant`, `requires`, `fails`, `ensures`, `also`, `old` and `result`; `_` (discards in patterns and deconstruction, §7.8).
+Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, post-MVP, §18.5); `type` (associated types, §8.7); `allows` (`allows move`, `allows ref struct`, §8.2); `any` (`any IShape`, §8.4); `newtype` (declaration start, §6.12); `extension` (declaration start, §6.9); `test` (section position, §15.9); `contract` (section position, §6.13), and inside a contract section `invariant`, `requires`, `fails`, `ensures`, `also`, `old` and `result`; `_` (discards in patterns and deconstruction, §7.8).
 
 The compiler knows only Mora's syntax (D-59). A word that is not a keyword is an identifier, and code written in another language's syntax gets the ordinary syntax error, `MR0110`.
 
@@ -363,29 +361,30 @@ A string, character literal, raw string or interpolated string that is not close
 ### 3.6 Operators and punctuation
 
 ```text
-{ } [ ] ( ) . , : ; ? ?? ??= ?. ?[ => -> :: .. ^ @ $
+{ } [ ] ( ) . , : ; ? ?? ??= ?. ?[ => -> .. ^ @ $
 + - * / % & | ^ ! ~ << >> >>> == != < > <= >= && ||
 = += -= *= /= %= &= |= ^= <<= >>= >>>= ++ --
 +% -% *% +%= -%= *%=
 ```
 
-`#` before an identifier calls an expression macro (§9), and `@` before one names an attribute (§6.11). `+%`, `-%` and `*%` are wrapping arithmetic (§7.12). `->` is reserved; where `=>` belongs, it gets a fix to `=>` (§5.8). `::` qualifies a library alias (§4.4). A character that cannot start any token, such as `\` or a non-breaking space, is error `MR0017`.
+`#` before an identifier calls an expression macro (§9), and `@` before one names an attribute (§6.11). `+%`, `-%` and `*%` are wrapping arithmetic (§7.12). `->` is reserved; where `=>` belongs, it gets a fix to `=>` (§5.8). A character that cannot start any token, such as `\` or a non-breaking space, is error `MR0017`.
 
 ## 4. Program structure
 
 ### 4.1 Projects and compilation units
 
-A **project** is a directory with a `mora.toml` manifest (§17.2). Every `.mr` file under `src/` belongs to the project, and the project compiles as one unit, as a C# project does: the order of files does not matter, and namespaces are independent of file paths. A project builds one artifact: an executable (`kind = "app"`) or a library (`kind = "lib"`).
+A **project** is a directory with a `mora.toml` manifest (§17.2). Every `.mr` file under `src/` belongs to the project, and the project compiles as one unit: the order of files does not matter. A project builds one artifact: an executable (`kind = "app"`) or a library (`kind = "lib"`).
 
 ### 4.2 File layout
 
 ```ebnf
-CompilationUnit = ImportDecl* UsingDirective* FileNamespace? TopLevelItem* ;
-FileNamespace   = "namespace" QualifiedName ";" ;
-TopLevelItem    = Attribute* Modifier* ( TypeDecl | FunctionDecl | ConstDecl | StaticDecl ) | Statement ;
+CompilationUnit = UsingDirective* TopLevelItem* ;
+TopLevelItem    = Attribute* Modifier* ( TypeDecl | FunctionDecl | ConstDecl | StaticDecl | ExtensionDecl ) | Statement ;
 ```
 
-- A file has at most one namespace declaration, and it is file-scoped (`namespace UsersApi;`). A file with no namespace declaration puts its items in the project's root namespace.
+- **Namespaces come from folders** (D-96). The project's **root namespace** is its `[project] namespace` value, which defaults to the project name in PascalCase (`users-api` gives `UsersApi`). A file directly under `src/` is in the root namespace; a file under a folder of `src/` is in the root namespace followed by each folder name in PascalCase: `src/Store/UserStore.mr` is in `UsersApi.Store`, and `src/http-client/Retry.mr` is in `UsersApi.HttpClient`. A file never names its namespace, so moving a file is how its items change namespace.
+- A folder name that does not give a valid identifier in PascalCase (`src/2d/`), or two sibling folders that give the same one (`src/http-client/` and `src/HttpClient/`), is error `MR0121`.
+- Code in a namespace finds the items of that namespace and of every enclosing one by simple name (§14.5), among those visible to it (§4.5): a file in `UsersApi.Store` finds the `internal` and `public` items of `UsersApi`. Items of a nested namespace are reached through it, `Store.UserStore`, or opened with `using UsersApi.Store;`.
 - **Statements** are allowed at top level only in the entry file (§4.6).
 - **Functions** may be declared directly in a namespace, as in the tour's `Area`. They behave as static methods of the namespace. The `static` modifier is allowed there and has no effect.
 
@@ -400,34 +399,36 @@ TopLevelItem    = Attribute* Modifier* ( TypeDecl | FunctionDecl | ConstDecl | S
 
 The prelude (§15.1) is an implicit `global using Std;`. A value's destructor runs when its owner goes out of scope (§10.8), so `using` only imports names.
 
-### 4.4 Imports
+### 4.4 Dependencies
 
-```ebnf
-ImportDecl = "import" Identifier ( "from" StringLiteral )? ";" ;
+A project names its dependencies only in `mora.toml` (§17.2); source files have no import statement (D-96).
+
+```toml
+[dependencies]
+core = { path = "../core" }
 ```
 
-`import Core from "../core";` binds the identifier `Core` to the **root namespace** of another project. A library's root namespace is its `[project] namespace` value, defaulting to the project name in PascalCase. After the import, `Core.Parse(...)` calls a function in that root namespace, and `using Core.Text;` opens a nested namespace. When two imports would put the same namespace in scope, `Alias::Name` picks one, as `extern alias` does in C#.
+Each entry binds its key, in PascalCase, to the **root namespace** of that dependency, in every file of the project: with the entry above, `Core.Parse(...)` calls a function in the root namespace of the project at `../core`, and `using Core.Text;` opens a namespace inside it. The key decides the name, so two dependencies whose own root namespaces are the same never clash. A key that gives the same name as `Std`, as the project's own root namespace or as another key (`foo-bar` and `FooBar`) is error `MR0501`. The standard library is always available as `Std` and is not listed.
 
-| Source string | Line | Meaning |
-|---|---|---|
-| `"../core"`, `"./libs/x"` | MVP | Local project path, relative to the importing project. Compiled from source in the same build. |
-| `"json@2"` | post-MVP | Registry package (§18.5) |
-| `"github.com/owner/repo@1.4"` | post-MVP | Git host and tag |
-| `"https://.../x.wasm"` | post-MVP | Direct `.wasm` URL |
-| *(none)*: `import Json;` | MVP | An alias declared under `[dependencies]` in `mora.toml` |
-
-In the MVP an unsupported source form is error `MR0122`. The standard library is always available as `Std` and needs no import.
+In the MVP an entry names a local project by `path`, relative to the manifest, and that project is compiled from source in the same build. Version, git, URL and registry sources are post-MVP (§18.5); in the MVP they are error `MR0122`. Dependencies never form a cycle: a project that depends on itself through other projects is error `MR0502`.
 
 ### 4.5 Visibility
 
-| Modifier | Visible to | Default for |
-|---|---|---|
-| `public` | Every project that imports this one | |
-| `internal` | This project | Types and namespace-level functions |
-| `private` | The enclosing type | Members |
-| `file` | The declaring file | |
+The folder is the default boundary (D-97). A declaration without a visibility modifier is visible in its folder, that is in its namespace:
 
-A `public` member's signature MUST NOT mention a less visible type (`MR0123`).
+| Modifier | Visible to |
+|---|---|
+| `private` | The enclosing type |
+| `file` | The declaring file |
+| *(none)* | The declaring folder (namespace) |
+| `internal` | This project |
+| `public` | Every project that depends on this one |
+
+- Nested namespaces are separate folders: an unmarked item of `UsersApi` is not visible in `UsersApi.Store`, nor an unmarked item of `UsersApi.Store` in `UsersApi`. Crossing a folder takes `internal` or `public`, so a subsystem's internals stay inside its folder however large the project grows.
+- A type's members default to the folder, like top-level items, so `private` is written only where a member should stay inside its type.
+- A declaration is never visible beyond the type that contains it: its **effective visibility** is the narrower of its own and its type's. A `public` member of an unmarked type is visible in the folder.
+- A member's signature MUST NOT mention a type whose effective visibility is narrower than the member's effective visibility (`MR0123`): a `public` member of an unmarked type may mention a type visible in the folder.
+- Moving a file to another folder can make an unmarked item invisible to code that used it. The error names both folders and offers a fix that marks the item `internal`.
 
 ### 4.6 Entry point
 
@@ -589,7 +590,7 @@ The compiler knows no conversion of its own beyond boxing into `any I`: the stan
 | `T` | `T?` | `Option<T> : IFrom<T>` |
 | `T` | `Result<T, E>` | `Result<T, E> : IFrom<T>` (§11.3) |
 | A newtype | Its underlying type | An `IFrom` the compiler generates for the newtype (§6.12) |
-| `E` | An error type with an `@From` case for `E` | The `IFrom<E>` that `@From` generates (§11.3) |
+| `E` | An error type with an `@From` case for `E`, which is never `indirect` | The `IFrom<E>` that `@From` generates (§11.3) |
 | `T` where `T : I` | `any I` (dynamic interface value) | Boxing, which changes how the value is stored rather than its type (§8.4) |
 | Any numeric | Any numeric | Explicit cast `(T)x`: truncates and wraps for integers, rounds to nearest for floats, saturates float-to-int (NaN becomes 0) |
 | Interface value `any I` | Concrete type `C` | Pattern `is C c` or `as C` (gives `C?`). `(C)i` is a checked cast that panics on mismatch |
@@ -758,7 +759,7 @@ public interface IShape {
 
 ### 6.9 Members
 
-**Declaration order.** Every declaration puts the name first and the type after a colon (D-58). A field or property is `Balance: decimal`. A method is its name, its parameters and then `:` and the return type: `public Deposit(amount: decimal): decimal`. A function with no `: Type` after its parameter list returns `()`. A parameter is `amount: decimal`, with any mode or modifier before the name: `ref p: Point`, `params xs: ReadOnlySpan<int>`, `this s: string`. The same order holds for locals (§7.10), lambda parameters (§7.6), local functions, union case fields and positional parameters.
+**Declaration order.** Every declaration puts the name first and the type after a colon (D-58). A field or property is `Balance: decimal`. A method is its name, its parameters and then `:` and the return type: `public Deposit(amount: decimal): decimal`. A function with no `: Type` after its parameter list returns `()`. A parameter is `amount: decimal`, with any mode or modifier before the name: `ref p: Point`, `params xs: ReadOnlySpan<int>`. The same order holds for locals (§7.10), lambda parameters (§7.6), local functions, union case fields and positional parameters.
 
 ```mora
 public class Account {
@@ -819,7 +820,39 @@ public struct Money {
 
 **Conversions** are `IFrom<S>` implementations (§5.10). A type declares no conversion operators.
 
-**Extension methods** are static methods whose first parameter has the `this` modifier, declared in a static class or directly in a namespace, as in C# 3. They are found through `using` directives. C# 14 extension blocks are post-MVP.
+**Extensions** add methods and getters to a type declared elsewhere, without changing its layout (D-98). An extension block names a receiver, declared like a parameter, and holds members that use it:
+
+```ebnf
+ExtensionDecl = Attribute* Modifier* "extension" TypeParams? "(" Param ")" Constraints* "{" Member* "}" ;
+```
+
+```mora
+public extension<T>(list: List<T>) {
+    public IsEmpty: bool => list.Count == 0;
+
+    public Second(): T? {
+        if (list.Count < 2) {
+            return none;
+        }
+        return list[1];
+    }
+}
+
+let names: List<string> = ["Ada", "Grace"];
+let second = names.Second();
+```
+
+- A block contains methods and getters (`Name: T => expr`), which are called on a receiver as if the type declared them. It adds no fields, constructors, destructors or static members.
+- The receiver takes a parameter mode like any parameter: `ref list: List<T>` lets members modify a struct in place.
+- Extension blocks are declared at namespace level, and their members have ordinary visibility (§4.5). An extension member is in scope where its namespace is, through the enclosing namespaces or a `using` directive, and is looked up after the type's own members (§7.2).
+- A block with a type parameter list is generic over the receiver: `extension<T>(xs: IEnumerable<T>) where T : INumber<T>` applies to every source whose elements are numbers.
+- There is no other way to declare an extension: a method declares only its own parameters, and a first parameter cannot mark a receiver.
+
+**Retroactive implementations** (post-MVP, OQ-5) will use the same block to declare that an existing type implements an interface: `public extension Point : IDisplay { ... }`. The `:` means "implements", as in a type declaration; the block adds no fields and creates no type. A program has at most one implementation of an interface for a type, which hashing, equality and ordering rely on, so the rule is fixed now (D-98):
+
+- A library may declare `extension T : I` only when it declares `T` or `I`. Two libraries can then never declare the same implementation: the one that declares `T` would have to depend on the one that declares `I` to name it, and the other way round, and dependencies never form a cycle (§4.4).
+- An app may declare any implementation, because no other project depends on it. If a library it depends on later declares the same one, the error is reported in the app, with a fix that deletes the app's copy.
+- A library that needs an implementation for a type and an interface it does not declare wraps the type in a `newtype` (§6.12), which costs nothing at run time.
 
 ### 6.10 Constants and statics
 
@@ -945,7 +978,7 @@ From highest to lowest:
 
 - `x.y` on a value of type `T?` is error `MR0162`, with fixes `x?.y` and `x.Value.y`. Flow narrowing (§5.6) removes the need in most code.
 - `ref` arguments are marked at the call site, `F(ref x)`. `move` at the call site is optional (§10.3). There are no `out` parameters (D-93): a function that produces several values returns a tuple, an option or a `Result`.
-- Method groups convert to function types. Extension methods are looked up after instance members.
+- Method groups convert to function types. Extension members (§6.9) are looked up after the type's own members.
 
 ### 7.3 Object creation
 
@@ -1030,6 +1063,8 @@ let status = switch (store.Find(id)) {
 ### 7.9 Collection expressions
 
 `[a, b, c]` and spreads `[..xs, d]` build a collection of the target type: `T[]`, `List<T>`, `HashSet<T>`, `Span<T>` (on the stack), `ReadOnlySpan<T>` (static data when every element is constant), or any type with a `static Create(ReadOnlySpan<T>)` method. Without a target type the collection is a `List<T>` (D-20). `[]` without a target type is error `MR0171`.
+
+`[]` with a `Dictionary<TKey, TValue>` target is an empty dictionary (D-99), so `private _users: Dictionary<int, User> = [];` needs no `new()`. A dictionary with entries is built with `new()` and assignments or `Add`; `[]` holds no key-value pairs.
 
 ### 7.10 Locals
 
@@ -1280,7 +1315,7 @@ These macros replace a fixed derive list; the compiler has no special knowledge 
 | `@Default` | `IDefault` from field initializers or field defaults; for unions, the case marked `@Default` | `IDefault` |
 | `@Clone` | `IClone<T>`, cloning fields that implement `IClone` and copying the rest | copyable or `IClone` |
 | `@Json` | `IJsonSerialize` and `IJsonDeserialize` (§16.3) | `IJsonSerialize` / `IJsonDeserialize` |
-| `@Error` | On a union or struct: `IError`, and for each case with a single field marked `@From`, `IFrom<F>` for that field's type `F`, wrapping the value in the case (§11.3) | `IDisplay` on the type |
+| `@Error` | On a union or struct: `IError`, and for each case with a single field marked `@From`, `IFrom<F>` for that field's type `F`, wrapping the value in the case; never on an `indirect` case (§11.3) | `IDisplay` on the type |
 | `@Arithmetic` | On a newtype (§6.12): same-type `+` and `-`, and `*` and `/` by a value of the underlying type; on a refined newtype each result is checked against the refinement | The underlying type has those operators |
 | `#Assert(condition)` | An assertion that, on failure, prints the condition's source text and the values of its operands: `assertion failed: total > 0 (total = -3)` | |
 
@@ -1538,6 +1573,8 @@ public union AppError {
 `?` converts an error to the function's error type by identity or through `IFrom` (§5.10): `Err(e)` of type `E` becomes `Err(F.From(e))` when the function's error type `F` implements `IFrom<E>`. It does not search for conversion chains: `A` to `C` through `B` requires `C : IFrom<A>`.
 
 `@Error` on a union adds `IError`, and for every case with a single field marked `@From` it adds the `IFrom` implementation that wraps that field in the case. With the declaration in §11.2, `File.ReadAllText(path)?` works inside a function returning `Result<T, AppError>`, because `AppError : IFrom<IoError>`. A hand-written `IFrom` works the same way, for a conversion that needs more than wrapping.
+
+`@From` MUST NOT mark a field of an `indirect` case, or of any case of an `indirect union` (`MR0151`, D-100). Wrapping a value in such a case allocates its heap cell (§6.6), and a conversion used implicitly does not allocate (§5.10). The case is still built explicitly before propagating: `File.ReadAllText(path).MapError(e => AppError.Io(e))?`.
 
 `Result<T, E>` implements `IFrom<T>` in the standard library, which is what lets `return user;` and `return Results.NotFound();` type-check in functions returning a `Result`.
 
@@ -1953,7 +1990,7 @@ The standard library takes its names from .NET where they fit, and drops what de
 
 ### 15.1 Prelude (`Std`)
 
-Visible in every file: primitives and their static members (`int.Parse`, `int.MaxValue`, `double.IsNaN`, ...), `string`, `Option<T>`, `Result<T, E>`, `Ok`, `Err`, `List<T>`, `Dictionary<TKey, TValue>`, `HashSet<T>`, `Span<T>`, `ReadOnlySpan<T>`, `Func`, `Action`, `Console`, `Math`, `MathF`, `Environment`, `Task`, `Future<T>`, `TimeSpan`, `Drop`, `ReferenceEquals`, `panic`, `Debug`, `Unreachable`, `Todo`, the interfaces of §8.5, `IError`, and the LINQ extension methods of §15.5.
+Visible in every file: primitives and their static members (`int.Parse`, `int.MaxValue`, `double.IsNaN`, ...), `string`, `Option<T>`, `Result<T, E>`, `Ok`, `Err`, `List<T>`, `Dictionary<TKey, TValue>`, `HashSet<T>`, `Span<T>`, `ReadOnlySpan<T>`, `Func`, `Action`, `Console`, `Math`, `MathF`, `Environment`, `Task`, `Future<T>`, `TimeSpan`, `Drop`, `ReferenceEquals`, `panic`, `Debug`, `Unreachable`, `Todo`, the interfaces of §8.5, `IError`, and the LINQ operators of §15.5.
 
 Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`, so `if (int.Parse(text) is Ok(let n)) { ... }` parses and tests in one step.
 
@@ -2010,7 +2047,7 @@ if (!_users.Add(user.Id, user)) {
 
 ### 15.5 LINQ
 
-The operators are extension methods on `IEnumerable<T>` sources. Each returns a concrete iterator struct (`WhereIterator<TSource, TPredicate>`), so a chain like `orders.Where(o => o.Paid).Select(o => o.Total).Sum()` compiles to one loop with no allocation and no virtual calls (D-11).
+The operators are members of extension blocks over `IEnumerable<T>` sources (§6.9). Each returns a concrete iterator struct (`WhereIterator<TSource, TPredicate>`), so a chain like `orders.Where(o => o.Paid).Select(o => o.Total).Sum()` compiles to one loop with no allocation and no virtual calls (D-11).
 
 MVP operators: `Where`, `Select`, `SelectMany`, `Take`, `Skip`, `TakeWhile`, `SkipWhile`, `Concat`, `Zip`, `Distinct`, `OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending`, `Reverse`, `GroupBy`, `ToList`, `ToArray`, `ToDictionary`, `ToHashSet`, `First`, `Last`, `Single`, `Any`, `All`, `Count`, `Sum`, `Min`, `Max`, `Average`, `Aggregate`, `Contains`, `SequenceEqual`, `ElementAt`. `First`, `Last`, `Single` and `ElementAt` return options (§15.4). Query syntax (`from x in xs where ... select ...`) is post-MVP.
 
@@ -2202,11 +2239,11 @@ Exit codes: 0 success, 1 build or test failure, 2 usage error, 101 internal comp
 name = "users-api"          # lowercase, digits, '-'
 version = "0.1.0"           # semver
 kind = "app"                # "app" or "lib"
-namespace = "UsersApi"      # root namespace for "lib"; defaults to the PascalCase name
+namespace = "UsersApi"      # root namespace (§4.2); defaults to the PascalCase name
 entry = "src/Program.mr"    # app entry file, default shown
 
 [dependencies]
-core = { path = "../core" } # MVP: path only. Post-MVP: version, git, url, registry (§18)
+core = { path = "../core" } # binds Core (§4.4). MVP: path only. Post-MVP: version, git, url, registry (§18)
 
 [features]
 metrics = []                # enables @Cfg(Feature = "metrics")
@@ -2231,7 +2268,7 @@ Unknown keys are error `MR0500` so that typos fail loudly. `mora.lock` is writte
 users-api/
   mora.toml
   mora.lock
-  src/
+  src/              # the root namespace; each folder below is a nested one (§4.2)
     Program.mr
     Model.mr
     Model.tests.mr  # unit tests for Model.mr, built only by `mora test`
@@ -2344,10 +2381,16 @@ Within a major version the `mora.abi` surface hash must stay compatible, and `mo
 
 ### 18.5 Imports, manifest and lockfile
 
-The import forms of §4.4 resolve to a `.wasm` library pinned by content hash in `mora.lock`.
+Post-MVP dependency sources resolve to a `.wasm` library pinned by content hash in `mora.lock`.
 
-- Manifest aliases win: `[dependencies] http = "github.com/wolfware-labs/http@1.4"` lets every file write `import Http;`.
-- Inline URLs are allowed in scripts and small tools; `mora fetch` offers to move them into the manifest.
+| Source | Example entry under `[dependencies]` |
+|---|---|
+| Registry package | `json = "2"` |
+| Git host and tag | `http = "github.com/wolfware-labs/http@1.4"` |
+| Direct `.wasm` URL | `x = { url = "https://.../x.wasm" }` |
+
+- A project still names its dependencies only in `mora.toml`, and each key binds the dependency's root namespace as in §4.4: the `http` entry above gives every file `Http`.
+- Scripts and small tools may name a dependency inline instead: `import Http from "github.com/wolfware-labs/http@1.4";` binds `Http` in that file the same way, and `mora fetch` offers to move it into the manifest. This is the only use of `import`.
 - A tag is resolved once; its content hash goes into the lockfile. A tag that later points at different bytes is a hard error, not a silent update, as with Go's `go.sum` and checksum database.
 - Git sources may ship a prebuilt `.wasm` as a release asset, or `mora fetch` builds them from source. Registry packages always ship a prebuilt `.wasm` and the source.
 - One version per major in a build graph. Two majors of the same package can coexist because symbols are namespaced by major version.
@@ -2531,7 +2574,7 @@ Mora is built in thin vertical slices: each milestone runs real programs end to 
 | **M0: Foundations** | Repository, CI on Linux, macOS and Windows, workspace crates and layering check, spans and diagnostics, error-code registry, test harnesses (UI, run, spec examples), `mora-rt` skeleton built for every Tier 1 target | CI green on all three OSes; harnesses run an empty suite; `cargo xtask layers` enforces §14.2 |
 | **M1: Hello, native** | Lexer and full parser with a lossless tree, name resolution and type checking for namespaces, functions, structs, primitives, strings, locals and control flow, MIR lowering, Cranelift code generation, linking on every Tier 1 target, with identical code folding on Linux and Windows, `Console.WriteLine` with interpolation, `mora build`, `run` and `check` | §2.1 builds and runs on every Tier 1 target in CI; the M1 run tests pass through JIT and AOT |
 | **M2: Memory model** | Classes, structs, unique classes, parameter modes, move checking, drop elaboration, destructors, aliased-place borrows, views and spans, weak references, closures, ARC insertion and optimization with ownership and modification summaries, release at last use, the bundled allocator and 8-byte header, 16-byte strings, niche layouts, copy elision, inlining and scalar replacement, stack promotion, reuse for `with` and string `+=`, allocation counters and `MaxAllocations` tests, debug runtime leak tracking | The suite of §20.3 passes; the §10.13 snapshots pass |
-| **M3: Expressive core** | Unions, enums, patterns and exhaustiveness, options and `none` with flow narrowing, `Result` and `?`, operators and conversions, generics and monomorphization, interfaces with static and dynamic dispatch, associated types, properties, indexers, extension methods, tuples, collection expressions, newtypes and refinements | Run and UI tests for every construct of §§5 to 8; every §2.4 example runs |
+| **M3: Expressive core** | Unions, enums, patterns and exhaustiveness, options and `none` with flow narrowing, `Result` and `?`, operators and conversions, generics and monomorphization, interfaces with static and dynamic dispatch, associated types, properties, indexers, extension blocks, tuples, collection expressions, newtypes and refinements | Run and UI tests for every construct of §§5 to 8; every §2.4 example runs |
 | **M4: Macros** | `macro` declarations, `code` quoting and splices, hygiene, the `Std.Meta` model, the sandboxed JIT runner and its cache, `mora expand`, `MacroTest`, and the standard-library macros of §9.9 except `@Json` | Every §9 example runs; `@Equatable`, `@Hashable`, `@Comparable`, `@Display`, `@Default`, `@Clone` and `#Assert` pass their `MacroTest` suites; structs get their automatic implementations from these macros |
 | **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `@Json` macro, `Std.Testing`, `mora test` and `test` sections, insertion-ordered hash tables, collection sizing, SIMD text kernels, bounds-check removal, `mora explain-cost` | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; chains of streaming LINQ operators meet §15.5 with no allocation |
 | **M6: Async and HTTP** | Async lowering, inline futures and pooled task blocks, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server with pooled buffers, routing, results, `HttpError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
@@ -2570,7 +2613,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-19 | In `await e?` the `?` applies to the awaited value | author | 7.4 |
 | D-20 | A collection expression with no target type is a `List<T>` | author | 7.9 |
 | D-21 | Doc comments are Markdown | author | 3.2 |
-| D-22 | Only file-scoped namespaces | author | 4.2 |
+| D-22 | Superseded by D-96: a file's namespace comes from its folder | | |
 | D-23 | Generic parameters are copyable unless declared `where T : allows move` | author | 8.2 |
 | D-24 | Superseded by D-48: there is no fixed derive list | | |
 | D-25 | Variance keeps the C# `in`/`out` spelling when it lands | author | 8.8 |
@@ -2583,7 +2626,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-32 | The project lives in a public repository, `wolfware-labs/mora-lang` (named `wolfware-labs/mora` until 2026-10-31), from day one, with the conventions of other Wolfware projects | user | 21 |
 | D-33 | The MVP includes the LSP, VS Code extension and installers; D-53 sets the audience | user, author | 1.5, 17 |
 | D-34 | HTTP and JSON ship in the standard library in the MVP | author | 16 |
-| D-35 | Local path imports are in the MVP; remote imports are post-MVP | author | 4.4 |
+| D-35 | Local path dependencies are in the MVP; remote sources are post-MVP. Amended by D-96: dependencies are named only in `mora.toml` | author | 4.4 |
 | D-36 | MVP programs are single-threaded, which keeps reference counts non-atomic and race-free | author | 12.1 |
 | D-37 | The toolchain bundles `lld`, musl and MinGW pieces so that Linux and Windows builds need no system toolchain | author | 14.14 |
 | D-38 | `ref` borrows of non-plain aliased places use copy-in/copy-out; `in` borrows use snapshots | author | 10.4 |
@@ -2644,6 +2687,11 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-93 | There are no `out` parameters; several results are a tuple, an option or a `Result` | user | 7.2, 10.3 |
 | D-94 | Attributes are written `@Name`, one per `@`; a keyword is never a name, so `@class` no longer escapes one | user | 3.3, 6.11 |
 | D-95 | The formatter enforces K&R braces and four-space indentation. Amends D-41 | user | 17.7 |
+| D-96 | A file's namespace is the project's root namespace plus its folder path under `src/`; `namespace` declarations, the `import` statement and `Alias::Name` are removed from projects, and dependencies are named only in `mora.toml`, where each key binds the dependency's root namespace. Supersedes D-22, amends D-35 | user | 4.2, 4.4, 17.2, 18.5 |
+| D-97 | A declaration without a visibility modifier is visible in its folder; `private` is the type, `internal` the project, `public` everyone | user | 4.5 |
+| D-98 | Extensions are declared only in extension blocks, `extension<T>(list: List<T>) { ... }`; a future `extension T : I` follows the orphan rule in libraries, apps are exempt, and libraries wrap foreign types in a `newtype` | user | 6.9, OQ-5 |
+| D-99 | `new` stays; `[]` with a `Dictionary` target is an empty dictionary | user | 7.9 |
+| D-100 | `@From` never marks a field of an `indirect` case, because wrapping it would allocate in an implicit conversion | author | 11.3 |
 
 ## 24. Open questions
 
@@ -2653,7 +2701,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | OQ-2 | How do Windows builds get debug info (CodeView/PDB) for debuggers and backtraces? | Symbol names only | M13 |
 | OQ-3 | Generic variance: rules and implementation | Not supported (D-25 fixes the spelling) | M11 |
 | OQ-4 | Class inheritance: `abstract`/`open` classes, `virtual`, `override`, `protected`, `base`, and how it interacts with ARC | Not supported (D-30) | M11 |
-| OQ-5 | Retroactive interface implementations and the coherence rules they need | Not supported | M11 |
+| OQ-5 | Retroactive interface implementations, under the coherence rule of D-98 | Not supported | M11 |
 | OQ-6 | Threads: executor model (one per core or work stealing), `static mut` access, `Task.Run` | Single-threaded (D-36) | M10 |
 | OQ-7 | Are string and array reference counts always atomic once threads exist, or atomic only after their first send? | | M10 |
 | OQ-9 | `yield return` iterators | Not supported; library iterators are hand-written | M11 |
@@ -2681,7 +2729,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 - Lobster: the compile-time reference counting design in its memory management documentation.
 - Alex Reinking, Ningning Xie, Leonardo de Moura, Daan Leijen. *Perceus: Garbage Free Reference Counting with Reuse*. PLDI 2021.
 - Joe Duffy. The Midori blog series, on M#, a C# variant with ownership and no collector, used to write an operating system at Microsoft.
-- C# language specification: "Low level struct improvements" (ref safety rules, `scoped`, `ref struct`), file-scoped namespaces, records, collection expressions, raw string literals.
+- C# language specification: "Low level struct improvements" (ref safety rules, `scoped`, `ref struct`), records, collection expressions, raw string literals.
 - Luc Maranget. *Warnings for pattern matching*. Journal of Functional Programming, 2007.
 - David F. Bacon, V. T. Rajan. *Concurrent Cycle Collection in Reference Counted Systems*. ECOOP 2001.
 - Rust: MIR, the non-lexical lifetimes RFC (2094) and drop elaboration, which §14.7 and §14.8 follow in structure.

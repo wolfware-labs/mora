@@ -267,13 +267,13 @@ Withdrawn by D-59: the compiler knows only Mora syntax, so code in another langu
 
 ### M1.6 Item tree, name resolution and entry points
 
-Spec: [§4](docs/design/mora.md#4-program-structure), [§14.5](docs/design/mora.md#145-name-resolution-and-types). Crates: `mora-hir`. Blocked by: M1.3.
+Spec: [§4](docs/design/mora.md#4-program-structure), [§14.5](docs/design/mora.md#145-name-resolution-and-types). Crates: `mora-hir`, `mora-syntax`. Blocked by: M1.3.
 
-Per-file item trees and the project def map: namespaces, nested types, `using`, `using static`, aliases, `global using`, the implicit prelude, visibility of §4.5, import aliases for path dependencies (resolved in M3.14), and entry point detection with `MR0124` and `MR0125`.
+Per-file item trees and the project def map: namespaces from folders with `MR0121` (D-96), nested types, `using`, `using static`, aliases, `global using`, the implicit prelude, the folder-default visibility of §4.5 (D-97), dependency names for path dependencies (resolved in M3.14), and entry point detection with `MR0124` and `MR0125`. The parser stops accepting namespace declarations, `import` declarations and `Alias::`, and `namespace` leaves the keyword list of §3.4.
 
 Done when:
 
-- UI tests for ambiguous names, inaccessible members (`MR0123`) and both entry-point errors.
+- UI tests for ambiguous names, inaccessible members across folders (`MR0123`), folder names (`MR0121`) and both entry-point errors.
 - A `salsa` test shows that editing a function body does not recompute the def map.
 
 ### M1.7 Types and signatures
@@ -599,7 +599,7 @@ Done when:
 
 ## M3: Expressive core
 
-**Goal.** Unions, enums, patterns, options, results, operators, generics, interfaces, statics and local imports.
+**Goal.** Unions, enums, patterns, options, results, operators, generics, interfaces, statics and local path dependencies.
 
 **Exit criteria.** Run and UI tests for every construct of §§5 to 8; every §2.4 example runs.
 
@@ -618,7 +618,7 @@ Done when:
 | [M3.11](#m311-dynamic-interface-values) | Dynamic interface values | `codegen` | M3.10 |
 | [M3.12](#m312-tuples-collection-expressions-and-smaller-expressions) | Tuples, collection expressions and smaller expressions | `hir` | M3.9 |
 | [M3.13](#m313-statics) | Statics | `hir` | M1.11, M3.5 |
-| [M3.14](#m314-local-path-imports-and-library-projects) | Local path imports and library projects | `driver` | M3.10 |
+| [M3.14](#m314-local-path-dependencies-and-library-projects) | Local path dependencies and library projects | `driver` | M3.10 |
 | [M3.15](#m315-attributes-cfg-lint-levels-and-obsolete) | Attributes: `Cfg`, lint levels and `Obsolete` | `check` | M3.14 |
 | [M3.16](#m316-platform-capabilities-and-standard-library-layers) | Platform capabilities and standard library layers | `std` | M3.15 |
 
@@ -692,7 +692,7 @@ Done when:
 
 Spec: [§4.6](docs/design/mora.md#46-entry-point), [§5.7](docs/design/mora.md#57-result-types), [§7.4](docs/design/mora.md#74-propagation-), [§11.1](docs/design/mora.md#111-two-kinds-of-failure), [§11.2](docs/design/mora.md#112-error-types), [§11.3](docs/design/mora.md#113-conversions-in-). Crates: `mora-hir`, `mora-mir`, `std`. Blocked by: M3.5, M3.6.
 
-`Result<T, E>`, `@MustUse` and `MR2002`, `IError`, the `?` operator with identity and `IFrom` conversions (`MR0201`, `MR0202`, `MR0161`), the implicit `Ok` conversion and `MR0132`, and return-type inference for top-level statements with the exit codes of §4.6.
+`Result<T, E>`, `@MustUse` and `MR2002`, `IError`, the `?` operator with identity and `IFrom` conversions (`MR0201`, `MR0202`, `MR0161`), `@From` and `MR0151` (D-100), the implicit `Ok` conversion and `MR0132`, and return-type inference for top-level statements with the exit codes of §4.6.
 
 Done when:
 
@@ -747,7 +747,7 @@ Done when:
 
 Spec: [§5.5](docs/design/mora.md#55-tuples), [§7.9](docs/design/mora.md#79-collection-expressions), [§7.13](docs/design/mora.md#713-other-expressions), [§6.9](docs/design/mora.md#69-members). Crates: `mora-hir`, `mora-mir`. Blocked by: M3.9.
 
-Tuples and deconstruction, collection expressions with spreads and target types (D-20, `MR0171`), extension methods, `nameof`, `sizeof`, `default` with `MR0190`, ranges and `^` indexes.
+Tuples and deconstruction, collection expressions with spreads and target types (D-20, `MR0171`) and `[]` as an empty dictionary (D-99), extension blocks with their parsing (D-98), `nameof`, `sizeof`, `default` with `MR0190`, ranges and `^` indexes.
 
 Done when:
 
@@ -764,16 +764,17 @@ Done when:
 - A lazy cycle panics with the message of §4.7.
 - `static readonly` objects are immortal.
 
-### M3.14 Local path imports and library projects
+### M3.14 Local path dependencies and library projects
 
-Spec: [§4.4](docs/design/mora.md#44-imports), [§17.2](docs/design/mora.md#172-manifest). Crates: `mora-driver`, `mora-pkg`, `mora-hir`. Blocked by: M3.10.
+Spec: [§4.4](docs/design/mora.md#44-dependencies), [§17.2](docs/design/mora.md#172-manifest). Crates: `mora-driver`, `mora-pkg`, `mora-hir`. Blocked by: M3.10.
 
-`kind = "lib"`, root namespaces, `[dependencies]` path entries, `import X from "../path";` and `import X;`, `Alias::Name`, `MR0122`, and `mora.lock` with path entries.
+`kind = "lib"`, root namespaces, `[dependencies]` path entries whose keys bind each dependency's root namespace (D-96), `MR0122`, `MR0501`, the dependency-cycle check `MR0502`, and `mora.lock` with path entries.
 
 Done when:
 
 - A two-project example (app plus library) builds and runs.
-- A remote import form reports `MR0122`.
+- A remote dependency source reports `MR0122`.
+- Two path dependencies that depend on each other report `MR0502`.
 
 ### M3.15 Attributes: `Cfg`, lint levels and `Obsolete`
 
@@ -1357,7 +1358,7 @@ Done when:
 | Milestone | Scope | Spec |
 |---|---|---|
 | M8: WebAssembly and libraries | Wasm targets, the `.wasm` library format with `mora.meta`, `mora.ir`, `mora.deps`, `mora.caps` and `mora.abi`, linking modes and ABI checks (OQ-15). | [§18.1](docs/design/mora.md#181-webassembly-target), [§18.2](docs/design/mora.md#182-the-library-format), [§18.3](docs/design/mora.md#183-linking-libraries), [§18.4](docs/design/mora.md#184-abi-stability), [§24](docs/design/mora.md#24-open-questions) |
-| M9: Packages and capabilities | URL, git and registry imports, manifest aliases, lockfile hashes, `mora fetch`, and capability grants enforced on wasm and native targets. | [§18.5](docs/design/mora.md#185-imports-manifest-and-lockfile), [§18.6](docs/design/mora.md#186-capabilities) |
+| M9: Packages and capabilities | URL, git and registry dependency sources, inline imports in scripts, lockfile hashes, `mora fetch`, and capability grants enforced on wasm and native targets. | [§18.5](docs/design/mora.md#185-imports-manifest-and-lockfile), [§18.6](docs/design/mora.md#186-capabilities) |
 | M10: Threads | `shared` classes with atomic counts, sendable checks, `Thread`, `Task.Run`, `Mutex`, `Atomic`, `Channel`, and a multi-threaded executor (OQ-6, OQ-7, OQ-1). | [§12.6](docs/design/mora.md#126-threads-post-mvp), [§24](docs/design/mora.md#24-open-questions) |
 | M11: Language growth | Class inheritance, variance, `yield return`, retroactive implementations, arenas, allocators, user `unsafe`, `decimal`, and more macro kinds (OQ-3, 4, 5, 9, 10, 11, 12, 13). | [§9.10](docs/design/mora.md#910-not-in-the-mvp), [§10.12](docs/design/mora.md#1012-arenas-post-mvp), [§24](docs/design/mora.md#24-open-questions) |
 | M12: Registry and signing | The package registry, Sigstore-signed publishing, the transparency log and mirrors (OQ-16). | [§18.7](docs/design/mora.md#187-registry), [§24](docs/design/mora.md#24-open-questions) |

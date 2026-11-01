@@ -346,6 +346,8 @@ pub enum SyntaxKind {
     AnyKw,
     /// The contextual keyword `newtype`: an identifier the parser marks in position.
     NewtypeKw,
+    /// The contextual keyword `extension`: an identifier the parser marks in position.
+    ExtensionKw,
     /// The contextual keyword `test`: an identifier the parser marks in position.
     TestKw,
     /// The contextual keyword `contract`: an identifier the parser marks in position.
@@ -850,6 +852,7 @@ impl SyntaxKind {
         AllowsKw,
         AnyKw,
         NewtypeKw,
+        ExtensionKw,
         TestKw,
         ContractKw,
         InvariantKw,
@@ -1171,6 +1174,7 @@ impl SyntaxKind {
         AllowsKw,
         AnyKw,
         NewtypeKw,
+        ExtensionKw,
         TestKw,
         ContractKw,
         InvariantKw,
@@ -1344,6 +1348,7 @@ impl SyntaxKind {
             AllowsKw => "allows",
             AnyKw => "any",
             NewtypeKw => "newtype",
+            ExtensionKw => "extension",
             TestKw => "test",
             ContractKw => "contract",
             InvariantKw => "invariant",
@@ -1458,6 +1463,7 @@ impl SyntaxKind {
             "allows" => AllowsKw,
             "any" => AnyKw,
             "newtype" => NewtypeKw,
+            "extension" => ExtensionKw,
             "test" => TestKw,
             "contract" => ContractKw,
             "invariant" => InvariantKw,
