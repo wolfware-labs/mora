@@ -1245,7 +1245,7 @@ Done when:
 
 Spec: [§16.1](docs/design/mora.md#161-http-server-stdnethttp), [§16.2](docs/design/mora.md#162-httperror). Crates: `std`. Blocked by: M6.6, M5.11, M5.16.
 
-`WebApp`, `WebAppOptions`, `--urls` and `MORA_URLS`, `Map*` with `move` handlers generic over any `E : IError` (D-108), the routing rules of §16.1 (404, 405 with `Allow`, duplicate panics), `Request`, `RouteValue<T>`, `ReadTextAsync`, `ReadJsonAsync<T>`, `Response`, `Results`, `HttpError` with its conversions and `IError` members, error responses from `PublicMessage` and `HttpStatus` with `application/problem+json` for internal errors, the request log as `Info` events in a span per request, and graceful shutdown on SIGINT, SIGTERM and Ctrl+Break.
+`WebApp`, `WebAppOptions`, `--urls` and `MORA_URLS`, `Map*` with `move` handlers generic over any copyable `E : IError` (D-108), the routing rules of §16.1 (404, 405 with `Allow`, duplicate panics), `Request`, `RouteValue<T>`, `ReadTextAsync`, `ReadJsonAsync<T>`, `Response`, `Results`, `HttpError` with its conversions and `IError` members, error responses from `PublicMessage` and `HttpStatus` with `application/problem+json` for internal errors, the request log as `Info` events in a span per request, and graceful shutdown on SIGINT, SIGTERM and Ctrl+Break.
 
 Done when:
 
