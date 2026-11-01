@@ -17,7 +17,7 @@ Companion to [`docs/design/mora.md`](docs/design/mora.md). The spec defines what
 | Line | Milestones | Meaning |
 |---|---|---|
 | **MVP (v0.1)** | M0 to M7 | The REST API of §2.2 builds into a native executable on Linux, macOS and Windows, with editor support and installers |
-| **v0.2** | M8, M9, M16 | Libraries and packages, with capability grants, semantic diff and semver checks, and the rest of the agent toolchain |
+| **v0.2** | M8, M9, M16 | Libraries and packages from URL and git sources, with capability grants, semantic diff and semver checks (contracts join in v0.3), and the rest of the agent toolchain |
 | **v0.3** | M14, M15, M17 | Contracts and property tests, the world simulator, record and replay, hot reload, and standard library growth |
 | **v0.4** | M10, M11, M18 | Threads, language growth and the optimizer passes left after the MVP |
 | **v0.5** | M12, M13 | The package registry and signing, the LLVM backend and more targets |

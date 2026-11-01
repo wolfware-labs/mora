@@ -75,7 +75,7 @@ The release lines follow from that:
 | Line | Milestones | Contents |
 |---|---|---|
 | **MVP (v0.1)** | M0 to M7 | Native compilation with Cranelift, the memory model, the expressive core, macros, the standard library core, async with a single-threaded executor, HTTP/1.1 server, JSON, LSP, VS Code extension, formatter, REPL, installers |
-| **v0.2** | M8, M9, M16 | WebAssembly target and `.wasm` libraries, a stable plugin ABI, packages from URL and git sources, capability enforcement, semantic diff and semver checks, editions, `mora query`, `mora context` and `mora mcp` |
+| **v0.2** | M8, M9, M16 | WebAssembly target and `.wasm` libraries, a stable plugin ABI, packages from URL and git sources, capability enforcement, semantic diff and semver checks (contracts join in v0.3), editions, `mora query`, `mora context` and `mora mcp` |
 | **v0.3** | M14, M15, M17 | Contract sections, property tests, unit algebra, compile-time evaluation, the simulated World, test caching, record and replay, hot reload, time zones, `@Config`, retry policies |
 | **v0.4** | M10, M11, M18 | Threads and `shared` classes, worker processes, class inheritance, `async?`, more macro kinds, arenas, `decimal`, general reuse, vector types, devirtualization |
 | **v0.5** | M12, M13 | Registry, registry dependencies and signing, LLVM release backend, Component Model, embedded targets |
