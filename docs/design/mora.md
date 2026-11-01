@@ -410,7 +410,7 @@ core = { path = "../core" }
 
 Each entry binds its key, in PascalCase, to the **root namespace** of that dependency, in every file of the project: with the entry above, `Core.Parse(...)` calls a function in the root namespace of the project at `../core`, and `using Core.Text;` opens a namespace inside it. The key decides the name, so two dependencies whose own root namespaces are the same never clash. A key that gives the same name as `Std`, as the project's own root namespace or as another key (`foo-bar` and `FooBar`) is error `MR0501`. The standard library is always available as `Std` and is not listed.
 
-In the MVP an entry names a local project by `path`, relative to the manifest, and that project is compiled from source in the same build. Version, git, URL and registry sources are post-MVP (§18.5); in the MVP they are error `MR0122`.
+In the MVP an entry names a local project by `path`, relative to the manifest, and that project is compiled from source in the same build. Version, git, URL and registry sources are post-MVP (§18.5); in the MVP they are error `MR0122`. Dependencies never form a cycle: a project that depends on itself through other projects is error `MR0502`.
 
 ### 4.5 Visibility
 
@@ -427,7 +427,7 @@ The folder is the default boundary (D-97). A declaration without a visibility mo
 - Nested namespaces are separate folders: an unmarked item of `UsersApi` is not visible in `UsersApi.Store`, nor an unmarked item of `UsersApi.Store` in `UsersApi`. Crossing a folder takes `internal` or `public`, so a subsystem's internals stay inside its folder however large the project grows.
 - A type's members default to the folder, like top-level items, so `private` is written only where a member should stay inside its type.
 - A declaration is never visible beyond the type that contains it: its **effective visibility** is the narrower of its own and its type's. A `public` member of an unmarked type is visible in the folder.
-- A member's signature MUST NOT mention a type whose effective visibility is narrower than the member's own (`MR0123`).
+- A member's signature MUST NOT mention a type whose effective visibility is narrower than the member's effective visibility (`MR0123`): a `public` member of an unmarked type may mention a type visible in the folder.
 - Moving a file to another folder can make an unmarked item invisible to code that used it. The error names both folders and offers a fix that marks the item `internal`.
 
 ### 4.6 Entry point
@@ -850,7 +850,7 @@ let second = names.Second();
 
 **Retroactive implementations** (post-MVP, OQ-5) will use the same block to declare that an existing type implements an interface: `public extension Point : IDisplay { ... }`. The `:` means "implements", as in a type declaration; the block adds no fields and creates no type. A program has at most one implementation of an interface for a type, which hashing, equality and ordering rely on, so the rule is fixed now (D-98):
 
-- A library may declare `extension T : I` only when it declares `T` or `I`. Two libraries can then never declare the same implementation.
+- A library may declare `extension T : I` only when it declares `T` or `I`. Two libraries can then never declare the same implementation: the one that declares `T` would have to depend on the one that declares `I` to name it, and the other way round, and dependencies never form a cycle (§4.4).
 - An app may declare any implementation, because no other project depends on it. If a library it depends on later declares the same one, the error is reported in the app, with a fix that deletes the app's copy.
 - A library that needs an implementation for a type and an interface it does not declare wraps the type in a `newtype` (§6.12), which costs nothing at run time.
 

@@ -165,6 +165,7 @@ registry! {
     MR0460 = 460: "a constant expression that cannot be evaluated at compile time",
     MR0500 = 500: "an unknown key in `mora.toml`",
     MR0501 = 501: "two dependencies with the same name, or a dependency named like `Std` or the root namespace",
+    MR0502 = 502: "a cycle between project dependencies",
     MR0510 = 510: "an API that needs a capability the target lacks",
     MR0610 = 610: "a macro's members do not match the interfaces in its `adds` clause",
     MR0611 = 611: "a splice whose value does not fit its position",
