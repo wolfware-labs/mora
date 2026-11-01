@@ -651,6 +651,7 @@ public class Counter
 - A class is a shared reference type with identity: heap-allocated with a reference count (§10.4, §13.3).
 - **Fields are read-only unless marked `mut`** (D-15). A read-only field is assigned only in its initializer, a constructor or a memberwise `new` (§6.9). `readonly` is accepted as a redundant modifier. `{ get; set; }` and `{ get; private set; }` auto-properties have a mutable backing field; `{ get; }` does not.
 - A class gets no generated equality, hashing, printing or `with`: two objects with the same fields are still two objects. `==` on a class is error `MR0233` unless the class implements `IEquatable<T>`, by hand or with `[Equatable]` (§9.9). `ReferenceEquals(a, b)` compares identity.
+- An object's address is never observable. A value derived from identity, such as an identity hash or an object number in debug output, comes from a per-process counter and is assigned the first time it is asked for, so the same program with the same inputs produces the same values on every run (D-61).
 - Mutating a `mut` field through any reference is allowed, as in C#. A `let` local of class type means the local cannot be reassigned; it does not freeze the object.
 - A class marked `shared` may be referenced from several threads (post-MVP, §12.6). In the MVP the modifier is parsed, checked for its field rules and otherwise has no effect.
 
@@ -1436,6 +1437,12 @@ A Mora program in the MVP runs all Mora code on **one OS thread**. A built-in ex
 
 Single-threaded execution is what lets reference counts be non-atomic in the MVP (§10.14). A blocking call (synchronous file I/O, a long computation) blocks every task; the documentation says so in the API reference for each blocking function. Worker threads, `Task.Run` and `shared` classes come after the MVP (§12.6).
 
+The runtime and the standard library are **thread-ready, not threaded** (D-60), so that threads arrive as an addition rather than a rewrite:
+
+- Every reference-count update goes through one lowering in the compiler and one slow path in the runtime, each with a plain and an atomic form (§13.3). The MVP emits only the plain form; the atomic form is built and tested with it.
+- The executor's state (task queue, wakers, timers, reactor registration) lives in a per-thread context, never in globals, so a second thread can run its own executor.
+- `Std` keeps no global mutable state: caches, buffers and counters live in values the program owns or in that per-thread context.
+
 ### 12.2 Async functions and futures
 
 - `async F(...): T` declares an async function returning `T`. Calling it returns a `Future<T>` (D-27). Inside it, `return v;` returns a `T`, and `await` may be used.
@@ -1497,7 +1504,7 @@ Together they provide:
 | Startup | The process entry symbol, `main`, called by the platform's C runtime: sets up the panic and stack-overflow handlers, collects arguments and environment, calls `int32_t __mora_main(void)`, which the compiler emits to run the program's `Main` and map its result to an exit code (§4.6), flushes stdout and returns that code |
 | Memory | Allocation through the platform allocator, the release slow path (destructor call, field drops, the iterative release work list), weak reference bookkeeping, debug-mode poisoning and leak tracking (§10.11) |
 | Panics | Message formatting, backtraces through the `backtrace` crate, abort |
-| Executor | Task queue, wakers, timers, `Task.*` primitives |
+| Executor | Task queue, wakers, timers, `Task.*` primitives, held in a per-thread context (§12.1) |
 | I/O | `mio` reactor; TCP sockets; synchronous files, directories and environment; stdin, stdout and stderr with buffering |
 | Text and numbers | UTF-8 validation, float formatting (shortest round-trip, as `ryu` does) and parsing, integer parsing, case mapping for ASCII and the Unicode simple case folding table |
 | Hashing | SipHash-1-3 with per-process random keys for `Dictionary` and `HashSet` |
@@ -1525,6 +1532,7 @@ Every shared class object, array, string, box and escaping closure environment s
 - **Weak load** returns a null pointer (`none`) if `strong == 0`, otherwise retains and returns the object.
 - String literals, `static readonly` objects and the empty array are immortal objects in read-only data.
 - In `shared` classes (post-MVP), `strong` and `weak` are updated with atomic operations: relaxed increments, release decrements and an acquire fence before the drop, as `Arc` does in Rust.
+- The compiler emits retain and release from one lowering that has both forms, and `mora_rt_drop` and the weak-count paths exist in both forms. The MVP runtime test suite covers the atomic form, though only the plain form is emitted (D-60).
 
 **Unique objects** have no header: a unique class reference points straight at its fields, because its type is always known statically and nothing counts it.
 
@@ -2331,6 +2339,8 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-57 | A type without a constructor is created memberwise with new T { ... }; required and init are removed. Amends D-51 | user | 6.2, 6.3, 6.9 |
 | D-58 | Declarations put the name first and the type after a colon (`Balance: decimal`, `Deposit(amount: decimal): decimal`, `let fee: decimal`); an omitted return type means `()` | user | 4.6, 5.2, 6.1, 6.9, 7.6, 7.10, 10.3, 12.2, 14.4 |
 | D-59 | The compiler knows only Mora syntax: code from other languages gets the ordinary syntax error, with no dedicated codes or fixes | user | 3.4, 17.6 |
+| D-60 | The MVP runtime is thread-ready, not threaded: reference counting has plain and atomic forms, the executor lives in a per-thread context, and `Std` keeps no global mutable state | user | 12.1, 13.3 |
+| D-61 | Values derived from object identity come from a per-process counter, never from an address | user | 6.3 |
 
 ## 24. Open questions
 
