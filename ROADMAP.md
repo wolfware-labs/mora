@@ -213,6 +213,8 @@ Done when:
 | [M1.16](#m116-driver-and-the-build-run-and-check-commands) | Driver and the build, run and check commands | `driver` | M1.14, M1.15 |
 | [M1.17](#m117-debug-information-and-symbol-names) | Debug information and symbol names | `codegen` | M1.12 |
 | [M1.18](#m118-third-instruction-set-under-emulation) | Third instruction set under emulation | `ci` | M1.16 |
+| [M1.19](#m119-grammar-driven-parser-fuzzing) | Grammar-driven parser fuzzing | `syntax` | M1.4 |
+| [M1.20](#m120-fix-applicability-mora-fix-and-watch-mode) | Fix applicability, `mora fix` and watch mode | `driver` | M1.16 |
 
 ### M1.1 Lexer
 
@@ -408,6 +410,29 @@ The `riscv64gc-linux` target description, `mora-rt` and the musl sysroot for it,
 Done when:
 
 - The run tests pass on `riscv64gc-linux` under QEMU as a required check.
+
+### M1.19 Grammar-driven parser fuzzing
+
+Spec: [§14.4](docs/design/mora.md#144-lexer-and-parser), [§20.1](docs/design/mora.md#201-test-layers). Crates: `mora-syntax`, `fuzz`. Blocked by: M1.4.
+
+A generator that writes programs from `mora.ungram`, adding parentheses where the rules of §14.4 and §7.4 would read the text another way, and a `cargo fuzz` target that parses each program, compares the tree with the shape it was generated from and prints it back (D-115).
+
+Done when:
+
+- The target runs for 10 minutes in the nightly job without failures.
+- A unit test with a parser rule that disagrees with `mora.ungram` shows the check reporting the mismatch.
+
+### M1.20 Fix applicability, `mora fix` and watch mode
+
+Spec: [§17.1](docs/design/mora.md#171-commands), [§17.6](docs/design/mora.md#176-diagnostics), [§17.10](docs/design/mora.md#1710-tools-for-programs-and-agents). Crates: `mora-diag`, `mora-driver`, `mora-cli`. Blocked by: M1.16.
+
+`applicability` on every fix and `schema` on every JSON object (D-113), the deterministic order of diagnostics, `mora fix` with `--code` and `--applicability`, and `mora check --watch` with its summary per round.
+
+Done when:
+
+- CLI tests: `mora fix` applies a `safe` fix and leaves a `review` one, applies both with `--applicability review`, and `--code` limits it to one code.
+- Two runs of `mora check --message-format json` on the same project print the same bytes.
+- A watch-mode test edits a file and receives a new round that ends with the summary object.
 
 ## M2: Memory model
 
@@ -963,7 +988,7 @@ Done when:
 | [M5.9](#m59-files-directories-and-paths) | Files, directories and paths | `std` | M5.8 |
 | [M5.10](#m510-json-values-parser-and-writer) | JSON values, parser and writer | `std` | M5.5 |
 | [M5.11](#m511-the-json-macro) | The `@Json` macro | `std` | M5.10, M4.9 |
-| [M5.12](#m512-testing-library-and-mora-test) | Testing library and `mora test` | `cli` | M5.7, M5.8 |
+| [M5.12](#m512-testing-library-and-mora-test) | Testing library and `mora test` | `cli` | M5.7, M5.8, M5.11 |
 | [M5.13](#m513-signals-and-observable) | Signals and `@Observable` | `std` | M5.4, M2.10, M4.9 |
 | [M5.14](#m514-html-url-and-literal) | `Html`, `Url` and `Literal` | `std` | M5.2, M3.17 |
 | [M5.15](#m515-logging-and-tracing) | Logging and tracing | `std` | M5.8, M5.10, M3.17 |
@@ -1097,14 +1122,16 @@ Done when:
 
 ### M5.12 Testing library and `mora test`
 
-Spec: [§15.9](docs/design/mora.md#159-testing), [§17.5](docs/design/mora.md#175-test-runner). Crates: `std`, `mora-driver`, `mora-cli`, `mora-testkit`. Blocked by: M5.7, M5.8.
+Spec: [§15.9](docs/design/mora.md#159-testing), [§17.5](docs/design/mora.md#175-test-runner), [§20.4](docs/design/mora.md#204-executable-examples). Crates: `std`, `mora-driver`, `mora-cli`, `mora-testkit`. Blocked by: M5.7, M5.8, M5.11.
 
-`@Test`, `Std.Testing.Assert`, `Assert.Panics` in a child process, unit tests in `src/` and integration tests in `tests/`, one process per test, `--leak-check` on by default, the output format of §17.5, and test seeds (D-109): one seed per run for `Random.Shared` (and for the scheduler once M6.3 lands), printed on failure and replayed with `--seed`.
+`@Test`, `Std.Testing.Assert`, `Assert.Panics` in a child process, unit tests in `src/` and integration tests in `tests/`, one process per test, `--leak-check` on by default, the output format of §17.5, and test seeds (D-109): one seed per run for `Random.Shared` (and for the scheduler once M6.3 lands), printed on failure and replayed with `--seed`. Doc-comment examples run as tests with the checks of §20.4, and `Assert.Snapshot`, `Assert.SnapshotJson` and `--bless` keep snapshot files in `tests/snapshots/` (D-114).
 
 Done when:
 
 - A project with a passing, a failing, a panicking and an ignored test prints `Passed: 1, Failed: 2, Ignored: 1` and exits 1.
 - A test that fails for some values of `Random.Shared` prints its seed, and `--seed` with that seed fails it again with the same values.
+- A doc-comment example with a wrong `// expect:` line fails under its example name, and an `// error: MRnnnn` example passes when that code is reported.
+- `Assert.Snapshot` and `Assert.SnapshotJson` fail after the value changes, a second snapshot in the same test uses `<test>.2.snap`, `mora test --bless` rewrites every file the test uses, and the next run passes.
 
 ### M5.13 Signals and `@Observable`
 
@@ -1293,7 +1320,7 @@ Done when:
 
 | ID | Deliverable | Area | Blocked by |
 |---|---|---|---|
-| [M7.1](#m71-formatter) | Formatter | `fmt` | M1.4 |
+| [M7.1](#m71-formatter) | Formatter | `fmt` | M1.4, M1.20 |
 | [M7.2](#m72-language-server-core-and-diagnostics) | Language server: core and diagnostics | `lsp` | M4.9 |
 | [M7.3](#m73-language-server-navigation) | Language server: navigation | `lsp` | M7.2, M3.18 |
 | [M7.4](#m74-language-server-editing-aids) | Language server: editing aids | `lsp` | M7.3 |
@@ -1304,18 +1331,20 @@ Done when:
 | [M7.9](#m79-documentation-site) | Documentation site | `docs` | M7.8, M5.18 |
 | [M7.10](#m710-release-workflow) | Release workflow | `release` | M0.11, M6.8 |
 | [M7.11](#m711-installers-and-self-update) | Installers and self update | `release` | M7.10 |
-| [M7.12](#m712-benchmarks-and-budgets) | Benchmarks and budgets | `ci` | M6.8 |
+| [M7.12](#m712-benchmarks-and-budgets) | Benchmarks and budgets | `ci` | M6.8, M1.20, M7.9 |
 | [M7.13](#m713-v010-release) | v0.1.0 release | `release` | M7.5, M7.6, M7.7, M7.9, M7.11, M7.12 |
 
 ### M7.1 Formatter
 
-Spec: [§17.7](docs/design/mora.md#177-formatter). Crates: `mora-fmt`, `mora-cli`. Blocked by: M1.4.
+Spec: [§17.7](docs/design/mora.md#177-formatter). Crates: `mora-fmt`, `mora-driver`, `mora-cli`. Blocked by: M1.4, M1.20.
 
-`mora fmt` and `--check` with the layout of §17.7, idempotent and whitespace-only apart from trailing commas and `using` order. `std/` and `examples/` are formatted in CI.
+`mora fmt` and `--check` with the layout of §17.7, idempotent and whitespace-only apart from trailing commas, `using` order and the parentheses around a propagation `?` before `:`, and the `format` lint of `mora check` (`MR2030`, D-115). `std/` and `examples/` are formatted in CI.
 
 Done when:
 
 - Idempotence and token-preservation tests over every `.mr` file in the repository.
+- `c ? r? : d` formats as `c ? (r?) : d`, and `x?[i]` and `flag ? [1] : []` keep their spacing.
+- `mora check` warns `MR2030` on an unformatted file, and `mora fix` formats it.
 - `mora fmt --check` fails on an unformatted file.
 
 ### M7.2 Language server: core and diagnostics
@@ -1343,7 +1372,7 @@ Done when:
 
 Spec: [§17.8](docs/design/mora.md#178-language-server), [§9.8](docs/design/mora.md#98-seeing-and-debugging-expansions). Crates: `mora-lsp`. Blocked by: M7.3.
 
-Completion for members, locals, types, namespaces and keywords; signature help; formatting through `mora-fmt`; inlay hints for inferred types, effect sets after a signature, boxing sites and shared captures; and "Show expansion" for macros.
+Completion for members, locals, types, namespaces and keywords; signature help; formatting through `mora-fmt`; inlay hints for inferred types, effect sets after a signature, boxing sites, shared captures, implicit `IFrom` conversions, extension members, interface defaults and `static lazy` reads (D-115); and "Show expansion" for macros.
 
 Done when:
 
@@ -1393,14 +1422,16 @@ Done when:
 
 ### M7.9 Documentation site
 
-Spec: [§1.4](docs/design/mora.md#14-anti-goals), [§19.3](docs/design/mora.md#193-installation). Crates: `docs/site`. Blocked by: M7.8, M5.18.
+Spec: [§1.4](docs/design/mora.md#14-anti-goals), [§17.10](docs/design/mora.md#1710-tools-for-programs-and-agents), [§19.3](docs/design/mora.md#193-installation). Crates: `docs/site`, `mora-cli`, `xtask`. Blocked by: M7.8, M5.18.
 
-The site at the project domain (OQ-18): install guide, language tour following §2, the standard library reference, the error pages, and the macro guide.
+The site at the project domain (OQ-18): install guide, language tour following §2, the standard library reference, the error pages, the macro guide and the ungrammar. `mora docs --llm`, served as `llms.txt`, and `mora-errors.jsonl` (D-112).
 
 Done when:
 
 - Every code sample on the site is run by `cargo xtask spec-examples`.
 - The site deploys from `main` through GitHub Actions.
+- `mora docs --llm` prints the same bytes on every run, and they match the site's `llms.txt` for that version.
+- `mora-errors.jsonl` has one line per page in `docs/errors/`.
 
 ### M7.10 Release workflow
 
@@ -1426,14 +1457,15 @@ Done when:
 
 ### M7.12 Benchmarks and budgets
 
-Spec: [§20.6](docs/design/mora.md#206-budgets). Crates: `benches`, `ci`. Blocked by: M6.8.
+Spec: [§20.6](docs/design/mora.md#206-budgets). Crates: `benches`, `evals`, `ci`. Blocked by: M6.8, M1.20, M7.9.
 
-A `bench` workflow measuring every budget of §20.6, a Rust load generator for `users-api`, stored baselines, and the 10% regression gate.
+A `bench` workflow measuring every budget of §20.6, a Rust load generator for `users-api`, stored baselines, and the 10% regression gate. The agent eval suite of §20.6 (D-112): the tasks in `evals/`, `evals/models.toml`, and a release workflow that reports both rates per model against the previous release of the line.
 
 Done when:
 
 - The workflow posts the measurements on pull requests.
 - A synthetic slowdown fails the gate.
+- The eval workflow runs on a release candidate and reports both rates for every model in `evals/models.toml`.
 
 ### M7.13 v0.1.0 release
 

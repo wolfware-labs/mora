@@ -1,7 +1,9 @@
 // The concrete syntax of Mora: the nodes of the syntax tree and their children.
 // `cargo xtask codegen` turns it into `SyntaxKind` and the typed views in `ast`.
 //
-// Source of truth: docs/design/mora.md. Section references are given as §n.n.
+// This file, with the keyword lists of §3.4, is the normative grammar (§14.4, D-115): the EBNF
+// fragments in docs/design/mora.md summarize it, and that document defines what each construct means. Section references are
+// given as §n.n.
 //
 // Conventions:
 //   - `Name` is a declared identifier, `NameRef` a use. `'ident'` appears nowhere else.

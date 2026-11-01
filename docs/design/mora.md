@@ -84,7 +84,7 @@ Two release lines follow from that:
 - **[MVP]** and **[post-MVP]** mark which release line a feature belongs to when a section mixes both. Unmarked text in §§3 to 17 is MVP.
 - **[verify]** marks a claim about third-party behaviour (an OS, a linker, a crate) that a test or manual check must confirm before code relies on it.
 - Code blocks tagged `mora` are Mora source. Blocks whose first line is `// expect:`, `// error:` or `// warning:` are executable examples that the test suite extracts and runs (§20.4).
-- Grammar uses EBNF: `?` optional, `*` zero or more, `+` one or more, `|` alternatives, quoted strings are tokens.
+- Grammar uses EBNF: `?` optional, `*` zero or more, `+` one or more, `|` alternatives, quoted strings are tokens. The fragments summarize the normative grammar, the ungrammar of §14.4.
 
 ### 1.7 Terms
 
@@ -286,6 +286,7 @@ public static Total(csv: string): Result<int, ParseError> {
 
 - `//` to end of line, and `/* ... */` (not nesting, as in C#). A block comment that is not closed is error `MR0012`.
 - `///` starts a doc comment. Doc comments are **Markdown**, not the XML of C# doc comments (D-21). A doc comment attaches to the next declaration. Inline code in backticks that names a symbol, for example `` `List<T>.Add` ``, becomes a link in the LSP hover and in generated docs.
+- A `mora` code block in a doc comment whose first line is `// expect:`, `// error:` or `// warning:` is a test that `mora test` runs (§15.9).
 - `#Name(...)` calls an expression macro (§9).
 
 ### 3.3 Identifiers
@@ -2023,6 +2024,8 @@ Inputs are file contents, the project graph and the target configuration. Every 
 - The parser never stops at the first error. It recovers at statement and member boundaries and marks missing nodes, so the LSP can analyze code that is being typed. A token the grammar does not allow where it appears, or a missing one, is error `MR0110`, whose message names what was expected; constructs from C# that Mora replaces get their own codes instead (§3.4, §4.3, §6.9).
 - Ambiguities inherited from C# are resolved by C#'s rules: a generic argument list `<...>` is chosen when the token after the closing `>` is one of `( ) ] } : ; , . ? == != | ^ && || & [`; casts `(T)x` by the C# cast-expression rules; and the postfix `?` by §7.4.
 - A statement that starts with `let` or `var` declares a local (§7.10). Any other statement starts with a keyword or is an expression statement. No declaration starts with a type, so the parser never has to guess whether a statement such as `a < b > c;` declares a variable or compares values.
+- **Parsing never needs types** (D-115). Every construct parses from its tokens alone: the rules above and in §7.4 settle every choice the grammar leaves open, and no parse depends on what a name refers to. A language change that would need name or type information to parse is not accepted.
+- **The ungrammar is the normative grammar** (D-115). `mora.ungram`, with the keyword lists of §3.4 that code generation also reads, defines the syntax. The EBNF fragments in this document summarize it, and where they differ the ungrammar wins and the fragment is corrected. `mora docs --llm` and the documentation site publish it (§17.10). Besides the fuzz target of §20.1, a second target generates programs from the ungrammar, adding parentheses wherever the rules above would read the text another way, parses each one, and checks that no error is reported, that the tree has the shape the program was generated from, and that printing the tree gives the text back.
 
 ### 14.5 Name resolution and types
 
@@ -2311,6 +2314,29 @@ test {
 
 A `@Test` function returns `()`, `Result<(), E>` or, if async, either one. In the MVP it takes no parameters. Parameters with generated inputs, shrinking and contract fuzzing come in v0.2 (§6.13), and the runner is designed for them. `Assert.Equal(expected, actual)`, `Assert.NotEqual`, `Assert.True`, `Assert.False`, `Assert.None`, `Assert.NotNone`, `Assert.Contains` and `Assert.Panics(() => ...)` are in `Std.Testing`. A failed assertion panics with a message that shows both values. `Assert.Panics` runs the closure in a child process (§17.5), since panics abort.
 
+**Snapshots** (D-114). `Assert.Snapshot(value)` takes a `T : IDisplay` and compares its display text with the file `tests/snapshots/<test>.snap`, where `<test>` is the test's qualified name (§17.5). `Assert.SnapshotJson(value)` takes a `T : IJsonSerialize` and compares its indented JSON (§16.3) instead, so a diff shows one field per line. When a test takes several snapshots, the n-th one from the second on uses `<test>.<n>.snap`. A missing or different file fails the test with a diff, and a `\r\n` line ending compares equal to `\n`. `mora test --bless` writes the files of the tests it runs instead of comparing them. Snapshot files are committed with the code.
+
+**Examples in doc comments** (D-114). A `mora` code block in a doc comment (§3.2) whose first line is `// expect: ...`, `// error: MRnnnn` or `// warning: MRnnnn` is a test:
+
+```mora
+public struct Order {
+    public Lines: List<Line>;
+
+    /// Adds up price times quantity over the lines.
+    ///
+    /// ```mora
+    /// // expect: 500
+    /// let order = new Order { Lines = [new Line { Price = 250, Quantity = 2 }] };
+    /// Console.WriteLine(order.Total());
+    /// ```
+    public Total(): Cents {
+        return Lines.Sum(l => l.Price * l.Quantity);
+    }
+}
+```
+
+`mora test` compiles each example on its own as the body of a test function in the documented declaration's file, so it sees what a test section there sees, and checks it by the rules of §20.4: an `// expect:` example must print those lines, and an `// error:` or `// warning:` example must report that code. A code block with any other first line is only documentation. An example is named after the declaration it documents, then `#` and its position among that declaration's examples, such as `Shop.Order.Total#1`, and `[filter]` selects examples as it selects tests. The generated API reference shows the same examples, so every published example has passed.
+
 A `@Benchmark` function takes no parameters and may return a value, which the runner consumes so that the work is not removed as dead code. `mora bench` runs each one after a warm-up, repeating calls until the timing is stable, and reports per call the mean time and its spread, allocations, bytes allocated (the sum of the sizes passed to `mora_rt_alloc`, §13.1), retains executed (from a run under the debug runtime) and instructions retired where the runner reports them. The counts come from the same allocation counter as the assertions below, so they match what a test would see. `@Benchmark(MaxAllocations = n)` makes `mora bench` fail when a call allocates more than `n` times.
 
 `@Test(MaxAllocations = 0)` fails a test that allocates more than the given number of times, and `Assert.AllocatesAtMost(3, () => Handle(request))` checks one call. Both read the runtime's allocation counter (§13.1), and the count is the same in every build profile (§10.13).
@@ -2462,20 +2488,23 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
 | `mora new <name> [--lib] [--template web]` | Creates a project: `mora.toml`, `src/Program.mr` (or `src/Lib.mr`), `.gitignore`, and for `--template web` the program of §2.2 trimmed to one endpoint |
 | `mora build [--release] [--target T] [--emit obj\|mir\|clif]` | Builds the project into `target/<profile>/<name>[.exe]` |
 | `mora run [--release] [-- args]` | Builds and runs |
-| `mora check` | Runs every analysis and check, no code generation |
-| `mora test [filter] [--seed <hex>]` | Builds and runs `@Test` functions (§17.5); `--seed` replays a printed seed |
+| `mora check [--watch]` | Runs every analysis and check, no code generation, and warns about files that `mora fmt` would change (§17.7). `--watch` checks again after every change (§17.6) |
+| `mora test [filter] [--seed <hex>] [--bless]` | Builds and runs `@Test` functions and doc-comment examples (§15.9, §17.5); `--seed` replays a printed seed; `--bless` rewrites snapshot files |
 | `mora fmt [--check]` | Formats every `.mr` file in the project |
+| `mora fix [--code MRnnnn] [--applicability safe\|review]` | Applies the fixes of the project's diagnostics, only `safe` ones unless told otherwise, then checks again (§17.6) |
 | `mora repl` | Interactive loop (§14.16) |
 | `mora explain MR0310` | Prints the long explanation of an error code, with examples of the error and its fix |
 | `mora explain-effects <function>` | Prints the function's effect set and, for each effect, the call path that introduces it (§6.14) |
 | `mora explain-cost [function] [--diff <revision>]` | Lists, per function and after optimization, every heap allocation with its type, size and the reason it was not promoted (`user` escapes: stored into `_users` on line 14), every `any` box, retains and releases left inside loops, snapshots and copy-in/copy-out, struct copies over 64 bytes, calls left inside loops, bounds checks left in loops, future state sizes and recursive-await boxes, and reuse sites. `--diff` compares with another revision (D-76) |
+| `mora docs --llm` | Prints the reference for programs and agents (§17.10) |
 | `mora bench [filter]` | Builds the test sections and `tests/` with the `release` profile (§15.9), runs `@Benchmark` functions and reports time with deterministic counts: allocations, bytes allocated, and retains executed under the debug runtime |
 | `mora lsp` | Runs the language server on stdin and stdout |
 | `mora demangle <symbol>` | Reverses §13.7 mangling |
-| `mora version` | Toolchain version, commit, runtime targets installed: three lines (`mora <version>`, `commit: <hash>`, `runtime targets: x86_64-linux, ...` or `none`), or with `--message-format json` one object with `version`, `commit` and `runtime_targets`. The targets are the directories of `lib/rt/` (§19.2) that hold `libmora_rt.a`. `mora --version` prints the first line only |
+| `mora version` | Toolchain version, commit, runtime targets installed: three lines (`mora <version>`, `commit: <hash>`, `runtime targets: x86_64-linux, ...` or `none`), or with `--message-format json` one object with `schema` (`mora.version/1`), `version`, `commit` and `runtime_targets`. The targets are the directories of `lib/rt/` (§19.2) that hold `libmora_rt.a`. `mora --version` prints the first line only |
+| `mora query`, `mora context`, `mora mcp` | Post-MVP (§17.10) |
 | `mora fetch`, `mora publish`, `mora caps` | Post-MVP (§18) |
 
-Exit codes: 0 success, 1 build or test failure, 2 usage error, 101 internal compiler error. Every command takes `--color auto|always|never` and `--message-format human|json`; the JSON format emits one diagnostic object per line, with the fields of §17.6, for CI tools. `auto` colors when the output is a terminal and `NO_COLOR` is unset or empty. The post-MVP commands are unknown commands until they land, so they exit with 2. While the toolchain is being built, a command that does not work yet prints ``error: `mora <command>` is not implemented yet`` and exits with 2. That line is plain text whichever `--message-format` is given, since it is not a diagnostic of §17.6.
+Exit codes: 0 success, 1 build or test failure, 2 usage error, 101 internal compiler error. Every command takes `--color auto|always|never` and `--message-format human|json`; the JSON format emits one diagnostic object per line, with the fields of §17.6, for CI tools. Every JSON object the toolchain prints follows the rules of §17.10. `auto` colors when the output is a terminal and `NO_COLOR` is unset or empty. The post-MVP commands are unknown commands until they land, so they exit with 2. While the toolchain is being built, a command that does not work yet prints ``error: `mora <command>` is not implemented yet`` and exits with 2. That line is plain text whichever `--message-format` is given, since it is not a diagnostic of §17.6.
 
 ### 17.2 Manifest
 
@@ -2532,11 +2561,13 @@ users-api/
 
 **Seeds** (D-109). Each run of `mora test` draws one seed, which drives `Random.Shared` and the executor's choice among ready tasks in every test (§12.1). A failing test prints it, `seed: 0x9e3779b97f4a7c15`, and `mora test <filter> --seed 0x9e3779b97f4a7c15` runs the test again with the same random numbers and the same task interleaving.
 
+**Doc examples and snapshots** (D-114). `mora test` also runs the examples in the doc comments of `src/` (§15.9), each reported like a test under its example name. `--bless` writes the snapshot files of the tests it runs (§15.9) instead of comparing them.
+
 `mora bench` collects `@Benchmark` functions from the same places: `test` sections, `.tests.mr` files and `tests/`. Tests and benchmarks are named by their qualified name, `Namespace.Type.Function`, and `[filter]` on either command keeps those whose qualified name contains it. `mora bench` runs benchmarks in one process, one after another, and prints one line per benchmark with the counts of §15.9.
 
 ### 17.6 Diagnostics
 
-Every diagnostic has a code (`MR` plus four digits), a severity, a primary span, optional secondary spans with labels, a one-line message, an optional note, and zero or more **fixes** (text edits the LSP offers as code actions).
+Every diagnostic has a code (`MR` plus four digits), a severity, a primary span, optional secondary spans with labels, a one-line message, an optional note, and zero or more **fixes** (text edits the LSP offers as code actions, each with an applicability).
 
 | Range | Kind |
 |---|---|
@@ -2578,19 +2609,55 @@ With `--message-format json` each diagnostic is one JSON object on one line. For
 {"code":"MR0310","severity":"error","message":"cannot store `conn` because `Connection` is unique","primary":{"span":{"file":"src/Pool.mr","byte_start":211,"byte_end":215,"line_start":14,"column_start":19,"line_end":14,"column_end":23},"label":"storing it would leave the caller with a connection it no longer owns"},"secondary":[{"span":{"file":"src/Pool.mr","byte_start":169,"byte_end":185,"line_start":12,"column_start":19,"line_end":12,"column_end":35},"label":"`conn` is only borrowed for this call"}],"note":null,"fixes":[{"message":"take ownership of the parameter","edits":[{"span":{"file":"src/Pool.mr","byte_start":169,"byte_end":169,"line_start":12,"column_start":19,"line_end":12,"column_end":19},"replacement":"move "}]}]}
 ```
 
-Every span carries byte offsets, for tools that edit text, and the same lines and columns the terminal shows. A label without text is `null`.
+Every span carries byte offsets, for tools that edit text, and the same lines and columns the terminal shows. A label without text is `null`. Each object also starts with `"schema":"mora.diagnostic/1"` (§17.10), and each fix has `"applicability"` after its `message`; the example leaves both out until roadmap deliverable M1.20 adds them, because a test compares it byte for byte with what the compiler prints. Its fix would be `"applicability":"review"`, because it changes the signature of `Return`: callers give up their connection.
+
+**Applicability** (D-113). Each fix says how far a tool may trust it:
+
+| Applicability | Meaning | Applied by `mora fix` |
+|---|---|---|
+| `safe` | The edit fixes the problem and changes nothing else the program does | By default |
+| `review` | The edit is probably what was meant, but it changes behaviour or a signature other code sees, so a person or an agent should read it | With `--applicability review` |
+| `placeholder` | The edit leaves text the author must replace, such as a missing argument, so the result does not compile as written | Never |
+
+`mora fix` runs the checks of `mora check`, applies each diagnostic's fix at the requested level, and checks again, repeating while new fixes appear, for at most four rounds. A diagnostic with two fixes at that level is left alone, since choosing between them is the author's call, and of two fixes whose edits overlap only the first in the file is applied. `--code MRnnnn`, which may be repeated, limits it to diagnostics with those codes. It writes only the project's own source files, then prints the diagnostics that remain and exits 1 if an error remains.
+
+**Watching** (D-113). `mora check --watch` keeps running and checks again after a source file or `mora.toml` changes. Each round prints every current diagnostic, not only the new ones, then a summary: the line `checked: 2 errors, 1 warning` in the human format, and the object `{"schema":"mora.check/1","errors":2,"warnings":1}` in the JSON format. A tool replaces what it shows with the diagnostics of the latest round. The command runs until it is interrupted.
 
 ### 17.7 Formatter
 
-`mora fmt` produces one canonical layout, with no configuration beyond line width (default 120): K&R braces (an opening brace ends the line that starts its construct, and `} else {` and `} while (c);` share a line), four-space indentation, one statement per line, spaces around binary operators, trailing commas in multi-line lists, `using` directives sorted with `Std` first. It never changes tokens other than whitespace, trailing commas and the order of `using` directives, and it is idempotent (D-41, amended by D-95).
+`mora fmt` produces one canonical layout, with no configuration beyond line width (default 120): K&R braces (an opening brace ends the line that starts its construct, and `} else {` and `} while (c);` share a line), four-space indentation, one statement per line, spaces around binary operators, trailing commas in multi-line lists, `using` directives sorted with `Std` first. It never changes tokens other than whitespace, trailing commas, the order of `using` directives and the parentheses below, and it is idempotent (D-41, amended by D-95 and D-115).
+
+**One reading of `?`** (D-115). Every form parses without types (§14.4), but some `?` forms need the rules of §7.4 to read, and the formatter writes those one way. A propagation `?` directly before the `:` of a conditional gets parentheses, so `c ? r? : d` becomes `c ? (r?) : d`. The formatter never adds or removes the space between `?` and `[`, because `x?[i]` is conditional access and `flag ? [1] : []` is a conditional.
+
+**Format is checked** (D-115). `mora check` reports each file that `mora fmt` would change as warning `MR2030` (lint `format`, warn by default), with its primary span on the first line that differs and a `safe` fix holding the formatter's edits. The repository then has one text form, and `mora fix` restores it.
 
 ### 17.8 Language server
 
-The MVP server supports: diagnostics on change (debounced, 100 ms), hover with types and doc comments, go to definition, find references, completion for members, locals, types, namespaces and keywords, signature help, document symbols, workspace symbols, formatting, code actions for every diagnostic fix, and inlay hints for inferred `let`/`var` types, boxing sites (§8.4) and shared captured variables (§10.9). Hover on `new` says where the object lives and why (§10.13), and hover on a parameter shows `scoped` when it does not escape (§14.18). A cost lens, off by default and turned on per file, adds the hints `heap`, `stack`, `box`, `+1 retain`, `snapshot` and `reuse?` from `mora explain-cost`. Rename, semantic tokens, call hierarchy and refactorings are post-MVP.
+The MVP server supports: diagnostics on change (debounced, 100 ms), hover with types and doc comments, go to definition, find references, completion for members, locals, types, namespaces and keywords, signature help, document symbols, workspace symbols, formatting, code actions for every diagnostic fix, and inlay hints for inferred `let`/`var` types, boxing sites (§8.4), shared captured variables (§10.9) and the other implicit steps (D-115): an implicit conversion names the `IFrom` it calls (§5.10), a call to an extension member names its extension block (§6.9), a call that runs an interface default names the interface that gives it (§6.8), and a read of a `static lazy` says that it may run the initializer (§4.7). Hover on `new` says where the object lives and why (§10.13), and hover on a parameter shows `scoped` when it does not escape (§14.18). A cost lens, off by default and turned on per file, adds the hints `heap`, `stack`, `box`, `+1 retain`, `snapshot` and `reuse?` from `mora explain-cost`. Rename, semantic tokens, call hierarchy and refactorings are post-MVP.
 
 ### 17.9 VS Code extension
 
 Published as `wolfware.mora` on the Visual Studio Marketplace and on Open VSX. It contains a TextMate grammar for `.mr` files, language configuration (brackets, comments, auto-closing), snippets for common shapes (`class`, `struct`, `union`, `switch`, `@Test`), and an LSP client that starts `mora lsp` from the `mora` executable on `PATH` or a configured path. The extension shows the toolchain version in the status bar and offers to install the toolchain when it is missing.
+
+### 17.10 Tools for programs and agents
+
+Editor plugins, CI scripts and coding agents read the toolchain's output, so the output is a contract (D-112, D-113).
+
+**Stable JSON.** Every JSON object the toolchain prints carries `schema`, a name and a version such as `mora.diagnostic/1`. The version grows when a field is removed or changes meaning. A new field does not change it, so readers ignore fields they do not know. JSON output is deterministic: the same sources and options give the same bytes, with diagnostics ordered by file path, then the start of the primary span, then code. Schemas change only in a toolchain release, and its notes list the change.
+
+**`mora docs --llm`** prints a compact Markdown reference meant for a model's context: a summary of the grammar generated from the ungrammar (§14.4), the standard library's public signatures with the first line of each doc comment and each function's effects (§6.14), and every registered diagnostic code with its summary and, where it has a page, the failing and fixed examples. It describes Mora alone and compares it with no other language (D-59). Its first line names the toolchain version, and the text depends on nothing else, so it can be cached per version. The build generates it from the sources of the API reference (§15) and of the error pages (§17.6), so it cannot drift from them, and embeds it in the `mora` executable, so it works offline. The documentation site serves the same text as `llms.txt` at its root (OQ-18).
+
+**Error pages as data.** For each release the documentation site publishes the pages of `docs/errors/` as one JSON Lines file, `mora-errors.jsonl`, with one object per page: `schema` (`mora.errors/1`), `code`, `summary`, the explanation, and the failing and fixed examples. These are the examples §20.4 compiles, so each failing example is known to fail and each fixed one to pass.
+
+**Planned commands** [post-MVP]. Three commands answer from the analysis database that serves the compiler and the language server (§14.3), under the same JSON rules:
+
+| Command | Returns |
+|---|---|
+| `mora query symbol`, `refs`, `callers`, `callees`, `type-at`, `effects --why` | A symbol's signature, doc, effects, location and visibility; references and calls with their enclosing symbols; the type at a position with the conversions applied there and the macro that generated it; a function's effects with the call path behind each one |
+| `mora context <symbol> --budget <tokens>` | A context pack sized to a token budget: signature, docs, effects, field layout, one hop of callers, and the tests that reach the symbol |
+| `mora mcp` | A Model Context Protocol server on stdin and stdout that offers the commands above with `check`, `test`, `expand`, `explain` and `docs`. It is read-only by default: it edits files only through `fix`, and only when started with `--allow-edits` |
+
+None of these tools calls a model: they give an agent facts about the code, and the agent does the rest.
 
 ## 18. Libraries, WebAssembly and packages (post-MVP)
 
@@ -2755,7 +2822,7 @@ The domain is OQ-18.
 | CLI | `mora` commands end to end on temporary projects | `crates/mora-cli/tests` |
 | LSP | Scripted sessions: open, edit, expect diagnostics, hover, completion | `crates/mora-lsp/tests` |
 | Acceptance | §20.2 | `examples/users-api` |
-| Fuzz | Lexer and parser (no panics, lossless round trip), type checker on generated programs | `fuzz/`, nightly job |
+| Fuzz | Lexer and parser (no panics, lossless round trip), programs generated from the ungrammar (§14.4), type checker on generated programs | `fuzz/`, nightly job |
 
 The UI and run harnesses live in `mora-testkit` and run under `cargo test`. Each finds the `.mr` files below its directory, runs them in parallel and reports every failure with a diff; a panic fails only its case.
 
@@ -2778,7 +2845,7 @@ A Rust test in `mora-testkit` builds `examples/users-api` with `mora build --rel
 
 ### 20.4 Executable examples
 
-`cargo xtask spec-examples` extracts every `mora` code block in this document and in the pages of `docs/errors/` (not the template in its README) whose first line is `// expect: <stdout>`, `// error: MRnnnn` or `// warning: MRnnnn`, compiles it, and checks the output or the reported diagnostic. CI runs it on every change, so a spec change that breaks an example fails, and an example cannot drift away from the implementation.
+`cargo xtask spec-examples` extracts every `mora` code block in this document and in the pages of `docs/errors/` (not the template in its README) whose first line is `// expect: <stdout>`, `// error: MRnnnn` or `// warning: MRnnnn`, compiles it, and checks the output or the reported diagnostic. CI runs it on every change, so a spec change that breaks an example fails, and an example cannot drift away from the implementation. `mora test` checks the examples in a project's doc comments by the same rules (§15.9).
 
 An `// expect:` example passes the run checks of §20.1. An `// error: MRnnnn` or `// warning: MRnnnn` example passes when the compiler reports that code with that severity and no error with another code. Each example has an id: the number of the section it is in, or the code of its error page, then `#` and its position among the examples there, such as `2.1#1` or `MR0300#2`. An example that needs a feature not yet built is listed in `tests/spec-examples.pending` with the roadmap deliverable that makes it pass. The check fails when a listed example passes, when a listed id or deliverable does not exist, and when an unlisted example fails, so the list only shrinks.
 
@@ -2801,6 +2868,8 @@ Initial targets, measured on the CI Linux x86_64 runner and revised at the end o
 | `users-api` `GET /users/1`, warm | at most 3 heap allocations per request |
 
 A pull request that worsens a measured budget by more than 10% fails the `bench` check unless its description explains why. The check also tracks deterministic counts (allocations, bytes allocated, retains executed under the debug runtime, and instructions retired where the runner reports them), which do not vary from run to run because `mora bench` fixes the hash key (§15.3).
+
+**Agent success** (D-112). An eval suite in `evals/` holds 100 to 200 small tasks, such as an endpoint, a parser or a refactor of a union, each with a prompt and tests the model does not see. Every release candidate runs it with two or three widely used models and one small model that runs locally. The model versions are fixed for a release line and listed in `evals/models.toml`, so results compare across the releases of that line. Each model gets the task, the toolchain, the output of `mora docs --llm` and the diagnostics in JSON. The suite reports two rates per model: the tasks that compile on the first try, and the tasks whose tests pass within three rounds of compiling and fixing. A release whose rate falls by more than 10% from the previous release of its line needs an explanation in its release notes, as a slower benchmark does in a pull request. The results guide fixes, messages and documentation, not syntax.
 
 ## 21. Project conventions
 
@@ -2879,7 +2948,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-38 | `ref` borrows of non-plain aliased places use copy-in/copy-out; `in` borrows use snapshots | author | 10.4 |
 | D-39 | Escaping closures share captured variables that are reassigned, as C# closures do | author | 10.9 |
 | D-40 | There is no `using` disposal statement; destructors replace `IDisposable` | draft | 4.3, 10.8 |
-| D-41 | The formatter enforces Allman braces and four-space indentation. Amended by D-95 | author | 17.7 |
+| D-41 | The formatter enforces Allman braces and four-space indentation. Amended by D-95 and D-115 | author | 17.7 |
 | D-42 | Enumerators detect modification with a version number, as in .NET; only spans of growable collections use the borrow count | author | 10.10 |
 | D-43 | A lambda becomes a non-escaping closure, a closure struct or an escaping closure depending on the parameter it is passed to | author | 10.9 |
 | D-44 | The standard library may use a private `unsafe` dialect and intrinsics; user code may not in the MVP | author | 13.11 |
@@ -2950,6 +3019,10 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-109 | Clock, timers, randomness, I/O and task scheduling go through one runtime seam, the World, internal in the MVP; `mora test` seeds randomness and the scheduler, prints the seed on failure and replays it with `--seed`; a public and simulated World are post-MVP | user | 12.1, 17.5 |
 | D-110 | `Task.Scope` fails fast: a child's `Err` of the scope's error type cancels the body and its siblings and becomes the result (`MR0404` for another error type); deadlines are inherited per task, set by `Task.WithTimeout` and `Task.WithDeadline`, which replace `Task.Timeout`; `Task.Spawn` becomes `Task.SpawnDetached` with lint `detached-task` | user | 12.4, 16.1 |
 | D-111 | Time has one type per concept: `Instant`, `MonoTime`, `TimeSpan`, `LocalDate`, `LocalTime`, `LocalDateTime` and `Period` replace `DateTime`; lint `wall-clock-duration`; time zones are post-MVP | user | 15.6 |
+| D-112 | Mora is documented for models as well as people: `mora docs --llm` prints a deterministic, versioned reference built from the sources of the API reference and served as `llms.txt`; the error pages are published as a dataset of paired examples; an agent eval suite with fixed model versions is a release budget | user | 17.1, 17.10, 20.6 |
+| D-113 | Each fix carries an applicability, `safe`, `review` or `placeholder`; `mora fix` applies `safe` fixes unless told otherwise and checks again; `mora check --watch` streams diagnostics; JSON output carries a `schema` version and is deterministic; `mora query`, `mora context` and `mora mcp` are post-MVP | user | 17.1, 17.6, 17.10 |
+| D-114 | Doc-comment examples whose first line is `// expect:`, `// error:` or `// warning:` are tests that `mora test` runs; `Assert.Snapshot` compares output with files in `tests/snapshots/`, and `mora test --bless` rewrites them | user | 3.2, 15.9, 17.1, 17.5, 20.4 |
+| D-115 | Every construct parses without types, the ungrammar is the normative grammar and is fuzzed against the parser, the formatter writes the `?` forms of §7.4 one way, implicit steps show as inlay hints, and `mora check` warns about unformatted files (`MR2030`). Amends D-41 | user | 1.6, 14.4, 17.1, 17.7, 17.8, 20.1 |
 
 ## 24. Open questions
 
