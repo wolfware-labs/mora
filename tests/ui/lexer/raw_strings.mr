@@ -1,0 +1,11 @@
+let id = 7;
+let path = `C:\data\users.json`;
+let quote = `She said "hi" `;
+let json = $$`{"id": {{id}}}`;
+let ticks = ``a`b``;
+let sql = $`
+    select name
+    from users
+    where id = {id}
+    `;
+let braces = $$"{{id}}"; //~ ERROR MR0016

@@ -6,9 +6,8 @@
 //! `await` through [`unary`]; member access, calls, indexing, `++`/`--` and
 //! propagation through [`postfix`].
 
-use super::csharp::TypeFirst;
 use super::types::{self, PREDEFINED, scan_type};
-use super::{CompletedMarker, Input, Parser, csharp, items, patterns, stmts};
+use super::{CompletedMarker, Input, Parser, items, patterns, stmts};
 use crate::SyntaxKind;
 
 use SyntaxKind as K;
@@ -19,7 +18,6 @@ const LITERALS: &[SyntaxKind] = &[
     K::RealNumber,
     K::Char,
     K::String,
-    K::VerbatimString,
     K::RawString,
     K::TrueKw,
     K::FalseKw,
@@ -134,13 +132,6 @@ pub(crate) fn at_expr_start(p: &Parser<'_>) -> bool {
                 | K::DotDot
                 | K::AsyncKw
                 | K::StaticKw
-                | K::TypeofKw
-                | K::BaseKw
-                | K::ThrowKw
-                | K::DelegateKw
-                | K::ObjectKw
-                | K::DynamicKw
-                | K::NullKw
         )
 }
 
@@ -226,7 +217,7 @@ fn expr_bp(p: &mut Parser<'_>, min: u8) -> Option<CompletedMarker> {
             continue;
         }
         if min <= CONDITIONAL && p.at(K::Question) && conditional_follows(p.input(), p.pos()) {
-            // As in C#, each arm is a whole expression, assignment included:
+            // Each arm is a whole expression, assignment included:
             // `ok ? x = 1 : y = 2` assigns in either arm.
             let m = lhs.precede(p);
             p.bump(K::Question);
@@ -331,9 +322,9 @@ fn unary_with(p: &mut Parser<'_>, propagate: bool) -> Option<CompletedMarker> {
     Some(postfix(p, lhs, propagate))
 }
 
-/// C#'s rule for `(T)x`: the parentheses hold a type, and what follows is
-/// an identifier, a literal, `(`, `~`, `!` or a keyword that can start an
-/// expression; after a predefined type, any operand (§14.4).
+/// Whether `(T)x` is a cast (§14.4): the parentheses hold a type, and what
+/// follows is an identifier, a literal, `(`, `~`, `!` or a keyword that can
+/// start an expression; after a predefined type, any operand.
 fn at_cast(p: &Parser<'_>) -> bool {
     let input = p.input();
     let at = p.pos();
@@ -353,7 +344,6 @@ fn at_cast(p: &Parser<'_>) -> bool {
         || matches!(
             next,
             K::Ident
-                | K::NullKw
                 | K::LParen
                 | K::Tilde
                 | K::Bang
@@ -464,15 +454,9 @@ fn lambda_param(p: &mut Parser<'_>) {
         p.bump_any();
         modifier.complete(p, K::Modifier);
     }
-    if types::at_type_first(p) {
-        let first = TypeFirst::parse(p);
-        types::name(p);
-        first.report(p, "");
-    } else {
-        types::name(p);
-        if p.at(K::Colon) {
-            types::annotation(p, false);
-        }
+    types::name(p);
+    if p.at(K::Colon) {
+        types::annotation(p);
     }
     if p.eat(K::Eq) {
         expr(p);
@@ -483,9 +467,6 @@ fn lambda_param(p: &mut Parser<'_>) {
 fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     if at_lambda(p) {
         return Some(lambda(p));
-    }
-    if let Some(done) = csharp::null_literal(p).or_else(|| csharp::primary(p)) {
-        return Some(done);
     }
     let kind = p.current();
     if LITERALS.contains(&kind) {
@@ -519,10 +500,6 @@ fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
             m.complete(p, K::QuoteExpr)
         }
         K::Ident => {
-            // `checked(a + b)` is reported and parsed as the call it looks like.
-            if csharp::at_checked(p) && p.nth(1) == K::LParen {
-                csharp::report_checked(p);
-            }
             types::path(p, false);
             m.complete(p, K::PathExpr)
         }
@@ -677,13 +654,6 @@ fn postfix(p: &mut Parser<'_>, mut lhs: CompletedMarker, propagate: bool) -> Com
             let m = lhs.precede(p);
             p.bump_any();
             m.complete(p, K::PostfixExpr)
-        } else if p.at(K::Bang) {
-            // No binary operator is spelled `!`, so after an operand it is
-            // C#'s null-forgiving operator.
-            csharp::report_null_forgiving(p);
-            let m = lhs.precede(p);
-            p.bump(K::Bang);
-            m.complete(p, K::Error)
         } else if propagate && at_propagation(p) {
             // Member access after propagation needs parentheses (§7.4):
             // `(r?).Name`. Only another `?` may follow here.
@@ -777,32 +747,18 @@ fn arg_inner(p: &mut Parser<'_>) {
 }
 
 /// After `out` or `ref`: `var y`, `let y` or `let y: int`, a variable
-/// declared by the call (§7.2, §10.3), or `int y` in the C# order.
+/// declared by the call (§7.2, §10.3).
 fn at_decl_expr(p: &Parser<'_>) -> bool {
-    if p.at(K::LetKw) || p.at(K::VarKw) {
-        return true;
-    }
-    types::scan_type(p.input(), p.pos()).is_some_and(|end| {
-        p.input().kind(end) == K::Ident && matches!(p.input().kind(end + 1), K::Comma | K::RParen)
-    })
+    p.at(K::LetKw) || p.at(K::VarKw)
 }
 
+/// At `let` or `var`.
 fn decl_expr(p: &mut Parser<'_>) {
     let m = p.start();
-    let keyword = p.at(K::LetKw) || p.at(K::VarKw);
-    if keyword {
-        p.bump_any();
-    }
-    if types::at_type_first(p) {
-        // `out int y` becomes `out let y: int`.
-        let first = TypeFirst::parse(p);
-        types::name(p);
-        first.report(p, if keyword { "" } else { "let " });
-    } else {
-        types::name(p);
-        if p.at(K::Colon) {
-            types::annotation(p, false);
-        }
+    p.bump_any();
+    types::name(p);
+    if p.at(K::Colon) {
+        types::annotation(p);
     }
     m.complete(p, K::DeclExpr);
 }

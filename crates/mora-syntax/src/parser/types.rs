@@ -1,6 +1,5 @@
 //! Types (§5), and a lookahead that recognizes a type without parsing it.
 
-use super::csharp::{self, TypeFirst};
 use super::{Input, Parser, describe, exprs};
 use crate::SyntaxKind;
 
@@ -23,7 +22,6 @@ pub(crate) const PREDEFINED: &[SyntaxKind] = &[
     K::DoubleKw,
     K::CharKw,
     K::StringKw,
-    K::VoidKw,
 ];
 
 /// Parses a type, or reports that one is missing.
@@ -49,7 +47,6 @@ fn ty_with(p: &mut Parser<'_>, arrays: bool) {
             m.complete(p, K::PredefinedType)
         }
         K::LParen => tuple_type(p),
-        K::ObjectKw | K::DynamicKw => csharp::reserved_type(p),
         K::WeakKw => {
             let m = p.start();
             p.bump(K::WeakKw);
@@ -86,11 +83,7 @@ fn ty_with(p: &mut Parser<'_>, arrays: bool) {
 
 pub(crate) fn at_type_start(p: &Parser<'_>) -> bool {
     let kind = p.current();
-    PREDEFINED.contains(&kind)
-        || matches!(
-            kind,
-            K::Ident | K::LParen | K::WeakKw | K::Dollar | K::ObjectKw | K::DynamicKw
-        )
+    PREDEFINED.contains(&kind) || matches!(kind, K::Ident | K::LParen | K::WeakKw | K::Dollar)
 }
 
 /// `()`, `(int, string)`, `(x: int, y: string)`.
@@ -101,12 +94,7 @@ fn tuple_type(p: &mut Parser<'_>) -> super::CompletedMarker {
         let elem = p.start();
         if p.at(K::Ident) && p.nth(1) == K::Colon {
             name(p);
-            annotation(p, false);
-        } else if at_type_first(p) {
-            // `(int x, string y)`, the C# order.
-            let first = TypeFirst::parse(p);
-            name(p);
-            first.report(p, "");
+            annotation(p);
         } else {
             ty(p);
         }
@@ -119,23 +107,10 @@ fn tuple_type(p: &mut Parser<'_>) -> super::CompletedMarker {
     m.complete(p, K::TupleType)
 }
 
-/// `: Type` after a name, or after a parameter list (`returns`). `void`
-/// is taken as the type it spells and reported (`MR0136`).
-pub(crate) fn annotation(p: &mut Parser<'_>, returns: bool) {
-    let before = p.prev_end();
-    let colon = p.range(0).start();
+/// `: Type` after a name or a parameter list.
+pub(crate) fn annotation(p: &mut Parser<'_>) {
     p.bump(K::Colon);
-    if p.at(K::VoidKw) && !p.nth_at(1, K::Question) && !p.nth_at(1, K::LBracket) {
-        csharp::report_void(p, before, colon, returns);
-    }
     ty(p);
-}
-
-/// Whether a type and then a name start here: `int x`, `List<T> xs`, the
-/// C# order of a declaration.
-pub(crate) fn at_type_first(p: &Parser<'_>) -> bool {
-    scan_type(p.input(), p.pos())
-        .is_some_and(|end| matches!(p.input().kind(end), K::Ident | K::Dollar))
 }
 
 /// `Name`: a declared identifier.
@@ -251,8 +226,6 @@ pub(crate) fn scan_generic_args(input: &Input<'_>, at: usize) -> Option<usize> {
 pub(crate) fn scan_type(input: &Input<'_>, at: usize) -> Option<usize> {
     let mut i = match input.kind(at) {
         kind if PREDEFINED.contains(&kind) => at + 1,
-        // `object` and `dynamic` are C# types, reported where they are parsed.
-        K::ObjectKw | K::DynamicKw => at + 1,
         K::WeakKw => return scan_type(input, at + 1),
         // `$t`, `$..ts`, `$(expr)` (§9.3).
         K::Dollar => scan_splice(input, at)?,
@@ -261,14 +234,11 @@ pub(crate) fn scan_type(input: &Input<'_>, at: usize) -> Option<usize> {
         K::LParen => {
             let mut i = at + 1;
             loop {
-                // `x: int`, or `int x` in the C# order, reported when parsed.
+                // `x: int` or `int`.
                 if input.kind(i) == K::Ident && input.kind(i + 1) == K::Colon {
                     i += 2;
                 }
                 i = scan_type(input, i)?;
-                if input.kind(i) == K::Ident {
-                    i += 1;
-                }
                 match input.kind(i) {
                     // A trailing comma, as `tuple_type` takes: `(int, string,)`.
                     K::Comma if input.kind(i + 1) == K::RParen => break i + 2,

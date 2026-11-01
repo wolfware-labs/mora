@@ -14,7 +14,7 @@ pub enum SyntaxKind {
     DocComment,
     /// `/* ... */`.
     BlockComment,
-    /// A line starting with `#` and a directive name, such as `#region` (§3.2).
+    /// A `#region` or `#endregion` line (§3.2).
     Directive,
     /// A name, possibly with an `@` prefix.
     Ident,
@@ -26,9 +26,7 @@ pub enum SyntaxKind {
     Char,
     /// A regular string literal, such as `"a\tb"` or `"abc"u8`.
     String,
-    /// A verbatim string literal, such as `@"C:\temp"`: an error (`MR0018`), lexed for recovery.
-    VerbatimString,
-    /// A raw string literal, delimited by backticks, or by three or more quotes as an error.
+    /// A raw string literal, delimited by backticks.
     RawString,
     /// The start of an interpolated string, such as `$"`, `` $` `` or `` $$` ``.
     InterpStart,
@@ -178,8 +176,6 @@ pub enum SyntaxKind {
     AsyncKw,
     /// The keyword `await`.
     AwaitKw,
-    /// The keyword `base`.
-    BaseKw,
     /// The keyword `bool`.
     BoolKw,
     /// The keyword `break`.
@@ -188,8 +184,6 @@ pub enum SyntaxKind {
     ByteKw,
     /// The keyword `case`.
     CaseKw,
-    /// The keyword `catch`.
-    CatchKw,
     /// The keyword `char`.
     CharKw,
     /// The keyword `class`.
@@ -200,38 +194,26 @@ pub enum SyntaxKind {
     ContinueKw,
     /// The keyword `default`.
     DefaultKw,
-    /// The keyword `delegate`.
-    DelegateKw,
     /// The keyword `do`.
     DoKw,
     /// The keyword `double`.
     DoubleKw,
-    /// The keyword `dynamic`.
-    DynamicKw,
     /// The keyword `else`.
     ElseKw,
     /// The keyword `enum`.
     EnumKw,
-    /// The keyword `event`.
-    EventKw,
     /// The keyword `explicit`.
     ExplicitKw,
     /// The keyword `extern`.
     ExternKw,
     /// The keyword `false`.
     FalseKw,
-    /// The keyword `finally`.
-    FinallyKw,
-    /// The keyword `fixed`.
-    FixedKw,
     /// The keyword `float`.
     FloatKw,
     /// The keyword `for`.
     ForKw,
     /// The keyword `foreach`.
     ForeachKw,
-    /// The keyword `goto`.
-    GotoKw,
     /// The keyword `if`.
     IfKw,
     /// The keyword `implicit`.
@@ -254,8 +236,6 @@ pub enum SyntaxKind {
     LazyKw,
     /// The keyword `let`.
     LetKw,
-    /// The keyword `lock`.
-    LockKw,
     /// The keyword `long`.
     LongKw,
     /// The keyword `macro`.
@@ -274,22 +254,14 @@ pub enum SyntaxKind {
     NoneKw,
     /// The keyword `nuint`.
     NuintKw,
-    /// The keyword `null`.
-    NullKw,
-    /// The keyword `object`.
-    ObjectKw,
     /// The keyword `operator`.
     OperatorKw,
     /// The keyword `out`.
     OutKw,
-    /// The keyword `override`.
-    OverrideKw,
     /// The keyword `params`.
     ParamsKw,
     /// The keyword `private`.
     PrivateKw,
-    /// The keyword `protected`.
-    ProtectedKw,
     /// The keyword `public`.
     PublicKw,
     /// The keyword `readonly`.
@@ -300,8 +272,6 @@ pub enum SyntaxKind {
     ReturnKw,
     /// The keyword `sbyte`.
     SbyteKw,
-    /// The keyword `sealed`.
-    SealedKw,
     /// The keyword `shared`.
     SharedKw,
     /// The keyword `short`.
@@ -320,14 +290,8 @@ pub enum SyntaxKind {
     SwitchKw,
     /// The keyword `this`.
     ThisKw,
-    /// The keyword `throw`.
-    ThrowKw,
     /// The keyword `true`.
     TrueKw,
-    /// The keyword `try`.
-    TryKw,
-    /// The keyword `typeof`.
-    TypeofKw,
     /// The keyword `uint`.
     UintKw,
     /// The keyword `ulong`.
@@ -344,12 +308,6 @@ pub enum SyntaxKind {
     UsingKw,
     /// The keyword `var`.
     VarKw,
-    /// The keyword `virtual`.
-    VirtualKw,
-    /// The keyword `void`.
-    VoidKw,
-    /// The keyword `volatile`.
-    VolatileKw,
     /// The keyword `weak`.
     WeakKw,
     /// The keyword `where`.
@@ -362,8 +320,6 @@ pub enum SyntaxKind {
     GetKw,
     /// The contextual keyword `set`: an identifier the parser marks in position.
     SetKw,
-    /// The contextual keyword `init`: an identifier the parser marks in position.
-    InitKw,
     /// The contextual keyword `value`: an identifier the parser marks in position.
     ValueKw,
     /// The contextual keyword `when`: an identifier the parser marks in position.
@@ -376,10 +332,6 @@ pub enum SyntaxKind {
     NotKw,
     /// The contextual keyword `with`: an identifier the parser marks in position.
     WithKw,
-    /// The contextual keyword `record`: an identifier the parser marks in position.
-    RecordKw,
-    /// The contextual keyword `required`: an identifier the parser marks in position.
-    RequiredKw,
     /// The contextual keyword `file`: an identifier the parser marks in position.
     FileKw,
     /// The contextual keyword `nameof`: an identifier the parser marks in position.
@@ -430,8 +382,6 @@ pub enum SyntaxKind {
     StructDecl,
     /// A `ClassDecl` node.
     ClassDecl,
-    /// A `RecordDecl` node.
-    RecordDecl,
     /// A `UnionDecl` node.
     UnionDecl,
     /// A `EnumDecl` node.
@@ -458,12 +408,12 @@ pub enum SyntaxKind {
     BaseList,
     /// A `TypeParamList` node.
     TypeParamList,
+    /// A `ParamList` node.
+    ParamList,
     /// A `WhereClause` node.
     WhereClause,
     /// A `MemberList` node.
     MemberList,
-    /// A `ParamList` node.
-    ParamList,
     /// A `UnionBody` node.
     UnionBody,
     /// A `UnionCase` node.
@@ -568,6 +518,8 @@ pub enum SyntaxKind {
     SwitchStmt,
     /// A `AttributedStmt` node.
     AttributedStmt,
+    /// A `UnsafeStmt` node.
+    UnsafeStmt,
     /// A `LocalDecl` node.
     LocalDecl,
     /// A `TupleDesignation` node.
@@ -734,7 +686,6 @@ impl SyntaxKind {
         RealNumber,
         Char,
         String,
-        VerbatimString,
         RawString,
         InterpStart,
         InterpText,
@@ -810,33 +761,25 @@ impl SyntaxKind {
         AsKw,
         AsyncKw,
         AwaitKw,
-        BaseKw,
         BoolKw,
         BreakKw,
         ByteKw,
         CaseKw,
-        CatchKw,
         CharKw,
         ClassKw,
         ConstKw,
         ContinueKw,
         DefaultKw,
-        DelegateKw,
         DoKw,
         DoubleKw,
-        DynamicKw,
         ElseKw,
         EnumKw,
-        EventKw,
         ExplicitKw,
         ExternKw,
         FalseKw,
-        FinallyKw,
-        FixedKw,
         FloatKw,
         ForKw,
         ForeachKw,
-        GotoKw,
         IfKw,
         ImplicitKw,
         ImportKw,
@@ -848,7 +791,6 @@ impl SyntaxKind {
         IsKw,
         LazyKw,
         LetKw,
-        LockKw,
         LongKw,
         MacroKw,
         MoveKw,
@@ -858,20 +800,15 @@ impl SyntaxKind {
         NintKw,
         NoneKw,
         NuintKw,
-        NullKw,
-        ObjectKw,
         OperatorKw,
         OutKw,
-        OverrideKw,
         ParamsKw,
         PrivateKw,
-        ProtectedKw,
         PublicKw,
         ReadonlyKw,
         RefKw,
         ReturnKw,
         SbyteKw,
-        SealedKw,
         SharedKw,
         ShortKw,
         SizeofKw,
@@ -881,10 +818,7 @@ impl SyntaxKind {
         StructKw,
         SwitchKw,
         ThisKw,
-        ThrowKw,
         TrueKw,
-        TryKw,
-        TypeofKw,
         UintKw,
         UlongKw,
         UnionKw,
@@ -893,24 +827,18 @@ impl SyntaxKind {
         UshortKw,
         UsingKw,
         VarKw,
-        VirtualKw,
-        VoidKw,
-        VolatileKw,
         WeakKw,
         WhereKw,
         WhileKw,
         YieldKw,
         GetKw,
         SetKw,
-        InitKw,
         ValueKw,
         WhenKw,
         AndKw,
         OrKw,
         NotKw,
         WithKw,
-        RecordKw,
-        RequiredKw,
         FileKw,
         NameofKw,
         GlobalKw,
@@ -936,7 +864,6 @@ impl SyntaxKind {
         UsingAlias,
         StructDecl,
         ClassDecl,
-        RecordDecl,
         UnionDecl,
         EnumDecl,
         InterfaceDecl,
@@ -950,9 +877,9 @@ impl SyntaxKind {
         AttributeArg,
         BaseList,
         TypeParamList,
+        ParamList,
         WhereClause,
         MemberList,
-        ParamList,
         UnionBody,
         UnionCase,
         EnumBase,
@@ -1005,6 +932,7 @@ impl SyntaxKind {
         ReturnStmt,
         SwitchStmt,
         AttributedStmt,
+        UnsafeStmt,
         LocalDecl,
         TupleDesignation,
         NameDesignation,
@@ -1148,33 +1076,25 @@ impl SyntaxKind {
         AsKw,
         AsyncKw,
         AwaitKw,
-        BaseKw,
         BoolKw,
         BreakKw,
         ByteKw,
         CaseKw,
-        CatchKw,
         CharKw,
         ClassKw,
         ConstKw,
         ContinueKw,
         DefaultKw,
-        DelegateKw,
         DoKw,
         DoubleKw,
-        DynamicKw,
         ElseKw,
         EnumKw,
-        EventKw,
         ExplicitKw,
         ExternKw,
         FalseKw,
-        FinallyKw,
-        FixedKw,
         FloatKw,
         ForKw,
         ForeachKw,
-        GotoKw,
         IfKw,
         ImplicitKw,
         ImportKw,
@@ -1186,7 +1106,6 @@ impl SyntaxKind {
         IsKw,
         LazyKw,
         LetKw,
-        LockKw,
         LongKw,
         MacroKw,
         MoveKw,
@@ -1196,20 +1115,15 @@ impl SyntaxKind {
         NintKw,
         NoneKw,
         NuintKw,
-        NullKw,
-        ObjectKw,
         OperatorKw,
         OutKw,
-        OverrideKw,
         ParamsKw,
         PrivateKw,
-        ProtectedKw,
         PublicKw,
         ReadonlyKw,
         RefKw,
         ReturnKw,
         SbyteKw,
-        SealedKw,
         SharedKw,
         ShortKw,
         SizeofKw,
@@ -1219,10 +1133,7 @@ impl SyntaxKind {
         StructKw,
         SwitchKw,
         ThisKw,
-        ThrowKw,
         TrueKw,
-        TryKw,
-        TypeofKw,
         UintKw,
         UlongKw,
         UnionKw,
@@ -1231,9 +1142,6 @@ impl SyntaxKind {
         UshortKw,
         UsingKw,
         VarKw,
-        VirtualKw,
-        VoidKw,
-        VolatileKw,
         WeakKw,
         WhereKw,
         WhileKw,
@@ -1241,9 +1149,8 @@ impl SyntaxKind {
     ];
     /// The contextual keywords (§3.4).
     pub const CONTEXTUAL_KEYWORDS: &[SyntaxKind] = &[
-        GetKw, SetKw, InitKw, ValueKw, WhenKw, AndKw, OrKw, NotKw, WithKw, RecordKw, RequiredKw,
-        FileKw, NameofKw, GlobalKw, ArenaKw, ArgsKw, CodeKw, AddsKw, FromKw, TypeKw, AllowsKw,
-        Underscore,
+        GetKw, SetKw, ValueKw, WhenKw, AndKw, OrKw, NotKw, WithKw, FileKw, NameofKw, GlobalKw,
+        ArenaKw, ArgsKw, CodeKw, AddsKw, FromKw, TypeKw, AllowsKw, Underscore,
     ];
 
     /// The kind with this raw number.
@@ -1321,33 +1228,25 @@ impl SyntaxKind {
             AsKw => "as",
             AsyncKw => "async",
             AwaitKw => "await",
-            BaseKw => "base",
             BoolKw => "bool",
             BreakKw => "break",
             ByteKw => "byte",
             CaseKw => "case",
-            CatchKw => "catch",
             CharKw => "char",
             ClassKw => "class",
             ConstKw => "const",
             ContinueKw => "continue",
             DefaultKw => "default",
-            DelegateKw => "delegate",
             DoKw => "do",
             DoubleKw => "double",
-            DynamicKw => "dynamic",
             ElseKw => "else",
             EnumKw => "enum",
-            EventKw => "event",
             ExplicitKw => "explicit",
             ExternKw => "extern",
             FalseKw => "false",
-            FinallyKw => "finally",
-            FixedKw => "fixed",
             FloatKw => "float",
             ForKw => "for",
             ForeachKw => "foreach",
-            GotoKw => "goto",
             IfKw => "if",
             ImplicitKw => "implicit",
             ImportKw => "import",
@@ -1359,7 +1258,6 @@ impl SyntaxKind {
             IsKw => "is",
             LazyKw => "lazy",
             LetKw => "let",
-            LockKw => "lock",
             LongKw => "long",
             MacroKw => "macro",
             MoveKw => "move",
@@ -1369,20 +1267,15 @@ impl SyntaxKind {
             NintKw => "nint",
             NoneKw => "none",
             NuintKw => "nuint",
-            NullKw => "null",
-            ObjectKw => "object",
             OperatorKw => "operator",
             OutKw => "out",
-            OverrideKw => "override",
             ParamsKw => "params",
             PrivateKw => "private",
-            ProtectedKw => "protected",
             PublicKw => "public",
             ReadonlyKw => "readonly",
             RefKw => "ref",
             ReturnKw => "return",
             SbyteKw => "sbyte",
-            SealedKw => "sealed",
             SharedKw => "shared",
             ShortKw => "short",
             SizeofKw => "sizeof",
@@ -1392,10 +1285,7 @@ impl SyntaxKind {
             StructKw => "struct",
             SwitchKw => "switch",
             ThisKw => "this",
-            ThrowKw => "throw",
             TrueKw => "true",
-            TryKw => "try",
-            TypeofKw => "typeof",
             UintKw => "uint",
             UlongKw => "ulong",
             UnionKw => "union",
@@ -1404,24 +1294,18 @@ impl SyntaxKind {
             UshortKw => "ushort",
             UsingKw => "using",
             VarKw => "var",
-            VirtualKw => "virtual",
-            VoidKw => "void",
-            VolatileKw => "volatile",
             WeakKw => "weak",
             WhereKw => "where",
             WhileKw => "while",
             YieldKw => "yield",
             GetKw => "get",
             SetKw => "set",
-            InitKw => "init",
             ValueKw => "value",
             WhenKw => "when",
             AndKw => "and",
             OrKw => "or",
             NotKw => "not",
             WithKw => "with",
-            RecordKw => "record",
-            RequiredKw => "required",
             FileKw => "file",
             NameofKw => "nameof",
             GlobalKw => "global",
@@ -1444,33 +1328,25 @@ impl SyntaxKind {
             "as" => AsKw,
             "async" => AsyncKw,
             "await" => AwaitKw,
-            "base" => BaseKw,
             "bool" => BoolKw,
             "break" => BreakKw,
             "byte" => ByteKw,
             "case" => CaseKw,
-            "catch" => CatchKw,
             "char" => CharKw,
             "class" => ClassKw,
             "const" => ConstKw,
             "continue" => ContinueKw,
             "default" => DefaultKw,
-            "delegate" => DelegateKw,
             "do" => DoKw,
             "double" => DoubleKw,
-            "dynamic" => DynamicKw,
             "else" => ElseKw,
             "enum" => EnumKw,
-            "event" => EventKw,
             "explicit" => ExplicitKw,
             "extern" => ExternKw,
             "false" => FalseKw,
-            "finally" => FinallyKw,
-            "fixed" => FixedKw,
             "float" => FloatKw,
             "for" => ForKw,
             "foreach" => ForeachKw,
-            "goto" => GotoKw,
             "if" => IfKw,
             "implicit" => ImplicitKw,
             "import" => ImportKw,
@@ -1482,7 +1358,6 @@ impl SyntaxKind {
             "is" => IsKw,
             "lazy" => LazyKw,
             "let" => LetKw,
-            "lock" => LockKw,
             "long" => LongKw,
             "macro" => MacroKw,
             "move" => MoveKw,
@@ -1492,20 +1367,15 @@ impl SyntaxKind {
             "nint" => NintKw,
             "none" => NoneKw,
             "nuint" => NuintKw,
-            "null" => NullKw,
-            "object" => ObjectKw,
             "operator" => OperatorKw,
             "out" => OutKw,
-            "override" => OverrideKw,
             "params" => ParamsKw,
             "private" => PrivateKw,
-            "protected" => ProtectedKw,
             "public" => PublicKw,
             "readonly" => ReadonlyKw,
             "ref" => RefKw,
             "return" => ReturnKw,
             "sbyte" => SbyteKw,
-            "sealed" => SealedKw,
             "shared" => SharedKw,
             "short" => ShortKw,
             "sizeof" => SizeofKw,
@@ -1515,10 +1385,7 @@ impl SyntaxKind {
             "struct" => StructKw,
             "switch" => SwitchKw,
             "this" => ThisKw,
-            "throw" => ThrowKw,
             "true" => TrueKw,
-            "try" => TryKw,
-            "typeof" => TypeofKw,
             "uint" => UintKw,
             "ulong" => UlongKw,
             "union" => UnionKw,
@@ -1527,9 +1394,6 @@ impl SyntaxKind {
             "ushort" => UshortKw,
             "using" => UsingKw,
             "var" => VarKw,
-            "virtual" => VirtualKw,
-            "void" => VoidKw,
-            "volatile" => VolatileKw,
             "weak" => WeakKw,
             "where" => WhereKw,
             "while" => WhileKw,
@@ -1543,15 +1407,12 @@ impl SyntaxKind {
         Some(match text {
             "get" => GetKw,
             "set" => SetKw,
-            "init" => InitKw,
             "value" => ValueKw,
             "when" => WhenKw,
             "and" => AndKw,
             "or" => OrKw,
             "not" => NotKw,
             "with" => WithKw,
-            "record" => RecordKw,
-            "required" => RequiredKw,
             "file" => FileKw,
             "nameof" => NameofKw,
             "global" => GlobalKw,

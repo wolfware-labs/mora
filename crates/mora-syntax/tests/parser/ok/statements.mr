@@ -42,5 +42,6 @@ Run(items: List<int>, counts: Dictionary<string, int>)
 
     ;
     { let inner = 1; }
+    unsafe { Free(p); }
     return;
 }

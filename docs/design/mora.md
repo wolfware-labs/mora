@@ -301,8 +301,7 @@ public static Total(csv: string): Result<int, ParseError>
 
 - `//` to end of line, and `/* ... */` (not nesting, as in C#). A block comment that is not closed is error `MR0012`.
 - `///` starts a doc comment. Doc comments are **Markdown**, not the XML of C# doc comments (D-21). A doc comment attaches to the next declaration. Inline code in backticks that names a symbol, for example `` `List<T>.Add` ``, becomes a link in the LSP hover and in generated docs.
-- `#Name(...)` inside an expression calls an expression macro (§9). A `#` that starts a line, followed by one of C#'s directive names (`if`, `elif`, `else`, `endif`, `define`, `undef`, `warning`, `error`, `line`, `region`, `endregion`, `pragma`, `nullable`), is a directive that runs to the end of the line; any other `#`, such as a macro call that starts a statement, is not:
-- `#region` and `#endregion` lines are accepted and ignored, so code pasted from C# keeps its structure. Every other `#` directive (`#if`, `#define`, `#pragma`, `#nullable`) is error `MR0002` with a hint: conditional compilation uses the `[Cfg]` attribute (§6.11), and warnings are silenced with `[Allow]`.
+- `#Name(...)` calls an expression macro (§9). A line that starts with `#region` or `#endregion` is a region marker: it runs to the end of the line, editors fold the code between the two, and the compiler ignores it. Any other `#`, such as a macro call that starts a statement, is not a region marker.
 
 ### 3.3 Identifiers
 
@@ -315,32 +314,17 @@ Naming conventions (PascalCase types and members, camelCase locals and parameter
 Reserved keywords (cannot be identifiers without `@`):
 
 ```text
-abstract as async await base bool break byte case catch char class const continue
-default delegate do double dynamic else enum event explicit extern false finally
-fixed float for foreach goto if implicit import in indirect int interface internal
-is lazy let lock long macro move mut namespace new nint none nuint null object operator out
-override params private protected public readonly ref return sbyte sealed shared
-short sizeof stackalloc static string struct switch this throw true try typeof uint
-ulong union unique unsafe ushort using var virtual void volatile weak where while yield
+abstract as async await bool break byte case char class const continue default do
+double else enum explicit extern false float for foreach if implicit import in
+indirect int interface internal is lazy let long macro move mut namespace new nint
+none nuint operator out params private public readonly ref return sbyte shared short
+sizeof stackalloc static string struct switch this true uint ulong union unique
+unsafe ushort using var weak where while yield
 ```
 
-Contextual keywords (keywords only in the listed position): `get`, `set`, `init`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `record` (declarations); `required`, `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows ref struct`, §8.2); `_` (discards in patterns and deconstruction, §7.8).
+Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows ref struct`, §8.2); `_` (discards in patterns and deconstruction, §7.8).
 
-Of these, `record`, `required` and `init` exist only to be reported. `record` at the start of a type declaration is error `MR0133` (§6.5). `required` as a modifier and `init` as an accessor are error `MR0134` (§6.9). Each error comes with a fix. Elsewhere the three words are identifiers.
-
-Some C# keywords name features Mora leaves out. They are reserved, so code written from C# habit gets an error that says what Mora uses instead, rather than a confusing parse error:
-
-| Keyword | Error | Message hint |
-|---|---|---|
-| `try`, `catch`, `finally`, `throw` | `MR0101` | Mora has no exceptions. Return `Result<T, E>` and propagate with `?` (§11). |
-| `object`, `dynamic` | `MR0102` | There is no universal base type. Use a generic parameter or an interface. |
-| `typeof` | `MR0103` | There is no runtime reflection. Use `nameof`, a generic constraint or a macro (§9). |
-| `lock`, `volatile` | `MR0104` | Use `Mutex<T>` or `Atomic<T>` (post-MVP, §12.6). |
-| `delegate`, `event` | `MR0105` | Use function types (`Func<A, R>`, `Action<A>`) and `Signal<T>` (§15.8). |
-| `goto` | `MR0106` | Not supported, and neither are statement labels such as `done:`. |
-| `null` | `MR0129` | Mora has no null references. The empty value of an option `T?` is written `none` (§5.6). |
-| `fixed`, `unsafe` | `MR0107` | Unsafe code is post-MVP (OQ-11). |
-| `abstract`, `virtual`, `override`, `sealed`, `protected`, `base` | `MR0108` | Class inheritance is post-MVP (OQ-4). Use an interface with default methods. `abstract` stays a modifier of `static abstract` interface members (§6.8). |
+The compiler knows only Mora's syntax (D-59). A word that is not a keyword is an identifier, and code written in another language's syntax gets the ordinary syntax error, `MR0110`.
 
 ### 3.5 Literals
 
@@ -348,7 +332,7 @@ Some C# keywords name features Mora leaves out. They are reserved, so code writt
 
 **Real literals.** `1.5`, `1e9`, `1.5e-3`, with suffixes `f` (`float`), `d` (`double`). An unsuffixed real takes the expected type when it is `float` or `double`; otherwise `double`. Unlike C#, `let x: float = 1.5;` compiles. The suffix `m` (`decimal`) is reserved (OQ-12) and is error `MR0014`. A real literal too large for its type is error `MR0010`.
 
-**Character literals.** `'a'`. A `char` is a Unicode scalar value (§5.2), so `'𝄞'` (U+1D11E, outside the BMP) is one `char`. Escapes: `\'`, `\"`, `\\`, `\0`, `\a`, `\b`, `\f`, `\n`, `\r`, `\t`, `\v`, `\uXXXX` (four hex digits, not a surrogate), `\u{X...}` (one to six hex digits). The C# `\x` escape is error `MR0011` with a hint to use `\u{...}`. Any other unknown escape, `\u` with the wrong number of digits, or a code point that is not a scalar value is error `MR0013`. A character literal holds exactly one character: `''` and `'ab'` are error `MR0015`.
+**Character literals.** `'a'`. A `char` is a Unicode scalar value (§5.2), so `'𝄞'` (U+1D11E, outside the BMP) is one `char`. Escapes: `\'`, `\"`, `\\`, `\0`, `\a`, `\b`, `\f`, `\n`, `\r`, `\t`, `\v`, `\uXXXX` (four hex digits, not a surrogate), `\u{X...}` (one to six hex digits). Any other escape, `\u` with the wrong number of digits, or a code point that is not a scalar value is error `MR0013`. A character literal holds exactly one character: `''` and `'ab'` are error `MR0015`.
 
 **String literals.**
 
@@ -381,8 +365,6 @@ let json = $$`{"id": {{user.Id}}}`;
 
 When a raw string goes inside Markdown code, as in this document, an error page or a doc comment, the code span or fence around it needs more backticks than any run inside it.
 
-C#'s `"""` raw strings and `@"..."` verbatim strings, with or without `$`, are error `MR0018`. The compiler still reads them as C# does, so the rest of the file is checked, and offers a fix that writes the same value with backticks: `@"C:\temp\""x"""` becomes `` `C:\temp\"x"` ``.
-
 As in C#, a `:` at the top level of a hole starts its format, so a conditional expression in a hole goes in parentheses: `$"{(ok ? 1 : 2)}"`.
 
 A string, character literal, raw string or interpolated string that is not closed is error `MR0012`; a regular string ends at the end of its line. Error `MR0016` covers the rules of the other forms: a lone `}` in the text of an interpolated string (write `}}`), more than one `$` before a string that is not raw, in a raw interpolated string with N `$`, a run of N or more `}` outside a hole, or a run of 2N or more `{`, which could open a hole in two ways, and a raw string that spans lines but holds text on its opening line, whose closing backticks do not stand on their own line, or whose content lines do not start with the closing backticks' indentation.
@@ -414,7 +396,7 @@ FileNamespace   = "namespace" QualifiedName ";" ;
 TopLevelItem    = Attribute* Modifier* ( TypeDecl | FunctionDecl | ConstDecl | StaticDecl ) | Statement ;
 ```
 
-- A file has at most one namespace declaration, and it is file-scoped (`namespace UsersApi;`). The C# block form `namespace X { ... }` is error `MR0120` with a fix that rewrites it (D-22). A file with no namespace declaration puts its items in the project's root namespace.
+- A file has at most one namespace declaration, and it is file-scoped (`namespace UsersApi;`). A file with no namespace declaration puts its items in the project's root namespace.
 - **Statements** are allowed at top level only in the entry file (§4.6).
 - **Functions** may be declared directly in a namespace, as in the tour's `Area`. They behave as static methods of the namespace. The `static` modifier is allowed there and has no effect.
 
@@ -427,7 +409,7 @@ TopLevelItem    = Attribute* Modifier* ( TypeDecl | FunctionDecl | ConstDecl | S
 | `using Json = Std.Json.JsonValue;` | Alias for a type or namespace |
 | `global using Std.Collections;` | Any of the above, for every file in the project |
 
-The prelude (§15.1) is an implicit `global using Std;`. `using` as a statement for disposal does not exist; `using (var x = ...)` and `using var x = ...;` are error `MR0121`, whose hint explains that destructors run when the owner goes out of scope (§10.8).
+The prelude (§15.1) is an implicit `global using Std;`. A value's destructor runs when its owner goes out of scope (§10.8), so `using` only imports names.
 
 ### 4.4 Imports
 
@@ -456,7 +438,7 @@ In the MVP an unsupported source form is error `MR0122`. The standard library is
 | `private` | The enclosing type | Members |
 | `file` | The declaring file | |
 
-`protected` is reserved for class inheritance (OQ-4). A `public` member's signature MUST NOT mention a less visible type (`MR0123`).
+A `public` member's signature MUST NOT mention a less visible type (`MR0123`).
 
 ### 4.6 Entry point
 
@@ -483,7 +465,6 @@ Having both top-level statements and a `Main`, or more than one `Main`, is error
 - `static readonly Name: T = expr;` requires `expr` to be evaluable at compile time (§14.6). The value is placed in read-only data and is immortal.
 - `static lazy Name: T = expr;` runs `expr` on first access. A cycle between lazy initializers is a panic (`lazy initialization cycle: A -> B -> A`) at run time, and error `MR0126` when the compiler can see the cycle statically.
 - `static mut Name: T = expr;` is mutable global state, with `expr` evaluable at compile time. In the MVP, programs are single-threaded (§12.1). Post-MVP, `static mut` of a non-`shared` type is only reachable from the main thread (OQ-6).
-- C# static constructors (`static Foo() { }`) are error `MR0127` with a hint to use `static lazy`.
 
 ## 5. Types
 
@@ -520,7 +501,7 @@ There is no universal base type, and nothing is boxed implicitly except when a v
 
 `string` is an immutable sequence of UTF-8 bytes that is always valid UTF-8 (D-14). It is a shared reference type with value equality: `==` compares contents.
 
-- `s.Length` is the length **in bytes**. The migration guide calls this out, because C#'s `Length` counts UTF-16 code units. `s.Chars()` iterates `char` values; `s.Runes()` is an alias kept for readers coming from .NET's `Rune`.
+- `s.Length` is the length **in bytes**. It does not count UTF-16 code units. `s.Chars()` iterates `char` values; `s.Runes()` is an alias kept for readers coming from .NET's `Rune`.
 - Indexing a string by `int` (`s[i]`) is error `MR0130`. The hint offers `s.Chars().ElementAt(i)` for characters or `s.AsBytes()[i]` for bytes. Ranges `s[a..b]` slice by byte offset, returning a new `string`, and panic if an offset is not on a character boundary.
 - `s.AsSpan()` returns `ReadOnlySpan<byte>` without copying. `StringBuilder` (§15.3) builds strings.
 - String literals and `const` strings are immortal static objects; they are never retained or released at run time (§13.4).
@@ -547,7 +528,7 @@ public union Option<T>
 }
 ```
 
-- `none` is a literal that converts to any `T?` and means `None` (D-54). It has no type of its own: `let x = none;` is error `MR0131`. A non-optional type can never hold `none`. Mora has no `null`: the word is reserved, and writing it is error `MR0129` with a fix to `none` (§3.4).
+- `none` is a literal that converts to any `T?` and means `None` (D-54). It has no type of its own: `let x = none;` is error `MR0131`. A non-optional type can never hold `none`.
 - `T` converts implicitly to `T?`.
 - The C# operators work on options: `a ?? b`, `a ??= b`, `a?.Member`, `a?[i]`, and the patterns `none`, `not none`, `T x` and `{ } x` (§7.8).
 - Members: `HasValue`, `Value` (panics on `None`, with the message `called Value on none: T?`), `GetValueOrDefault(fallback: T)`, `Expect(message: string)`, `Map`, `AndThen`.
@@ -619,7 +600,7 @@ TypeParams = "<" TypeParam ( "," TypeParam )* ">" ;   (* §8 *)
 BaseList   = ":" Type ( "," Type )* ;                 (* interfaces only in the MVP *)
 ```
 
-A type may be generic (§8), may list interfaces it implements, and may nest other type declarations. Every type is sealed: there is no class inheritance in the MVP (OQ-4), and a base list may only name interfaces (`MR0108` otherwise).
+A type may be generic (§8), may list interfaces it implements, and may nest other type declarations. Every type is sealed: there is no class inheritance in the MVP (OQ-4),, and a base list may only name interfaces.
 
 **Struct or class.** The choice between `struct` and `class` is about meaning, never about cost (D-56):
 
@@ -702,7 +683,7 @@ In the standard library, `Future<T>`, `TaskHandle<T>` and `Subscription` are uni
 
 `user with { Name = "Grace" }` and printing as `User { Id = 1, Name = Ada, Email = none }` come from §6.2, as for every struct. A positional struct may declare more members in a body, `struct Point(X: int, Y: int) { public Sum: int => X + Y; }`. Its positional parameters declare its constructor, so it is not created memberwise (§6.9).
 
-C# records are not part of Mora (D-56). `record`, `record struct` and `record class` are error `MR0133`, with a fix that rewrites each of them to `struct`: `record User(...)` becomes `struct User(...)`, and so does `record class User(...)`. A record's data has no identity, which is what a struct means.
+Data without identity is a positional struct (D-56).
 
 ### 6.6 Unions
 
@@ -785,15 +766,13 @@ public class Account
 }
 ```
 
-- C#'s type-first order (`public decimal Deposit(decimal amount)`, `public int Count;`, `string name` as a parameter) is error `MR0135`, "a declaration that puts the type before the name". It is reported for any type-first field, property, method, parameter, local, lambda parameter, local function, union case field or positional parameter. The fix rewrites the declaration name-first: it moves the type after `:`, and for a method it moves the return type after the parameter list and drops `void`.
-- `void` as a type is error `MR0136`, "`void` as a type". `Tick(): void` gets a fix that removes `: void`, because omitting the return type is how a function returns `()`. `void` stays a reserved word.
 - Type patterns keep their order: `x is Circle c` and `case Circle c:` test a type and bind a name; they do not declare anything. Base lists (`class A : I`), `where` clauses, named arguments (`f(x: 1)`) and `: this(...)` use `:` in other positions and do not change.
 
 **Methods** follow C# syntax, apart from the order above, including expression bodies (`=>`), optional parameters with constant defaults (`port: int = 80`), named arguments, `params` arrays (`params xs: ReadOnlySpan<T>`) and overloading by parameter types. Overload resolution follows the C# rules restricted to the conversions of §5.10. Parameter modes are in §10.3.
 
-**Properties and indexers** use C# accessor syntax: `get`, `set`, expression-bodied getters and `this[...]` indexers. A setter on a struct is a `mut` member. There is no `init` accessor (below).
+**Properties and indexers** use C# accessor syntax: `get`, `set`, expression-bodied getters and `this[...]` indexers. A setter on a struct is a `mut` member.
 
-**Constructors.** `public T(...) { ... }`, as in C#. A constructor may first run another constructor of the same type with `: this(...)`, as in `public Counter(name: string) : this(name, 1) { }`; the fields that constructor assigns count as assigned. C# 12 primary constructors on classes (`class Point(x: int, y: int) { ... }`) are error `MR0128`, with a fix that turns the parameters into fields and a constructor: their parameters would be fields that no declaration shows, and every field's mutability and ownership must be written down (D-51). On a struct the same syntax declares a positional struct (§6.5), whose parameters are public read-only fields that the declaration shows. Every field without an initializer MUST be assigned on every path before the constructor returns, and `this` MUST NOT be used except to assign fields until then (`MR0140`). Constructors cannot fail; use a static factory that returns `Result<T, E>` when construction can fail.
+**Constructors.** `public T(...) { ... }`, as in C#. A constructor may first run another constructor of the same type with `: this(...)`, as in `public Counter(name: string) : this(name, 1) { }`; the fields that constructor assigns count as assigned. A class has no parameter list after its name: every field's mutability and ownership is written in a field declaration (D-51). A struct may have one, which makes it a positional struct (§6.5) whose parameters are public read-only fields. Every field without an initializer MUST be assigned on every path before the constructor returns, and `this` MUST NOT be used except to assign fields until then (`MR0140`). Constructors cannot fail; use a static factory that returns `Result<T, E>` when construction can fail.
 
 **Memberwise creation.** A struct, class or unique class that declares no constructor is created by naming its fields (D-57):
 
@@ -814,7 +793,7 @@ let options = new Options { Port = 8080, Retries = 5 };
 - Memberwise creation is available only where every field without an initializer is visible. Where one is not, `new T { ... }` is error `MR0144`. A library type that keeps such a field private is created only through what the library provides.
 - Declaring any constructor turns memberwise creation off. A type enforces its invariants with a constructor, or with a static factory that returns `Result<T, E>`. On such a type, `new T(args) { M = v }` runs the constructor and then assigns the listed members as ordinary assignments, so it may name only `mut` fields and properties with a `set` accessor.
 
-C#'s `required` members and `init` accessors are not needed: a field without an initializer is required, and a read-only field can be set only when the value is created. `required` as a modifier and `init` as an accessor are error `MR0134`. The fix removes `required`, and removes `init` from the accessor list, so `{ get; init; }` becomes `{ get; }`.
+A field without an initializer is required: every way of creating the value sets it. A read-only field or property can be set only when the value is created.
 
 **Destructors.** `~T() { ... }` declares the destructor (D-17). A class, unique class or struct may have one. It takes no parameters and no modifiers. It runs exactly once, when the value dies (§10.8). Inside it, `this` is a borrow that MUST NOT escape (`MR0142`). A method called from the destructor could still store `this`; the runtime checks after every class destructor that the strong count is still zero, and aborts with `object of type T was resurrected by its destructor` otherwise (D-46). A struct with a destructor is move-only.
 
@@ -873,7 +852,6 @@ From highest to lowest:
 | Conditional | `c ? a : b` | right |
 | Assignment, lambda | `=`, compound assignments, `??=`, `=>` | right |
 
-The C# null-forgiving operator `x!` is error `MR0160` with a hint to use `.Value` or `.Expect(...)`.
 
 ### 7.2 Member access and calls
 
@@ -914,7 +892,7 @@ static (x: int) => x + 1                 // captures nothing
 [move conn] async () => await conn.Close() // move a unique value into the closure
 ```
 
-Parameter and return types are inferred from the target function type. A parameter with a written type puts the name first, `(x: int)`; the C# order `(int x)` is error `MR0135` (§6.9). Capture rules and escaping are in §10.9. A lambda's body may use `return`, `?` and, if it is `async`, `await`.
+Parameter and return types are inferred from the target function type. A parameter with a written type puts the name first, `(x: int)` (§6.9). Capture rules and escaping are in §10.9. A lambda's body may use `return`, `?` and, if it is `async`, `await`.
 
 ### 7.7 `switch` expressions and statements
 
@@ -957,7 +935,7 @@ The `switch` statement uses `case pattern [when guard]:` labels. Each section en
 | `let x;` / `let x: T;` / `var x: T;` | Declared now, definitely assigned before use (`MR0181`); a `let` assigned exactly once |
 | `Twice(x: int): int => x * 2;` | Local function, declared name-first like a method (§6.9) |
 
-A local always starts with `let` or `var`. An explicit type goes after the name and a colon. The C# forms `T x = e;`, `T x;` and `let T x = e;` are error `MR0135` with a fix: `T x = e;` becomes `var x: T = e;`, and `let T x = e;` becomes `let x: T = e;`. A local function written type-first, `int Twice(int x) => x * 2;`, is `MR0135` too. An `out` argument declares a local the same way: `F(out var a)` and `F(out let a)` infer the type, and `F(out let a: int)` writes it; `F(out int a)` is `MR0135`.
+A local always starts with `let` or `var`. An explicit type goes after the name and a colon. An `out` argument declares a local the same way: `F(out var a)` and `F(out let a)` infer the type, and `F(out let a: int)` writes it.
 
 Reassigning a `let` local is error `MR0182`. Lint `prefer-let` (warn by default) flags a `var` that is never reassigned. As in C#, a local MUST NOT shadow another local or parameter of an enclosing scope (`MR0180`).
 
@@ -972,7 +950,6 @@ Reassigning a `let` local is error `MR0182`. Lint `prefer-let` (warn by default)
 - Integer division and remainder by zero panic in every build. `int.MinValue / -1` panics.
 - Shift counts are masked to the operand width, as in C#. `>>>` is the unsigned shift.
 - Floating point follows IEEE 754 with round-to-nearest-even and no traps.
-- `checked(...)` and `unchecked(...)` are error `MR0109`, with a hint to use the profile setting or the wrapping operators.
 
 ### 7.13 Other expressions
 
@@ -1254,7 +1231,7 @@ An `in` borrow of a unique object is read-only all the way down: through it, the
 
 The **root** of a borrow through an aliased place is the shared object (or array) that holds the place. The caller keeps the root alive for the duration of the call: it retains the root, unless the root is itself held by an exclusive place that the call cannot change, which is the common case.
 
-Copy-in/copy-out means that code which reads the field through another reference during the call sees the old value until the call returns. Swift's `inout` behaves the same way; the migration guide explains it with an example.
+Copy-in/copy-out means that code which reads the field through another reference during the call sees the old value until the call returns. Swift's `inout` behaves the same way.
 
 A non-escaping closure that captures a local mutably makes that local aliased for the call it is passed to. If the same call also borrows the local, the borrow is a snapshot.
 
@@ -1386,7 +1363,7 @@ The rules above keep these invariants, which §20.3's test suite checks:
 - **Recoverable errors** (a file is missing, input does not parse, a peer closed the connection) are values of type `Result<T, E>`, returned and handled like any other value.
 - **Bugs** (an index out of range, `Value` on `none`, a broken invariant) are **panics**, which end the process.
 
-There are no exceptions, and `try`, `catch`, `finally` and `throw` are reserved to produce error `MR0101` (D-8).
+There are no exceptions (D-8).
 
 ### 11.2 Error types
 
@@ -1464,7 +1441,7 @@ Single-threaded execution is what lets reference counts be non-atomic in the MVP
 - `async F(...): T` declares an async function returning `T`. Calling it returns a `Future<T>` (D-27). Inside it, `return v;` returns a `T`, and `await` may be used.
 - `async F(): void`, C#'s `async void`, is error `MR0402`; omit the return type if there is nothing to return.
 - Writing `async F(): Future<T>` or `async F(): Task<T>` is error `MR0401` with a fix that removes the wrapper, because the declared type is the awaited result in Mora.
-- `Future<T>` is a unique, `[MustUse]` type. It is **cold**: calling an async function only builds the state; nothing runs until the future is awaited or spawned. The migration guide shows the consequence: in `var a = GetA(); var b = GetB(); await a; await b;` the two operations run one after the other. `await Task.WhenAll(GetA(), GetB())` runs them concurrently.
+- `Future<T>` is a unique, `[MustUse]` type. It is **cold**: calling an async function only builds the state; nothing runs until the future is awaited or spawned. As a consequence, in `var a = GetA(); var b = GetB(); await a; await b;` the two operations run one after the other. `await Task.WhenAll(GetA(), GetB())` runs them concurrently.
 - `await e` requires `e` to be a `Future<T>` (or any type implementing `IFuture<T>`) and is only allowed in an async function, an async lambda or top-level statements (`MR0400`).
 - There is no `SynchronizationContext` and no `ConfigureAwait`. `ConfigureAwait(false)` is error `MR0403`, explaining that Mora never captures a context.
 
@@ -1672,7 +1649,7 @@ Inputs are file contents, the project graph and the target configuration. Every 
 - The parser is hand-written recursive descent with Pratt parsing for expressions. It produces a `rowan` green tree that keeps every token and every piece of trivia, so the formatter and the LSP work on the same tree and `print(parse(text)) == text` for every input, valid or not.
 - The parser never stops at the first error. It recovers at statement and member boundaries and marks missing nodes, so the LSP can analyze code that is being typed. A token the grammar does not allow where it appears, or a missing one, is error `MR0110`, whose message names what was expected; constructs from C# that Mora replaces get their own codes instead (§3.4, §4.3, §6.9).
 - Ambiguities inherited from C# are resolved by C#'s rules: a generic argument list `<...>` is chosen when the token after the closing `>` is one of `( ) ] } : ; , . ? == != | ^ && || & [`; casts `(T)x` by the C# cast-expression rules; and the postfix `?` by §7.4.
-- A statement that starts with `let` or `var` declares a local (§7.10). Any other statement starts with a keyword or is an expression statement. No declaration starts with a type, so the parser never has to guess whether a statement such as `a < b > c;` declares a variable or compares values. A local written in C#'s order, such as `int x = 5;`, is still recognized, so that it can be reported as `MR0135` with its fix.
+- A statement that starts with `let` or `var` declares a local (§7.10). Any other statement starts with a keyword or is an expression statement. No declaration starts with a type, so the parser never has to guess whether a statement such as `a < b > c;` declares a variable or compares values.
 
 ### 14.5 Name resolution and types
 
@@ -2005,7 +1982,7 @@ Every diagnostic has a code (`MR` plus four digits), a severity, a primary span,
 | Range | Kind |
 |---|---|
 | `MR0001`-`MR0099` | Lexical |
-| `MR0100`-`MR0199` | Syntax, declarations, C# constructs that Mora replaces |
+| `MR0100`-`MR0199` | Syntax and declarations |
 | `MR0200`-`MR0299` | Types, generics, interfaces, propagation |
 | `MR0300`-`MR0399` | Memory model: moves, borrows, views, escapes, closures |
 | `MR0400`-`MR0499` | Async, threads, FFI, constant evaluation |
@@ -2281,7 +2258,7 @@ Mora is built in thin vertical slices: each milestone runs real programs end to 
 | **M4: Macros** | `macro` declarations, `code` quoting and splices, hygiene, the `Std.Meta` model, the sandboxed JIT runner and its cache, `mora expand`, `MacroTest`, and the standard-library macros of §9.9 except `[Json]` | Every §9 example runs; `[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` pass their `MacroTest` suites; structs get their automatic implementations from these macros |
 | **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `[Json]` macro, `Std.Testing` and `mora test` | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; LINQ chains meet §15.5 with no allocation |
 | **M6: Async and HTTP** | Async lowering, futures, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server, routing, results, `HttpError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
-| **M7: Developer experience and v0.1** | Language server, VS Code extension, formatter, REPL, `mora new` templates, `mora explain` and error pages, documentation site with the language tour and the C# migration guide, installers, release workflow, budgets | v0.1.0 published on every channel of §19.3; §1.5 holds; budgets of §20.6 measured and either met or revised in this document |
+| **M7: Developer experience and v0.1** | Language server, VS Code extension, formatter, REPL, `mora new` templates, `mora explain` and error pages, documentation site with the language tour, installers, release workflow, budgets | v0.1.0 published on every channel of §19.3; §1.5 holds; budgets of §20.6 measured and either met or revised in this document |
 | M8: WebAssembly and libraries | §18.1 to §18.4 | post-MVP |
 | M9: Packages and capabilities | §18.5, §18.6 | post-MVP |
 | M10: Threads | §12.6, OQ-6, OQ-7 | post-MVP |
@@ -2302,7 +2279,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-5 | Thread-shared classes need an explicit `shared` marker; nothing is inferred from `spawn` sites | author | 12.6 |
 | D-6 | `T?` is `Option<T>` for every type | draft | 5.6 |
 | D-7 | `null` is kept as the literal for the empty option (superseded by D-54) | author | 5.6 |
-| D-8 | No exceptions and no `try`/`catch` syntax; the keywords are reserved for targeted errors | user | 11 |
+| D-8 | No exceptions and no `try`/`catch` syntax | user | 11 |
 | D-9 | No bridge to .NET libraries | author | 1.3 |
 | D-10 | Attributes are compile-time only | draft | 6.11 |
 | D-11 | Generics are monomorphized; LINQ compiles to concrete iterator structs | draft | 8.1, 15.5 |
@@ -2327,7 +2304,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-30 | No class inheritance in the MVP; interfaces with default methods instead | author | 6.1 |
 | D-31 | The MVP is proven by a native REST API with JSON on Linux, macOS and Windows | user | 1.5, 2.2 |
 | D-32 | The project lives in a public repository, `wolfware-labs/mora-lang` (named `wolfware-labs/mora` until 2026-10-31), from day one, with the conventions of other Wolfware projects | user | 21 |
-| D-33 | Adoption by C# developers is the goal, so the MVP includes the LSP, VS Code extension, installers and migration guide | user, author | 1.5, 17 |
+| D-33 | The MVP includes the LSP, VS Code extension and installers; D-53 sets the audience | user, author | 1.5, 17 |
 | D-34 | HTTP and JSON ship in the standard library in the MVP | author | 16 |
 | D-35 | Local path imports are in the MVP; remote imports are post-MVP | author | 4.4 |
 | D-36 | MVP programs are single-threaded, which keeps reference counts non-atomic and race-free | author | 12.1 |
@@ -2348,11 +2325,12 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-51 | No primary constructors on classes: constructors are written out, and `: this(...)` chains them. Amended by D-56 (positional parameters now belong to positional structs, which replace records) and D-57 (a type without a constructor is created memberwise) | user | 6.9 |
 | D-52 | Interfaces keep default implementations, as in C#: members of different interfaces stay separate, and when two interfaces give different defaults for one inherited member, the implementing type must write its own | user | 6.8 |
 | D-53 | Mora is inspired by C#, not a copy of it: it takes C#'s syntax, names and idioms where they fit its own model, and its audience is application developers in general. Supersedes the C#-developer audience of D-33 | user | 1.1, 1.2, 1.4 |
-| D-54 | The empty option is written `none`; `null` is reserved and reported with a fix. Supersedes D-7 | user | 3.4, 5.6 |
-| D-55 | Raw strings are written with backticks; `"""` and `@"..."` are errors with a fix (MR0018) | user | 3.5 |
+| D-54 | The empty option is written `none`. Supersedes D-7 | user | 3.4, 5.6 |
+| D-55 | Raw strings are written with backticks | user | 3.5 |
 | D-56 | Type declarations are struct (a value with generated equality and with) and class (identity); record is removed | user | 5.1, 6.1, 6.2, 6.5 |
 | D-57 | A type without a constructor is created memberwise with new T { ... }; required and init are removed. Amends D-51 | user | 6.2, 6.3, 6.9 |
-| D-58 | Declarations put the name first and the type after a colon (`Balance: decimal`, `Deposit(amount: decimal): decimal`, `let fee: decimal`); an omitted return type means `()`; type-first declarations are MR0135 with a fix | user | 4.6, 5.2, 6.1, 6.9, 7.6, 7.10, 10.3, 12.2, 14.4 |
+| D-58 | Declarations put the name first and the type after a colon (`Balance: decimal`, `Deposit(amount: decimal): decimal`, `let fee: decimal`); an omitted return type means `()` | user | 4.6, 5.2, 6.1, 6.9, 7.6, 7.10, 10.3, 12.2, 14.4 |
+| D-59 | The compiler knows only Mora syntax: code from other languages gets the ordinary syntax error, with no dedicated codes or fixes | user | 3.4, 17.6 |
 
 ## 24. Open questions
 

@@ -1,5 +1,5 @@
-SourceFile@0..1136
-  FunctionDecl@0..1135
+SourceFile@0..1160
+  FunctionDecl@0..1159
     Name@0..3
       Ident@0..3 "Run"
     ParamList@3..54
@@ -42,7 +42,7 @@ SourceFile@0..1136
                 Gt@52..53 ">"
       RParen@53..54 ")"
     Newline@54..55 "\n"
-    Block@55..1135
+    Block@55..1159
       LBrace@55..56 "{"
       Newline@56..57 "\n"
       Whitespace@57..61 "    "
@@ -950,9 +950,36 @@ SourceFile@0..1136
         RBrace@1120..1121 "}"
       Newline@1121..1122 "\n"
       Whitespace@1122..1126 "    "
-      ReturnStmt@1126..1133
-        ReturnKw@1126..1132 "return"
-        Semicolon@1132..1133 ";"
-      Newline@1133..1134 "\n"
-      RBrace@1134..1135 "}"
-  Newline@1135..1136 "\n"
+      UnsafeStmt@1126..1145
+        UnsafeKw@1126..1132 "unsafe"
+        Whitespace@1132..1133 " "
+        Block@1133..1145
+          LBrace@1133..1134 "{"
+          Whitespace@1134..1135 " "
+          ExprStmt@1135..1143
+            CallExpr@1135..1142
+              PathExpr@1135..1139
+                Path@1135..1139
+                  PathSegment@1135..1139
+                    NameRef@1135..1139
+                      Ident@1135..1139 "Free"
+              ArgList@1139..1142
+                LParen@1139..1140 "("
+                Arg@1140..1141
+                  PathExpr@1140..1141
+                    Path@1140..1141
+                      PathSegment@1140..1141
+                        NameRef@1140..1141
+                          Ident@1140..1141 "p"
+                RParen@1141..1142 ")"
+            Semicolon@1142..1143 ";"
+          Whitespace@1143..1144 " "
+          RBrace@1144..1145 "}"
+      Newline@1145..1146 "\n"
+      Whitespace@1146..1150 "    "
+      ReturnStmt@1150..1157
+        ReturnKw@1150..1156 "return"
+        Semicolon@1156..1157 ";"
+      Newline@1157..1158 "\n"
+      RBrace@1158..1159 "}"
+  Newline@1159..1160 "\n"

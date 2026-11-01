@@ -17,10 +17,10 @@ body:
     validations:
       required: true
   - type: textarea
-    id: csharp
+    id: prior-art
     attributes:
-      label: How C# does it
-      description: If C# has an equivalent, how it looks there, and what Mora should keep or change.
+      label: Prior art
+      description: If another language has an equivalent, how it looks there, and what Mora should keep or change.
   - type: textarea
     id: alternatives
     attributes:

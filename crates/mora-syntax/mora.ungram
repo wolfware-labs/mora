@@ -9,8 +9,6 @@
 //   - Composite tokens the parser glues from adjacent pieces: '>=' '>>' '>>=' '>>>' '>>>=' '?['.
 //   - Contextual keywords are remapped by the parser in position (§3.4); extra ones used
 //     here: 'from' (imports), 'type' (associated types), 'allows' (constraint), '_' (discard).
-//   - C# constructs the spec removes (try/catch/throw, goto, unsafe, inheritance, block
-//     namespaces, #if, checked, typeof, x!, ...) have no nodes; the parser reports them.
 
 //*************************//
 //      Names and paths    //
@@ -76,7 +74,6 @@ FileNamespace =
 Item =
   StructDecl
 | ClassDecl
-| RecordDecl
 | UnionDecl
 | EnumDecl
 | InterfaceDecl
@@ -84,11 +81,10 @@ Item =
 | FunctionDecl
 | FieldDecl
 
-// §6.1: TypeDecl = StructDecl | ClassDecl | RecordDecl | UnionDecl | EnumDecl | InterfaceDecl ;
+// §6.1: TypeDecl = StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl ;
 TypeDecl =
   StructDecl
 | ClassDecl
-| RecordDecl
 | UnionDecl
 | EnumDecl
 | InterfaceDecl
@@ -101,7 +97,7 @@ TypeDecl =
 Modifier =
   kind:(
     'public' | 'internal' | 'private' | 'file'
-  | 'static' | 'mut' | 'readonly' | 'unique' | 'shared' | 'ref' | 'required'
+  | 'static' | 'mut' | 'readonly' | 'unique' | 'shared' | 'ref'
   | 'async' | 'lazy' | 'const' | 'indirect' | 'extern'
   | 'move' | 'in' | 'out' | 'params' | 'this' | 'abstract'
   )
@@ -124,22 +120,17 @@ AttributeArg =
 BaseList =
   ':' Type (',' Type)*
 
-// §6.2. A `ref struct` carries the `ref` modifier.
+// §6.2. A `ref struct` carries the `ref` modifier. A positional struct (§6.5)
+// has a parameter list.
 StructDecl =
   Attribute* Modifier*
-  'struct' Name TypeParamList? BaseList? WhereClause*
+  'struct' Name TypeParamList? ParamList? BaseList? WhereClause*
   (MemberList | ';')
 
-// §6.3, §6.4. No primary constructors (§6.9): the parser reports one with MR0128.
+// §6.3, §6.4.
 ClassDecl =
   Attribute* Modifier*
   'class' Name TypeParamList? BaseList? WhereClause*
-  (MemberList | ';')
-
-// §6.5. `record`, `record class` (same as `record`) and `record struct`.
-RecordDecl =
-  Attribute* Modifier*
-  'record' kind:('class' | 'struct')? Name TypeParamList? ParamList? BaseList? WhereClause*
   (MemberList | ';')
 
 MemberList =
@@ -206,7 +197,6 @@ Member =
 | AssocTypeDecl
 | StructDecl
 | ClassDecl
-| RecordDecl
 | UnionDecl
 | EnumDecl
 | InterfaceDecl
@@ -221,8 +211,6 @@ ExprBody =
 // Also methods (§6.9), interface members (§6.8), extern functions (§13.9) and
 // explicit implementations `IShape.Area(): float => ...`. Without a return
 // type a function returns `()`. The name may be a splice inside `code { }` (§9.3).
-// Declarations in the C# order (`int F()`) are reported with MR0135 and get the
-// same nodes, the type before the name and without the ':'.
 FunctionDecl =
   Attribute* Modifier*
   ExplicitImpl? (Name | Splice) TypeParamList? ParamList (':' ret:Type)? WhereClause*
@@ -260,10 +248,10 @@ PropertyDecl =
 AccessorList =
   '{' Accessor* '}'
 
-// `get;`, `private set;`, `get => x;`, `init { ... }`.
+// `get;`, `private set;`, `get => x;`.
 Accessor =
   Attribute* Modifier*
-  kind:('get' | 'set' | 'init')
+  kind:('get' | 'set')
   (Block | ExprBody ';' | ';')
 
 // §6.9. `public this[i: int]: T { get => ...; }`
@@ -278,7 +266,7 @@ ConstructorDecl =
   Name ParamList ConstructorInitializer?
   (Block | ExprBody ';')
 
-// C# constructor chaining; `base(...)` does not exist (no inheritance).
+// Constructor chaining (§6.9).
 ConstructorInitializer =
   ':' 'this' ArgList
 
@@ -350,7 +338,7 @@ KindConstraint =
 NewConstraint =
   'new' '(' ')'
 
-// `where T : ref struct` or C# 13 `allows ref struct`
+// `where T : ref struct` or `allows ref struct` (§8.2)
 RefStructConstraint =
   'allows'? 'ref' 'struct'
 
@@ -371,13 +359,12 @@ Type =
 PathType =
   Path
 
-// §5.2 primitives and `string` (§5.3). `void` is reserved; as a type the parser
-// reports it (MR0136) and keeps it here.
+// §5.2 primitives and `string` (§5.3).
 PredefinedType =
   kind:(
     'bool' | 'byte' | 'sbyte' | 'short' | 'ushort' | 'int' | 'uint'
   | 'long' | 'ulong' | 'nint' | 'nuint' | 'float' | 'double' | 'char'
-  | 'string' | 'void'
+  | 'string'
   )
 
 // §5.4. `T[]`; `T[,]` is post-MVP.
@@ -424,21 +411,25 @@ Stmt =
 | ReturnStmt
 | SwitchStmt
 | AttributedStmt
+| UnsafeStmt
 
 Block =
   '{' Stmt* '}'
+
+// `unsafe { ... }`, accepted only when compiling `Std` (§13.11, MR0107).
+UnsafeStmt =
+  'unsafe' Block
 
 // `[Cfg(...)]` on a statement (§6.11).
 AttributedStmt =
   Attribute Attribute* Stmt
 
 // §7.10. `let x = e;`, `let x: T = e;`, `var x = e;`, `var x: T = e;`, `let x: T;`.
-// The C# order `T x = e;` is reported with MR0135 and has no keyword.
 LocalDeclStmt =
   LocalDecl ';'
 
 LocalDecl =
-  kw:('let' | 'var')? VariableDeclarator (',' VariableDeclarator)*
+  kw:('let' | 'var') VariableDeclarator (',' VariableDeclarator)*
 
 // §5.5, §6.5. `let (id, name) = pair;`
 DeconstructStmt =
@@ -583,7 +574,7 @@ Expr =
 LiteralExpr =
   value:(
     'int_number' | 'real_number' | 'char_literal'
-  | 'string_literal' | 'verbatim_string' | 'raw_string'
+  | 'string_literal' | 'raw_string'
   | 'true' | 'false' | 'none'
   )
 
@@ -646,7 +637,7 @@ Arg =
 
 // `out var y`, `out let y`, `out let y: int` (§7.2, §10.3).
 DeclExpr =
-  kw:('let' | 'var')? Name (':' Type)?
+  kw:('let' | 'var') Name (':' Type)?
 
 // `a[i]`, `a?[i]`, `s[1..^1]`.
 IndexExpr =

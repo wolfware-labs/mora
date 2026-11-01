@@ -245,7 +245,7 @@ fn generic_arguments_follow_section_14_4() {
 }
 
 #[test]
-fn casts_follow_the_csharp_rule() {
+fn casts_need_an_operand_after_the_parentheses() {
     assert_eq!(
         shape("(int)x"),
         "CastExpr(PredefinedType(), P)".replace("()", "")
@@ -339,7 +339,7 @@ fn patterns_follow_section_7_8() {
         "ParenPattern(RelationalPattern(LiteralExpr))"
     );
     assert_eq!(pattern("int[]"), "TypePattern(ArrayType(PredefinedType))");
-    // As in C#, parentheses hold a positional pattern, here of type patterns.
+    // Parentheses hold a positional pattern, here of type patterns.
     assert_eq!(
         pattern("(int, string)"),
         "PositionalPattern(PatternField(TypePattern(PredefinedType)), PatternField(TypePattern(PredefinedType)))"

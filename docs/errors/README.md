@@ -23,8 +23,7 @@ The page has a title, a short explanation, and two sections in this order. The f
 What the compiler found and why Mora rejects it, in two or three sentences.
 Say what would go wrong at run time, not which rule was broken.
 
-What to write instead, in a short paragraph. Mention another language only
-when that is where the habit comes from.
+What to write instead, in a short paragraph.
 
 ## Failing example
 

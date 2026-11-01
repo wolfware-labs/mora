@@ -1,7 +1,0 @@
-var a: int = int.MaxValue;
-let b = checked(a + 1); //~ ERROR MR0109
-let c = unchecked(a + 1); //~ ERROR MR0109
-checked //~ ERROR MR0109
-{
-    a++;
-}

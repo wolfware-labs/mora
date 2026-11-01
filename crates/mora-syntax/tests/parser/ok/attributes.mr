@@ -3,6 +3,6 @@
 [Allow("MR2001"), MustUse]
 public class Options
 {
-    [Range(1, 65535)] public Port: int { get; init; }
-    public required Host: string { get; init; }
+    [Range(1, 65535)] public Port: int { get; }
+    public Host: string { [Inline] get; }
 }

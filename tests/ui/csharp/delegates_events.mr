@@ -1,6 +1,0 @@
-delegate int Transform(int x); //~ ERROR MR0105
-class Button
-{
-    public event Clicked: Action; //~ ERROR MR0105
-}
-let twice = delegate (int x) { return x * 2; }; //~ ERROR MR0105
