@@ -806,7 +806,7 @@ Done when:
 
 Spec: [§7.14](docs/design/mora.md#714-interpolation-handlers), [§7.13](docs/design/mora.md#713-other-expressions), [§8.5](docs/design/mora.md#85-built-in-interfaces). Crates: `mora-hir`, `mora-mir`, `std`. Blocked by: M3.10.
 
-`IInterpolate<T>`, `IHole<T>` and `Literal` (D-105): lowering an interpolated string whose target implements `IInterpolate<T>` to `Begin`, `AppendLiteral`, and `AppendHole` for holes that implement `IHole<T>` or `AppendDisplay` for other `IDisplay` holes, skipping every part when `Enabled` is `false`, the hole's format and source text, and the lints `unchecked-injection` and `skipped-hole-effects`.
+`IInterpolate<T>`, `IHole<T>` and `Literal` (D-105): lowering an interpolated string whose target implements `IInterpolate<T>` to `Begin`, `AppendLiteral`, and `AppendHole` for holes that implement `IHole<T>` or `AppendDisplay` for other `IDisplay` holes, skipping every part when `Enabled` is `false`, the hole's format and source text, and lint `unchecked-injection`. Lint `skipped-hole-effects` needs the effect analysis of §6.14 and arrives with it.
 
 Done when:
 
@@ -1138,7 +1138,7 @@ Done when:
 
 Spec: [§15.11](docs/design/mora.md#1511-secrets), [§16.3](docs/design/mora.md#163-json-stdjson), [§6.14](docs/design/mora.md#614-effects). Crates: `std`, `mora-hir`. Blocked by: M5.11, M5.16.
 
-`Secret<T>` for `string` and `byte[]` (D-106): redacted `IDisplay`, `Use` through a span view, zeroing in the destructor, `Clone`, the `secret` fact in `mora explain-effects`, lint `secret-copied`, and `@Json` reading secrets and writing them only with `@JsonSecret`.
+`Secret<T>` for `string` and `byte[]` (D-106): redacted `IDisplay`, `Use` through a span view, zeroing in the destructor, `Clone`, lint `secret-copied`, and `@Json` reading secrets and writing them only with `@JsonSecret`. The `secret` fact in `mora explain-effects` needs the effect analysis of §6.14 and arrives with it.
 
 Done when:
 
