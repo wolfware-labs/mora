@@ -499,7 +499,7 @@ There is no universal base type, and nothing is boxed implicitly except when a v
 
 ### 5.3 Strings
 
-`string` is an immutable sequence of UTF-8 bytes that is always valid UTF-8 (D-14). It is a shared reference type with value equality: `==` compares contents.
+`string` is an immutable sequence of UTF-8 bytes that is always valid UTF-8 (D-14). It has value equality: `==` compares contents. A `string` is a 16-byte value: up to 15 bytes are stored inline, and a longer string points to a shared, reference-counted heap object (§13.4, D-75).
 
 - `s.Length` is the length **in bytes**. It does not count UTF-16 code units. `s.Chars()` iterates `char` values; `s.Runes()` is an alias kept for readers coming from .NET's `Rune`.
 - Indexing a string by `int` (`s[i]`) is error `MR0130`. The hint offers `s.Chars().ElementAt(i)` for characters or `s.AsBytes()[i]` for bytes. Ranges `s[a..b]` slice by byte offset, returning a new `string`, and panic if an offset is not on a character boundary.
@@ -533,7 +533,7 @@ public union Option<T>
 - The C# operators work on options: `a ?? b`, `a ??= b`, `a?.Member`, `a?[i]`, and the patterns `none`, `not none`, `T x` and `{ } x` (§7.8).
 - Members: `HasValue`, `Value` (panics on `None`, with the message `called Value on none: T?`), `GetValueOrDefault(fallback: T)`, `Expect(message: string)`, `Map`, `AndThen`.
 - `T??` is legal and distinct from `T?`. The compiler warns (`MR2001`) when it appears in source.
-- **Layout.** `T?` of a type that holds a non-null pointer has the same size as `T` and no tag: a null pointer means `None`. For shared and unique classes, `string`, arrays and escaping closures that is one pointer; for a dynamic interface value it stays two words, with a null data pointer as `None`. Other `T?` use a tag byte plus `T` (§13.5).
+- **Layout.** `T?` of a type with a niche, an invalid bit pattern the compiler can use for `None`, has the same size as `T` and no tag (D-78). §13.5 lists the types that have one: every pointer type, `string`, `bool`, `char`, enums, unions with a spare tag value, and options of these. Other `T?` use a tag byte plus `T`.
 
 Flow typing narrows an option after a check, as the C# nullable analysis does, but here it is a real type change: after `if (user is none) return;` the variable `user` has type `User`, not `User?`.
 
@@ -674,7 +674,7 @@ A unique class is a heap object with exactly one owner. Assigning it, passing it
 
 Because a unique object is reached through one owner, it follows the mutation rules of structs, not of shared classes: its `mut` fields can be assigned only through a `ref` borrow, so methods that assign fields are marked `mut` (they take `ref this`) and calling them requires a mutable place (`MR0141`). An `in` borrow of a unique object is read-only. A method marked `move` consumes the object.
 
-In the standard library, `Future<T>`, `TaskHandle<T>` and `Subscription` are unique (D-18). I/O handles (`TcpStream`, `TcpListener`) are shared classes whose destructors close the handle, as `Socket` is a class in .NET, because async methods need to keep their receiver alive across `await` (§10.3).
+In the standard library, `Future<T>` (the boxed future, §12.2), `TaskHandle<T>` and `Subscription` are unique (D-18). I/O handles (`TcpStream`, `TcpListener`) are shared classes whose destructors close the handle, as `Socket` is a class in .NET, because async methods need to keep their receiver alive across `await` (§10.3).
 
 ### 6.5 Positional structs
 
@@ -821,7 +821,8 @@ Attributes are compile-time only (D-10). An attribute either names a macro (§9)
 | `[MustUse]` | type, function | Discarding a value of that type, or that function's result, warns `MR2002` |
 | `[NonExhaustive]` | union, enum | §6.6 |
 | `[Flags]` | enum | §6.7 |
-| `[Test]`, `[Test(Ignore = "reason")]` | function in a `test` section, or at file level in `tests/` | Test function for `mora test` (§15.9) |
+| `[Test]`, `[Test(Ignore = "reason")]`, `[Test(MaxAllocations = n)]` | function in a `test` section, or at file level in `tests/` | Test function for `mora test` (§15.9) |
+| `[Benchmark]` | function in a `test` section, or at file level in `tests/` | Benchmark for `mora bench` (§17.1) |
 | `[Import(Lib = "c", Name = "strlen")]` | `extern` function | FFI import (§13.9) |
 | `[Export(Name = "...")]` | function | Exported with the C ABI under that name |
 | `[Layout(C)]` | struct | C field order and alignment, for FFI |
@@ -1341,7 +1342,7 @@ A view (§5.9) refers to memory it does not own, so the compiler keeps it inside
 - **Sources stay put.** While a view derived from a local is live (from its creation to its last use), that local may not be assigned, moved or `ref`-borrowed (`MR0341`). The diagnostic reads ``cannot change `buffer` while `span` (created on line 12) is still used on line 15``.
 - **Temporaries.** A view of a temporary that is used after the statement ends is error `MR0342`, with the hint to store the temporary in a local first.
 - **Shared sources.** When a view is taken from a shared object (`order.Items.AsSpan()`), the compiler keeps a hidden strong reference to the object for as long as the view is live, so the object cannot die under it. When the source is a snapshot of a `mut` field (§10.4), the snapshot also lives until the view's last use, so `let s = box.Data.AsSpan();` compiles.
-- **Hidden owners stay local.** A view that depends on a hidden reference, a snapshot or a collection guard (§10.10) cannot be returned from the function that created it (`MR0344`), because those hidden values die with the function. Views that only depend on the function's arguments (`s[..4]` of a span parameter, `text.AsSpan()` of a `string` parameter, `array.AsSpan()` of an array parameter) can be returned: strings and arrays never move their storage, and the caller keeps the argument alive. The hint for `MR0344` suggests taking a `Span<T>` parameter or returning `Memory<T>`. This keeps spans two words wide (§13.5).
+- **Hidden owners stay local.** A view that depends on a hidden reference, a snapshot or a collection guard (§10.10) cannot be returned from the function that created it (`MR0344`), because those hidden values die with the function. Views that only depend on the function's arguments (`s[..4]` of a span parameter, `text.AsSpan()` of a `string` parameter, `array.AsSpan()` of an array parameter) can be returned: the argument stays in the caller's place while the view is live, and the caller keeps it alive. A short string's bytes live in that place (§13.4), so this holds for inline strings too. The hint for `MR0344` suggests taking a `Span<T>` parameter or returning `Memory<T>`. This keeps spans two words wide (§13.5).
 
 Views of growable collections need one more rule, §10.10.
 
@@ -1356,7 +1357,7 @@ Views of growable collections need one more rule, §10.10.
 
 - Locals are dropped at the end of their scope, in reverse order of declaration, on every exit path: falling off the end, `return`, `break`, `continue` and `?`. A moved-from local is not dropped.
 - Temporaries are dropped at the end of the full expression statement that created them, except that a temporary bound by `let` or `var` lives as long as that local.
-- A value whose drop runs user code (it has a destructor, or contains something that does) is dropped exactly at those points. For values whose drop only releases memory, the compiler MAY release earlier, at the last use, because the difference cannot be observed except in memory use.
+- A value whose drop runs user code (it has a destructor, or contains something that does) is dropped exactly at those points. A value whose drop only releases memory MUST be released right after its last use, including the last use of any view or hidden owner that depends on it (§10.6), in every build profile (D-70). The difference cannot be observed except in memory use, and it lets `with` and string `+=` reuse storage (§14.19).
 - **Order inside a value.** When a class's strong count reaches zero: its destructor body runs, then its fields are dropped in declaration order, then its memory is freed if no weak references remain. Struct and union values drop the same way (destructor, then fields; for a union, the fields of its current case). Collections and arrays drop their elements in index order.
 - Releasing a long chain of objects (a linked list of a million nodes) does not recurse: the runtime releases chains with an explicit work list, so dropping deep structures cannot overflow the stack (§13.3).
 - A destructor cannot be called directly (`MR0360`). `Drop(x)`, from the prelude, takes `move x` and ends a value's life early.
@@ -1408,7 +1409,7 @@ Debug builds link the debug runtime (§13.8), which:
 
 ### 10.13 What the optimizer guarantees
 
-Programmers can rely on these cases having no reference-count operations in optimized builds (`--release`), and the test suite checks each with IR snapshots (§20.3):
+Programmers can rely on these cases having no reference-count operations, or none beyond the release that must happen, in optimized builds (`--release`), and the test suite checks each with IR snapshots (§20.3):
 
 1. Passing a reference as an `in` argument from an exclusive place.
 2. The last use of a local, which moves instead of copying.
@@ -1417,8 +1418,24 @@ Programmers can rely on these cases having no reference-count operations in opti
 5. Reading a read-only field and borrowing it.
 6. Calling a method on `this`.
 7. A non-escaping closure capturing a reference.
+8. Passing a `mut` field of a shared object as an `in` argument to a function that cannot write that field makes no snapshot (§10.4).
+9. A retain and release pair around a call to a function that cannot release objects of that type is removed.
+10. A value whose drop runs no user code is released immediately after its last use (§10.8).
 
-Debug builds keep these guarantees too, except item 2 for values that have no destructor.
+Debug builds keep these guarantees too.
+
+Allocation and layout guarantees hold in every build profile, so a test that counts allocations (§15.9) gives the same answer in `dev` and `release`. The test suite checks each with MIR snapshots or allocation counts:
+
+1. **Stack promotion.** A class or unique object of at most 1 KiB, or an array of constant length within that size, never touches the heap when its reference is used only in locals of the creating function, as an `in` argument to a parameter that does not escape, as the receiver of a method whose `this` does not escape, or by a non-escaping closure, and when it does not outlive its loop iteration. A function's promoted objects total at most 16 KiB (§14.18, OQ-23).
+2. **Futures.** `await` on a call to an async function allocates nothing. `Task.Spawn` allocates once, converting to `Future<T>` allocates once, and an `await` that recurses into its own async function allocates once per call (§12.3).
+3. **LINQ and loops.** A chain of the standard operators over an array, span or `List<T>` compiles to one loop with no allocation and no calls into the operators' iterator types. `foreach` over an array, span or `List<T>`, and `for (var i = 0; i < a.Length; i++)` over an array or span local or parameter that the loop does not assign, have no per-element bounds check (§14.17).
+4. **Strings.** A string of at most 15 bytes never allocates. `a + b + ...` and `$"..."` allocate at most once (§13.4).
+5. **In-place updates.** `with` on a value at its last use whose count is one updates it in place, and `+=` on a local string at its last use appends in place when its allocation has room; a loop of `+=` on an unaliased local string runs in amortized linear time (§14.19).
+6. **Options.** `T?` is the same size as `T` for every type §13.5 lists as having a niche.
+7. **Copy elision.** A value returned by `return new S(...)`, by `return local` when every return path returns that local, as an aggregate literal, or by a call assigned to a fresh local or field is constructed in its final place (D-79).
+8. **Sized collections.** `ToList`, `ToArray` and `ToDictionary` on a source whose exact count is known allocate exactly once (§15.5).
+
+The compiler shows what it decided: hover on `new` says `stack` or `heap` and, for `heap`, the reason and its line, and `mora explain-cost` lists every remaining allocation, box, retain in a loop and bounds check (§17.1, D-76).
 
 Where a struct is stored is not observable, because a struct has no identity (§6.1). The rules the compiler follows to choose will be published in this section (OQ-21).
 
@@ -1523,8 +1540,9 @@ The runtime and the standard library are **thread-ready, not threaded** (D-60), 
 - `async F(...): T` declares an async function returning `T`. Calling it returns a `Future<T>` (D-27). Inside it, `return v;` returns a `T`, and `await` may be used.
 - `async F(): void`, C#'s `async void`, is error `MR0402`; omit the return type if there is nothing to return.
 - Writing `async F(): Future<T>` or `async F(): Task<T>` is error `MR0401` with a fix that removes the wrapper, because the declared type is the awaited result in Mora.
-- `Future<T>` is a unique, `[MustUse]` type. It is **cold**: calling an async function only builds the state; nothing runs until the future is awaited or spawned. As a consequence, in `var a = GetA(); var b = GetB(); await a; await b;` the two operations run one after the other. `await Task.WhenAll(GetA(), GetB())` runs them concurrently.
-- `await e` requires `e` to be a `Future<T>` (or any type implementing `IFuture<T>`) and is only allowed in an async function, an async lambda or top-level statements (`MR0400`).
+- Calling an async function returns a **future**: a value of a compiler-generated move-only type that implements `IFuture<T>`, as each lambda gets its own closure type (§10.9). A local takes that type (`let f = GetA();`), and the value is `[MustUse]`. `Future<T>`, written in a type, is the boxed form: a unique heap object that holds any `IFuture<T>`, for storing futures of different functions together (`List<Future<T>>`, a route table). Converting to it allocates once (D-73, OQ-26).
+- A future is **cold**: calling an async function only builds the state; nothing runs until the future is awaited or spawned. As a consequence, in `var a = GetA(); var b = GetB(); await a; await b;` the two operations run one after the other. `await Task.WhenAll(GetA(), GetB())` runs them concurrently.
+- `await e` requires `e` to implement `IFuture<T>` and is only allowed in an async function, an async lambda or top-level statements (`MR0400`).
 - There is no `SynchronizationContext` and no `ConfigureAwait`. `ConfigureAwait(false)` is error `MR0403`, explaining that Mora never captures a context.
 
 ### 12.3 Lowering
@@ -1534,7 +1552,11 @@ The compiler turns each async function into a state machine struct (§14.9):
 - Parameters are moved into the state when the function is called: shared references are retained, copyable values copied, move-only values moved. This is why async functions cannot take `ref`, `out` or view parameters (`MR0312`).
 - Locals that live across an `await` become fields of the state; other locals stay in the poll function's stack frame.
 - No borrow or view lives across an `await` (`MR0340`). The state therefore never points into itself, so futures can move freely; there is no equivalent of Rust's `Pin` (D-28).
-- `await` on a child future stores it in the parent's state and polls it in place.
+- `await` on a child future stores it in the parent's state and polls it in place, so calling and awaiting allocates nothing.
+- An `await` on a call that can reach the awaiting function again (a cycle in the async call graph) would give the state an infinite size. The compiler boxes the future at that call, one allocation per recursive call, and an inlay hint says so.
+- Locals live at disjoint suspension points may share storage in the state. This is best-effort, and `mora explain-cost` reports state sizes.
+- `Task.Spawn(f)` allocates one block sized for the state and builds the future directly in it. The executor keeps free lists of task blocks by size class, and a waker is a task index, not a counted object.
+- An object that §10.13 promotes inside an async function lives in its state.
 
 ### 12.4 Tasks
 
@@ -1577,15 +1599,17 @@ Together they provide:
 | Area | Contents |
 |---|---|
 | Startup | The process entry symbol, `main`, called by the platform's C runtime: sets up the panic and stack-overflow handlers, collects arguments and environment, calls `int32_t __mora_main(void)`, which the compiler emits to run the program's `Main` and map its result to an exit code (§4.6), flushes stdout and returns that code |
-| Memory | Allocation through the platform allocator, the release slow path (destructor call, field drops, the iterative release work list), weak reference bookkeeping, debug-mode poisoning and leak tracking (§10.11) |
+| Memory | Allocation through the bundled allocator (below), the release slow path (destructor call, field drops, the iterative release work list), weak reference bookkeeping, debug-mode poisoning and leak tracking (§10.11) |
 | Panics | Message formatting, backtraces through the `backtrace` crate, abort |
 | Executor | Task queue, wakers, timers, `Task.*` primitives, held in a per-thread context (§12.1) |
 | I/O | `mio` reactor; TCP sockets; synchronous files, directories and environment; stdin, stdout and stderr with buffering |
-| Text and numbers | UTF-8 validation, float formatting (shortest round-trip, as `ryu` does) and parsing, integer parsing, case mapping for ASCII and the Unicode simple case folding table |
-| Hashing | SipHash-1-3 with per-process random keys for `Dictionary` and `HashSet` |
+| Text and numbers | UTF-8 validation, float formatting (shortest round-trip, as `ryu` does) and parsing, integer parsing, case mapping for ASCII and the Unicode simple case folding table. The byte scans (UTF-8 validation, `IndexOf`, equality, JSON whitespace and quote scanning, hash-table group probes) use SIMD instructions, and `Std` calls them for inputs of about 32 bytes or more (D-83) |
+| Hashing | A keyed fast hash with per-process random keys for `Dictionary` and `HashSet`, and SipHash-1-3 as `Hasher.Strong` (§15.3) |
 | HTTP | Request-head parsing with `httparse` (§16.1) |
 
 The standard library is written in Mora (§15) and calls the runtime through `extern` functions marked `[Import(Lib = "mora_rt", Name = "...")]`. These imports are private to `Std`; user code cannot name them. Reference-count increments and decrements are not calls: the compiler emits them inline (§13.3) and calls the runtime only on the slow path.
+
+**Allocator.** On every hosted target, `mora-rt` links mimalloc statically, and Mora code allocates only through it; `malloc` stays for C code (D-68). The allocator behaves the same on Linux, macOS and Windows, which the platform allocators do not. The compiler knows the size of every object it frees, so it calls `mora_rt_free_sized(ptr, size)`. `mora_rt_good_size(n)` returns the usable size of the allocation that `n` bytes would get, and growable collections and strings use it as their capacity. The allocator is part of the platform interface (§19.4), so a bare-metal target supplies its own. Both runtimes keep a per-thread allocation counter, one increment per allocation, which `Std.Testing` reads (§15.9).
 
 ### 13.2 Two builds of the runtime
 
@@ -1593,17 +1617,18 @@ The toolchain ships `libmora_rt.a` (release) and `libmora_rt_debug.a` (debug: po
 
 ### 13.3 Shared objects
 
-Every shared class object, array, string, box and escaping closure environment starts with a 16-byte header on 64-bit targets:
+Every shared class object, array, heap string, box and escaping closure environment starts with an 8-byte header (D-72):
 
 | Offset | Field | Meaning |
 |---|---|---|
 | 0 | `strong: u32` | Strong count. Bit 31 set means **immortal**: never retained, released or freed |
 | 4 | `weak: u32` | Weak count, plus one while `strong > 0` (the Swift scheme) |
-| 8 | `meta: *const TypeMeta` | Size, alignment, drop function, type id, type name |
+
+There is no type pointer. After monomorphization every retain, release and drop site knows the concrete type, and a dynamic interface value carries its drop function in its vtable (§13.6). Each concrete type gets a generated drop function, called directly, so it can be inlined. The debug runtime keeps a `meta` word (size, alignment, drop function, type id, type name) for the leak report and the cycle finder (§10.11), in a prefix before the header, so field offsets are the same in both builds. The identity number of D-61 lives in a side table keyed by the object, so it needs no header space.
 
 - **Retain** is `if strong & IMMORTAL == 0 { strong += 1 }`, emitted inline. A count that would reach 2^31 aborts with `reference count overflow`.
 - **Release** is `if strong & IMMORTAL == 0 { strong -= 1; if strong == 0 { mora_rt_drop(obj) } }`.
-- `mora_rt_drop` runs the destructor, drops the fields (pushing shared children whose count falls to zero onto a thread-local work list instead of recursing), then decrements `weak` and frees the memory if it reaches zero.
+- `mora_rt_drop` runs the type's drop function: the destructor, then the fields, pushing each shared child whose count falls to zero onto a thread-local work list as an (object, drop function) pair instead of recursing. It then decrements `weak` and frees the memory with its size if `weak` reaches zero.
 - **Weak load** returns a null pointer (`none`) if `strong == 0`, otherwise retains and returns the object.
 - String literals, `static readonly` objects and the empty array are immortal objects in read-only data.
 - In `shared` classes (post-MVP), `strong` and `weak` are updated with atomic operations: relaxed increments, release decrements and an acquire fence before the drop, as `Arc` does in Rust. A weak load increments `strong` with a compare-and-swap loop that succeeds only while the count is nonzero, with acquire ordering, as `Weak::upgrade` does, so it never revives an object that a concurrent release is dropping.
@@ -1613,14 +1638,16 @@ Every shared class object, array, string, box and escaping closure environment s
 
 ### 13.4 Strings and arrays
 
-- `string`: one pointer to `{ header, length: u32, bytes[length] }`. The bytes are valid UTF-8, and the object is never mutated after creation. The empty string is one immortal object. Maximum length is `int.MaxValue` bytes.
+- `string`: 16 bytes (D-75). An **inline** string holds up to 15 bytes, with its length and a tag in the last byte. A **heap** string holds a pointer to `{ header, bytes }` and its length. Copying a heap string retains it and copying an inline one does not; equality compares lengths first. `string?` uses a spare tag value for `none`, so it is also 16 bytes. The bytes are valid UTF-8 and never change while another reference can see them. Maximum length is `int.MaxValue` bytes. `AsMemory()` on an inline string first moves its bytes to a heap string, one allocation, because a `Memory<T>` may outlive the place that holds the string.
+- Concatenation allocates at most once: `a + b + c` lowers to one `Concat` that computes the total length first, and `$"..."` formats into a stack buffer and allocates once at the end. A result of at most 15 bytes allocates nothing.
 - `T[]`: one pointer to `{ header, length: u32, padding to align(T), elements }`.
 - `List<T>`: a shared class holding `{ items: T[] capacity buffer, count: int, borrows: int, version: int }`.
 
 ### 13.5 Value layouts
 
 - **Structs and tuples** order fields by decreasing alignment, then by declaration order, unless the struct has `[Layout(C)]`, which keeps declaration order with C alignment rules. Size is rounded up to the alignment.
-- **Unions** are a tag (`u8`, or `u16` beyond 256 cases) followed by the largest case payload. `T?` of a pointer type (shared or unique class, string, array, escaping closure) is one pointer, null for `None`. `T?` of a dynamic interface value keeps both words and uses a null data pointer for `None`. Neither has a tag. Further niche optimizations (for `bool?`, enums) are post-MVP.
+- **Unions** are a tag (`u8`, or `u16` beyond 256 cases) followed by the largest case payload. A union whose other cases carry no data puts its tag in a niche of the largest case.
+- **Niches** (D-78). These types have invalid bit patterns that a `T?` or a union tag uses, so `sizeof(T?) == sizeof(T)`: pointers (shared and unique classes, heap strings, arrays, escaping closures; null is `None`); dynamic interface values (a null data pointer); `string` (a spare tag value); `bool` (254 spare values); `char` (surrogates and values above U+10FFFF); enums without `[Flags]` (undeclared values); unions with a spare tag value; and options of any of these. Several `bool` fields are never packed into one byte, because each field must stay addressable for `ref` borrows.
 - **`indirect` cases** store a pointer to an immortal-capable shared box holding the payload.
 - **Interface values** are two words: data pointer, vtable pointer.
 - **Closure structs** (§10.9) are laid out like structs, with one field per capture; calling one is a direct call.
@@ -1683,12 +1710,16 @@ flowchart LR
   mirchk --> async[async lowering]
   async -.post-MVP.-> ser["mora.ir section"]
   async --> mono[monomorphization]
-  mono --> arc[ARC insertion and optimization]
-  arc --> opt[MIR optimizations]
+  mono --> inl[inlining, SROA, constant folding]
+  inl --> arc[ARC insertion and optimization]
+  arc --> place[stack promotion, reuse]
+  place --> opt[CFG simplification, dead code]
   opt --> clif[Cranelift: object file or JIT]
   clif --> link[link with mora-rt]
   opt -.post-MVP.-> wasm[wasm backend]
 ```
+
+The optimizer runs in that order because each stage needs the one before (D-74): inlining and scalar replacement turn iterator chains, accessors and closure structs into straight-line code; ARC optimization then sees the real data flow and removes the retains that inlining made redundant; stack promotion and reuse work on the counts that remain. Every budget in the optimizer is counted in MIR statements, never in time, so the same input always gives the same output.
 
 ### 14.2 Crates
 
@@ -1791,11 +1822,19 @@ After monomorphization every type is concrete, so the pass knows which places ho
 ### 14.12 ARC optimization
 
 1. **Last-use moves.** A `Copy` of a local that is dead afterwards becomes a `Move`.
-2. **Pair cancellation.** A `Retain` and a later `Release` of the same reference cancel when nothing between them can release that reference or observe its count. Calls count as possible releases unless the callee is known not to release (its MIR is visible and summarized).
+2. **Pair cancellation.** A `Retain` and a later `Release` of the same reference cancel when nothing between them can release that reference or observe its count. A call counts as a possible release unless its summaries (below) show that it cannot release an object of that type.
 3. **Borrowed forwarding.** An owned value that is only borrowed until it is dropped is never retained.
 4. **Immortals.** Retains and releases of immortal constants are removed.
 
-These passes MUST deliver the guarantees of §10.13; snapshot tests of MIR after this phase check each one. Reuse analysis in the style of Perceus is post-MVP (§25).
+5. **Snapshot and keep-alive elision.** A snapshot of a `mut` field passed to a callee that cannot write that field is removed, and so is a root keep-alive retain when the callee cannot release an object of the root's type.
+6. **Release at last use.** A value whose drop runs no user code is released right after its last use (§10.8).
+
+Two summaries per monomorphized function feed these passes, computed as incremental queries with a fixed point over each cycle of the call graph (D-70):
+
+- **Ownership:** for each parameter, whether the function only borrows it, may retain a copy, or consumes it.
+- **Modification and release:** which fields, by type and field, the function may write, and which types it may release, directly or through drops.
+
+The standard library's `unsafe` functions carry hand-written summaries, which the debug runtime's tests check. These passes MUST deliver the guarantees of §10.13; snapshot tests of MIR after this phase check each one. Reuse of a unique value's storage is limited in the MVP to `with` and string `+=` (§14.19); general reuse is post-MVP (§25).
 
 ### 14.13 Cranelift lowering
 
@@ -1818,6 +1857,8 @@ One Cranelift function per MIR body. Scalar locals whose address is never taken 
 | macOS (aarch64, x86_64) | The system `ld` through `xcrun` (Xcode Command Line Tools) | `libSystem` (dynamic, the only supported way on macOS) | Executable depending only on `libSystem` |
 | Windows (x86_64, aarch64) | `lld-link` shipped in the toolchain | MinGW-w64 start files and import libraries from llvm-mingw, shipped in the toolchain; runtime built for the `gnullvm` targets | Executable depending only on system DLLs |
 
+`ld.lld` and `lld-link` run with `--icf=all`, which merges identical functions, so monomorphized copies that compile to the same code are stored once (D-82). This is safe because Mora function values have no equality and Mora code cannot take a function's address. A backtrace may then name a merged twin, `List<User>.Add` for `List<Order>.Add`. Merging identical MIR bodies before code generation is post-MVP.
+
 No step requires Visual Studio or a C compiler on the user's machine except the Xcode Command Line Tools on macOS. When a required tool is missing, `mora build` stops with the exact command that installs it (`xcode-select --install`). Each row is [verify] until the cross-platform CI job of milestone M1 passes.
 
 ### 14.15 Standard library compilation
@@ -1827,6 +1868,31 @@ The MVP compiles the standard library from source together with the program, and
 ### 14.16 JIT and the REPL
 
 `mora repl` and the test harness use `cranelift-jit` on the same MIR. The REPL keeps a session project: each input is parsed as declarations or as top-level statements; `let` and `var` locals from earlier inputs become session globals; each input is compiled and run immediately. `:type expr`, `:mir fn`, `:load file.mr` and `:reset` are built in.
+
+### 14.17 Inlining, scalar replacement and bounds checks
+
+Cranelift optimizes one function at a time, so the inlining that LINQ chains and closure structs need happens in MIR (D-74):
+
+- **Inlining policy.** Always inline `[Inline]` functions, closure-struct calls whose closure has one call site, the `Next()` of standard iterator types, trivial accessors, and bodies under a small budget of MIR statements. Never inline `[Inline(Never)]` functions, members of a recursive cycle, or cold paths such as panic branches. Debug builds inline only the cases that affect allocation or reference counts (closure structs and accessors), so both profiles allocate the same.
+- **Scalar replacement** turns iterator structs and other small aggregates into separate locals that Cranelift keeps in registers.
+- **Bounds checks.** `foreach` over an array, span or `List<T>` checks no index, because the enumerator knows the length. `for (var i = 0; i < a.Length; i++)` over an array or span local or parameter that the loop does not assign checks no index either, because arrays and spans never change length. The same loop over a `List<T>` keeps its check unless the loop body's summaries show that it changes no `List<T>`, and the enumerator's version check (§10.10) is hoisted out of the loop under the same condition; both are best-effort.
+
+### 14.18 Stack promotion
+
+For each parameter of a counted type, and for `this`, a summary says whether the reference can **escape**: be stored in a field, array element, collection, static, escaping closure or spawned future; be returned; be converted to `any I` or captured by `[weak x]`; or be passed to a parameter that escapes, or through `any I` or a function value. The summary is computed over the whole program, with a fixed point over each cycle of the call graph that starts from "does not escape", so it does not depend on inlining (D-69).
+
+A `new` that meets the rule of §10.13 is placed in the creating function's frame, or in its state if it is async. A promoted shared object keeps its header, so any callee can retain and release it, but its count returns to one by the end of its scope, where the compiler emits its drop and no free. The destructor runs at the same point as it would on the heap. The debug runtime checks `strong == 1 && weak == 0` before that drop and aborts with `internal error: stack object escaped (type T)` otherwise. A promoted `List<T>` also gets its first buffer, up to 256 bytes, in the frame, and moves it to the heap when it grows past that; this part is best-effort.
+
+Hover shows a parameter that does not escape as `scoped`. The word is not a keyword in the MVP (OQ-25). Because the summary looks into callees, editing a callee can change where a caller's object lives; `mora explain-cost --diff` reports the change.
+
+### 14.19 Reuse when unique
+
+Two idioms reuse a value's storage when nothing else refers to it (D-71):
+
+- **`with`.** `x with { F = v }`, where `x` is at its last use, checks `strong == 1 && weak == 0` at run time. When it holds, it releases the old `F`, stores `v` and returns `x`; otherwise it copies and then sets. A struct stored inline has nothing to reuse, since `with` on it is already a copy that scalar replacement removes.
+- **String append.** `s += t` and `s = s + t`, where `s` is a local at its last use, append in place when `s` is a unique heap string whose allocation has room (§13.1). Otherwise the string moves to a new allocation that grows by half again, so repeated appends run in amortized linear time. No other reference sees the change, so strings stay immutable to every observer.
+
+Reuse needs `weak == 0`, because a weak reference could otherwise load the new value instead of `none`. Rebuilding an `indirect` union in place and reusing any freed cell for a new allocation of the same size are post-MVP.
 
 ## 15. Standard library (MVP surface)
 
@@ -1847,6 +1913,8 @@ Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`. `i
 | `Formatter` | The sink `IDisplay.Format` writes to: `Write(ReadOnlySpan<byte>)`, `Write(char)`, `Write<T : IDisplay>(in T)`, padding and alignment helpers |
 | `char` | `IsDigit`, `IsLetter`, `IsWhiteSpace`, `IsUpper`, `IsLower`, `ToUpper`, `ToLower`, `ToString()`, `Utf8Length` |
 
+`Split` returns a lazy iterator struct, as the LINQ operators do, so `foreach (let field in csv.Split(','))` allocates only the pieces longer than 15 bytes (§13.4); `ToList()` on it builds a list.
+
 **Format specifiers** for interpolation holes and `ToString(spec)` on numbers: `D[n]`, `X[n]` / `x[n]`, `F[n]`, `N[n]` (thousands separators, invariant culture), `E[n]`, `G`, `P[n]`, and `R` for round-trip doubles. There is no culture support in the MVP: everything formats and parses as .NET's invariant culture does (OQ-14).
 
 ### 15.3 Collections
@@ -1863,6 +1931,10 @@ Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`. `i
 
 `Dictionary` and `HashSet` iterate in insertion order (D-29), unlike .NET's unspecified order. This makes program output reproducible, because no iteration order depends on the per-process hash keys.
 
+**Layout and hashing** (D-77). `Dictionary` and `HashSet` keep their entries in a dense array in insertion order, with an index table of entry numbers probed 16 slots at a time and one control byte per slot, at a load factor of 7/8. Iteration walks the dense array. A removal leaves a tombstone, and the array compacts when more than half of it is tombstones. Keys are hashed with a per-process random key: a fast keyed hash by default, and SipHash-1-3 through `Hasher.Strong` for code that hashes keys an attacker controls (OQ-24).
+
+**Sizing** (D-81). `List<T>` doubles its capacity and rounds it up to the allocator's size class (§13.1), so space the allocator would waste becomes usable capacity. `new List<T>()`, `new Dictionary<TKey, TValue>()` and `new HashSet<T>()` allocate no buffer until the first insertion.
+
 ### 15.4 Lookups never throw
 
 Every C# API that throws on a missing item has a Mora twin that returns an option: `Get` for dictionaries, `FirstOrNull`, `LastOrNull`, `SingleOrNull`, `ElementAtOrNull` for sequences, `Find` for lists. The throwing names (`First`, `Single`, `this[key]`) are kept and panic, because they signal "this cannot be missing" in C# code.
@@ -1874,6 +1946,8 @@ The operators are extension methods on `IEnumerable<T>` sources. Each returns a 
 MVP operators: `Where`, `Select`, `SelectMany`, `Take`, `Skip`, `TakeWhile`, `SkipWhile`, `Concat`, `Zip`, `Distinct`, `OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending`, `Reverse`, `GroupBy`, `ToList`, `ToArray`, `ToDictionary`, `ToHashSet`, `First`, `FirstOrNull`, `Last`, `LastOrNull`, `Single`, `SingleOrNull`, `Any`, `All`, `Count`, `Sum`, `Min`, `Max`, `Average`, `Aggregate`, `Contains`, `SequenceEqual`, `ElementAt`, `ElementAtOrNull`. Query syntax (`from x in xs where ... select ...`) is post-MVP.
 
 Operators that need the whole sequence (`OrderBy`, `GroupBy`, `Reverse`, `Distinct`) buffer into a `List<T>` once when enumeration starts, as .NET does.
+
+`IEnumerator<T>` has a default member `SizeHint`, which returns a lower bound and, when known, the exact count. The operators pass it on (`Select` keeps it; `Where` keeps only an upper bound). `ToList`, `ToArray` and `ToDictionary` on a source with an exact count allocate exactly once. `OrderBy(...).ToList()` sorts its buffer in place and hands it to the result instead of copying it (D-81). A chain of these operators compiles to one loop with no allocation (§10.13, §14.17).
 
 ### 15.6 Console, environment and time
 
@@ -1951,6 +2025,8 @@ test
 
 A `[Test]` function returns `()`, `Result<(), E>` or, if async, either one. In the MVP it takes no parameters. Parameters with generated inputs, shrinking and contract fuzzing come in v0.2 (§6.13), and the runner is designed for them. `Assert.Equal(expected, actual)`, `Assert.NotEqual`, `Assert.True`, `Assert.False`, `Assert.None`, `Assert.NotNone`, `Assert.Contains` and `Assert.Panics(() => ...)` are in `Std.Testing`. A failed assertion panics with a message that shows both values. `Assert.Panics` runs the closure in a child process (§17.5), since panics abort.
 
+`[Test(MaxAllocations = 0)]` fails a test that allocates more than the given number of times, and `Assert.AllocatesAtMost(3, () => Handle(request))` checks one call. Both read the runtime's allocation counter (§13.1), and the count is the same in every build profile (§10.13).
+
 ### 15.10 What is not in the MVP
 
 Threads and synchronization (`Thread`, `Mutex`, `Atomic`, `Channel` across threads), HTTP client, TLS, async file I/O, regular expressions, `decimal`, time zones, cultures, compression, cryptography beyond hashing for collections, processes (`Process.Start`), and serialization formats other than JSON. Each is a candidate for post-MVP milestones (§22).
@@ -1983,6 +2059,8 @@ await app.RunAsync("127.0.0.1:8080")?;            // address argument overrides 
 
 **Concurrency.** Each accepted connection runs as a task in the app's task scope on the single executor thread (§12.1). Requests on one connection are handled in order. `RunAsync` completes on SIGINT or SIGTERM (Ctrl+C or Ctrl+Break on Windows): it stops accepting, waits up to 5 s for in-flight requests and then cancels them.
 
+**Allocation** (D-80). Each connection task takes a read buffer and a write buffer from a pool. A `Request` keeps offsets into the request-head buffer, and `Headers.Get(name)` builds its `string` only when called, usually inline (§13.4). `Request` and `Response` live in the connection task's state (§12.3). `Results.Json(value)` keeps the value and serializes it straight into the write buffer when the response is written, with no intermediate `string`. A warm `GET /users/1` in §2.2 makes at most 3 heap allocations (§20.6).
+
 **Logging.** One line per request to stderr, `2026-10-26T20:15:03.120Z GET /users/1 200 0.4ms`, unless `WebAppOptions.RequestLog` is `false`.
 
 ### 16.2 `HttpError`
@@ -2007,7 +2085,7 @@ public union HttpError : IError
 
 **Values.** `JsonValue` is the union shown in §6.6 (named `JsonValue` in the library). `Json.Parse(string)` and `Json.Parse(ReadOnlySpan<byte>)` return `Result<JsonValue, JsonError>`; `JsonValue.ToString()` writes compact JSON and `ToString("indented")` indented JSON.
 
-**Typed serialization.** The `[Json]` macro (§9.9) generates `IJsonSerialize` and `IJsonDeserialize` for structs, classes, unions and enums. `Json.Serialize<T>(in value: T)` returns a `string`; `Json.Deserialize<T>(text)` returns `Result<T, JsonError>`. The generated code writes and reads tokens directly, with no intermediate `JsonValue` and no reflection.
+**Typed serialization.** The `[Json]` macro (§9.9) generates `IJsonSerialize` and `IJsonDeserialize` for structs, classes, unions and enums. `Json.Serialize<T>(in value: T)` returns a `string`; `Json.Deserialize<T>(text)` returns `Result<T, JsonError>`. The generated code writes and reads tokens directly, with no intermediate `JsonValue` and no reflection. Serializers write property names as precomputed, already escaped byte literals, and numbers straight into the output buffer. Deserializers pick a field by the key's length and then compare it eight bytes at a time.
 
 | Mora | JSON |
 |---|---|
@@ -2044,6 +2122,8 @@ public union HttpError : IError
 | `mora fmt [--check]` | Formats every `.mr` file in the project |
 | `mora repl` | Interactive loop (§14.16) |
 | `mora explain MR0310` | Prints the long explanation of an error code, with examples of the error and its fix |
+| `mora explain-cost [function] [--diff <revision>]` | Lists, per function and after optimization, every heap allocation with its type, size and the reason it was not promoted (`user` escapes: stored into `_users` on line 14), every `any` box, retains and releases left inside loops, snapshots and copy-in/copy-out, struct copies over 64 bytes, calls left inside loops, bounds checks left in loops, future state sizes and recursive-await boxes, and reuse sites. `--diff` compares with another revision (D-76) |
+| `mora bench [filter]` | Runs `[Benchmark]` functions and reports time with deterministic counts: allocations, bytes allocated, and retains executed under the debug runtime |
 | `mora lsp` | Runs the language server on stdin and stdout |
 | `mora demangle <symbol>` | Reverses §13.7 mangling |
 | `mora version` | Toolchain version, commit, runtime targets installed: three lines (`mora <version>`, `commit: <hash>`, `runtime targets: x86_64-linux, ...` or `none`), or with `--message-format json` one object with `version`, `commit` and `runtime_targets`. The targets are the directories of `lib/rt/` (§19.2) that hold `libmora_rt.a`. `mora --version` prints the first line only |
@@ -2156,7 +2236,7 @@ Every span carries byte offsets, for tools that edit text, and the same lines an
 
 ### 17.8 Language server
 
-The MVP server supports: diagnostics on change (debounced, 100 ms), hover with types and doc comments, go to definition, find references, completion for members, locals, types, namespaces and keywords, signature help, document symbols, workspace symbols, formatting, code actions for every diagnostic fix, and inlay hints for inferred `let`/`var` types, boxing sites (§8.4) and shared captured variables (§10.9). Rename, semantic tokens, call hierarchy and refactorings are post-MVP.
+The MVP server supports: diagnostics on change (debounced, 100 ms), hover with types and doc comments, go to definition, find references, completion for members, locals, types, namespaces and keywords, signature help, document symbols, workspace symbols, formatting, code actions for every diagnostic fix, and inlay hints for inferred `let`/`var` types, boxing sites (§8.4) and shared captured variables (§10.9). Hover on `new` says where the object lives and why (§10.13), and hover on a parameter shows `scoped` when it does not escape (§14.18). A cost lens, off by default and turned on per file, adds the hints `heap`, `stack`, `box`, `+1 retain`, `snapshot` and `reuse?` from `mora explain-cost`. Rename, semantic tokens, call hierarchy and refactorings are post-MVP.
 
 ### 17.9 VS Code extension
 
@@ -2361,8 +2441,9 @@ Initial targets, measured on the CI Linux x86_64 runner and revised at the end o
 | Hello world release binary on Linux | under 1.5 MiB |
 | Process start to first line of output | under 5 ms |
 | `users-api` `GET /users/1`, keep-alive, one core | at least 20,000 requests per second |
+| `users-api` `GET /users/1`, warm | at most 3 heap allocations per request |
 
-A pull request that worsens a measured budget by more than 10% fails the `bench` check unless its description explains why.
+A pull request that worsens a measured budget by more than 10% fails the `bench` check unless its description explains why. The check also tracks deterministic counts (allocations, bytes allocated, retains executed under the debug runtime, and instructions retired where the runner reports them), which do not vary from run to run.
 
 ## 21. Project conventions
 
@@ -2381,13 +2462,13 @@ Mora is built in thin vertical slices: each milestone runs real programs end to 
 | Milestone | Goal | Exit criteria |
 |---|---|---|
 | **M0: Foundations** | Repository, CI on Linux, macOS and Windows, workspace crates and layering check, spans and diagnostics, error-code registry, test harnesses (UI, run, spec examples), `mora-rt` skeleton built for every Tier 1 target | CI green on all three OSes; harnesses run an empty suite; `cargo xtask layers` enforces §14.2 |
-| **M1: Hello, native** | Lexer and full parser with a lossless tree, name resolution and type checking for namespaces, functions, structs, primitives, strings, locals and control flow, MIR lowering, Cranelift code generation, linking on every Tier 1 target, `Console.WriteLine` with interpolation, `mora build`, `run` and `check` | §2.1 builds and runs on every Tier 1 target in CI; the M1 run tests pass through JIT and AOT |
-| **M2: Memory model** | Classes, structs, unique classes, parameter modes, move checking, drop elaboration, destructors, aliased-place borrows, views and spans, weak references, closures, ARC insertion and optimization, debug runtime leak tracking | The suite of §20.3 passes; the §10.13 snapshots pass |
+| **M1: Hello, native** | Lexer and full parser with a lossless tree, name resolution and type checking for namespaces, functions, structs, primitives, strings, locals and control flow, MIR lowering, Cranelift code generation, linking on every Tier 1 target with identical code folding, `Console.WriteLine` with interpolation, `mora build`, `run` and `check` | §2.1 builds and runs on every Tier 1 target in CI; the M1 run tests pass through JIT and AOT |
+| **M2: Memory model** | Classes, structs, unique classes, parameter modes, move checking, drop elaboration, destructors, aliased-place borrows, views and spans, weak references, closures, ARC insertion and optimization with ownership and modification summaries, release at last use, the bundled allocator and 8-byte header, 16-byte strings, niche layouts, copy elision, inlining and scalar replacement, stack promotion, reuse for `with` and string `+=`, allocation counters and `MaxAllocations` tests, debug runtime leak tracking | The suite of §20.3 passes; the §10.13 snapshots pass |
 | **M3: Expressive core** | Unions, enums, patterns and exhaustiveness, options and `none` with flow narrowing, `Result` and `?`, operators and conversions, generics and monomorphization, interfaces with static and dynamic dispatch, associated types, properties, indexers, extension methods, tuples, collection expressions, newtypes and refinements | Run and UI tests for every construct of §§5 to 8; every §2.4 example runs |
 | **M4: Macros** | `macro` declarations, `code` quoting and splices, hygiene, the `Std.Meta` model, the sandboxed JIT runner and its cache, `mora expand`, `MacroTest`, and the standard-library macros of §9.9 except `[Json]` | Every §9 example runs; `[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` pass their `MacroTest` suites; structs get their automatic implementations from these macros |
-| **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `[Json]` macro, `Std.Testing`, `mora test` and `test` sections | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; LINQ chains meet §15.5 with no allocation |
-| **M6: Async and HTTP** | Async lowering, futures, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server, routing, results, `HttpError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
-| **M7: Developer experience and v0.1** | Language server, VS Code extension, formatter, REPL, `mora new` templates, `mora explain` and error pages, documentation site with the language tour, installers, release workflow, budgets | v0.1.0 published on every channel of §19.3; §1.5 holds; budgets of §20.6 measured and either met or revised in this document |
+| **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `[Json]` macro, `Std.Testing`, `mora test` and `test` sections, insertion-ordered hash tables, collection sizing, SIMD text kernels, bounds-check removal, `mora explain-cost` | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; LINQ chains meet §15.5 with no allocation |
+| **M6: Async and HTTP** | Async lowering, inline futures and pooled task blocks, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server with pooled buffers, routing, results, `HttpError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
+| **M7: Developer experience and v0.1** | Language server with the cost lens, VS Code extension, formatter, REPL, `mora bench`, `mora new` templates, `mora explain` and error pages, documentation site with the language tour, installers, release workflow, budgets | v0.1.0 published on every channel of §19.3; §1.5 holds; budgets of §20.6 measured and either met or revised in this document |
 | M8: WebAssembly and libraries | §18.1 to §18.4 | post-MVP |
 | M9: Packages and capabilities | §18.5, §18.6 | post-MVP |
 | M10: Threads | §12.6, OQ-6, OQ-7 | post-MVP |
@@ -2418,7 +2499,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-15 | Fields are read-only unless marked `mut` | draft | 6.3 |
 | D-16 | Union case names resolve without the union prefix where the union is the expected type | author | 6.6 |
 | D-17 | Destructors use C#'s `~T()` syntax and run deterministically | author | 6.9 |
-| D-18 | `Future<T>`, `TaskHandle<T>` and `Subscription` are unique; I/O handles are shared classes so async methods can keep them alive; no automatic rule makes types unique | author | 6.4 |
+| D-18 | `Future<T>`, `TaskHandle<T>` and `Subscription` are unique; I/O handles are shared classes so async methods can keep them alive; no automatic rule makes types unique. Amended by D-73: a future is a move-only state value, and `Future<T>` is its boxed form | author | 6.4 |
 | D-19 | In `await e?` the `?` applies to the awaited value | author | 7.4 |
 | D-20 | A collection expression with no target type is a `List<T>` | author | 7.9 |
 | D-21 | Doc comments are Markdown | author | 3.2 |
@@ -2465,6 +2546,27 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-62 | `newtype Name : T is pattern;` declares a new value type with `T`'s layout and an optional pattern refinement checked where values are created | user | 6.12 |
 | D-63 | Contracts live in `contract` sections linked to members by name, never on the signature line; the MVP reserves the word and v0.2 checks them | user | 6.13 |
 | D-64 | Unit tests live in `test` sections or sibling `.tests.mr` files, compiled only under `mora test` | user | 15.9 |
+| D-68 | Mora code allocates through a bundled mimalloc on every hosted target, with sized frees and size-class-aware capacities; the allocator is part of the platform interface | user | 13.1 |
+| D-69 | An object whose reference does not escape, by a published rule, lives in the frame or async state instead of the heap; escape facts are whole-program summaries, not inlining | user | 10.13, 14.18 |
+| D-70 | Ownership and modification summaries drive reference-count elision, and a value whose drop runs no user code is released at its last use in every build | user | 10.8, 14.12 |
+| D-71 | `with` and string `+=` reuse a unique value's storage in place; general reuse is post-MVP | user | 14.19 |
+| D-72 | Shared objects have an 8-byte header with no type pointer in release builds; the debug runtime keeps type metadata in a prefix word | user | 13.3 |
+| D-73 | A future is an inline move-only state value; `await` allocates nothing, `Task.Spawn` allocates one block, and only recursive awaits box. Amends D-18 | user | 12.2, 12.3 |
+| D-74 | The MIR optimizer inlines and scalar-replaces before ARC optimization, with budgets counted in MIR statements, so LINQ chains and the listed loops have published guarantees | user | 14.1, 14.17 |
+| D-75 | `string` is a 16-byte value that stores up to 15 bytes inline; a concatenation or interpolation allocates at most once | user | 5.3, 13.4 |
+| D-76 | Costs are visible and testable: `mora explain-cost`, the LSP cost lens, allocation counters in every build, `MaxAllocations` tests and deterministic benchmark counts | user | 10.13, 17.1 |
+| D-77 | `Dictionary` and `HashSet` are dense insertion-ordered arrays with a Swiss-table index and a keyed fast hash | user | 15.3 |
+| D-78 | `T?` is the same size as `T` for every type with a niche, and the spec lists those types | user | 5.6, 13.5 |
+| D-79 | Returned values and call results are constructed in their final place | user | 10.13 |
+| D-80 | The HTTP server and JSON serializers work in pooled buffers, with a budget of 3 heap allocations for a warm `GET /users/1` | user | 16.1, 20.6 |
+| D-81 | Collections size themselves: exact-count sources allocate once, growth rounds to the allocator's size class, and empty collections allocate nothing | user | 15.3, 15.5 |
+| D-82 | The linker merges identical functions; merging identical MIR bodies is post-MVP | user | 14.14 |
+| D-83 | Byte scans in the runtime use SIMD; vector types for Mora code are post-MVP, and Cranelift output is not auto-vectorized | user | 13.1 |
+| D-84 | Rejected: deferred or coalesced decrements and background cycle collection, because they free memory at points the reader cannot see | user | 10.8 |
+| D-85 | Rejected: automatic struct-of-arrays layout, because it changes the cost of element access, `ref` borrows and spans in ways the reader cannot predict | user | 13.5 |
+| D-86 | Rejected: pointer compression and packing `bool` fields into bits; Mora has no contiguous heap base, and each field must stay addressable for `ref` | user | 13.5 |
+| D-87 | Rejected: automatic string interning, a hidden hashing cost and a global table that keeps strings alive | user | 13.4 |
+| D-88 | Rejected: copy-on-write value collections; collections stay reference types, mutated in place | user | 15.3 |
 
 ## 24. Open questions
 
@@ -2491,6 +2593,10 @@ Source: **user** means decided by the project owner in the design discussion; **
 | OQ-20 | Do structs also get generated ordering (`IComparable<T>`, by field order)? | No; `[Comparable]` adds it (§9.9) | M4 |
 | OQ-21 | The rules by which the compiler stores a value inline, on the stack or in a heap cell (§6.1, §10.13) | A struct lives inline in its owner and is boxed only as §8.4 says; a class lives on the heap | M2 |
 | OQ-22 | Predicate refinements on newtypes (`where EmailAddress.IsValid(value)`): which functions may a predicate call, and how is that checked? | Only patterns in the MVP (§6.12) | v0.2 |
+| OQ-23 | Stack promotion limits: 1 KiB per object and 16 KiB per frame, and the limit inside async states | As in §10.13 | M2 |
+| OQ-24 | Default hash function for `Dictionary` and `HashSet`: speed against resistance to hash flooding for string keys | Keyed fast hash, `Hasher.Strong` available | M5 |
+| OQ-25 | Is `scoped` a keyword that checks the fact, or only a hover annotation? | Hover only in the MVP | M7 |
+| OQ-26 | Is the boxed future spelled `Future<T>` or `any IFuture<T>`? | `Future<T>` | M6 |
 
 ## 25. References
 
