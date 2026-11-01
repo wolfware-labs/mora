@@ -14,7 +14,7 @@ body:
     attributes:
       label: Program
       description: The smallest Mora program or project that shows the problem.
-      render: csharp
+      render: text
     validations:
       required: true
   - type: textarea

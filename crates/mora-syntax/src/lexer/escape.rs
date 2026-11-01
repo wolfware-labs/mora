@@ -48,14 +48,6 @@ pub(crate) fn escape(text: &str) -> Result<(char, usize), EscapeError> {
         return Ok((value, 2));
     }
     match c {
-        'x' => {
-            let digits = hex_run(&text[2..], 4);
-            Err(EscapeError {
-                code: codes::MR0011,
-                len: 2 + digits,
-                message: "Mora has no `\\x` escape; write `\\u{...}` with the code point".into(),
-            })
-        }
         'u' if text[2..].starts_with('{') => {
             let digits = hex_run(&text[3..], usize::MAX);
             let close = 3 + digits;
@@ -149,8 +141,6 @@ mod tests {
     #[test]
     fn bad_escapes() {
         let code = |text: &str| escape(text).map_err(|e| (e.code, e.len));
-        assert_eq!(code(r"\x41"), Err((codes::MR0011, 4)));
-        assert_eq!(code(r"\x"), Err((codes::MR0011, 2)));
         assert_eq!(code(r"\q"), Err((codes::MR0013, 2)));
         assert_eq!(code(r"\uD800"), Err((codes::MR0013, 6)));
         assert_eq!(code(r"\u12"), Err((codes::MR0013, 4)));

@@ -447,13 +447,12 @@ impl AstNode for TopLevelItem {
 }
 
 /// ```text
-/// Item = StructDecl | ClassDecl | RecordDecl | UnionDecl | EnumDecl | InterfaceDecl | MacroDecl | FunctionDecl | FieldDecl
+/// Item = StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl | MacroDecl | FunctionDecl | FieldDecl
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Item {
     StructDecl(StructDecl),
     ClassDecl(ClassDecl),
-    RecordDecl(RecordDecl),
     UnionDecl(UnionDecl),
     EnumDecl(EnumDecl),
     InterfaceDecl(InterfaceDecl),
@@ -466,7 +465,6 @@ impl AstNode for Item {
     fn can_cast(kind: SyntaxKind) -> bool {
         StructDecl::can_cast(kind)
             || ClassDecl::can_cast(kind)
-            || RecordDecl::can_cast(kind)
             || UnionDecl::can_cast(kind)
             || EnumDecl::can_cast(kind)
             || InterfaceDecl::can_cast(kind)
@@ -482,9 +480,6 @@ impl AstNode for Item {
         }
         if ClassDecl::can_cast(kind) {
             return ClassDecl::cast(node).map(Self::ClassDecl);
-        }
-        if RecordDecl::can_cast(kind) {
-            return RecordDecl::cast(node).map(Self::RecordDecl);
         }
         if UnionDecl::can_cast(kind) {
             return UnionDecl::cast(node).map(Self::UnionDecl);
@@ -511,7 +506,6 @@ impl AstNode for Item {
         match self {
             Self::StructDecl(it) => it.syntax(),
             Self::ClassDecl(it) => it.syntax(),
-            Self::RecordDecl(it) => it.syntax(),
             Self::UnionDecl(it) => it.syntax(),
             Self::EnumDecl(it) => it.syntax(),
             Self::InterfaceDecl(it) => it.syntax(),
@@ -523,7 +517,7 @@ impl AstNode for Item {
 }
 
 /// ```text
-/// Stmt = Block | LocalDeclStmt | DeconstructStmt | LocalFunctionStmt | ExprStmt | EmptyStmt | IfStmt | WhileStmt | DoWhileStmt | ForStmt | ForeachStmt | BreakStmt | ContinueStmt | ReturnStmt | SwitchStmt | AttributedStmt
+/// Stmt = Block | LocalDeclStmt | DeconstructStmt | LocalFunctionStmt | ExprStmt | EmptyStmt | IfStmt | WhileStmt | DoWhileStmt | ForStmt | ForeachStmt | BreakStmt | ContinueStmt | ReturnStmt | SwitchStmt | AttributedStmt | UnsafeStmt
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
@@ -543,6 +537,7 @@ pub enum Stmt {
     ReturnStmt(ReturnStmt),
     SwitchStmt(SwitchStmt),
     AttributedStmt(AttributedStmt),
+    UnsafeStmt(UnsafeStmt),
 }
 
 impl AstNode for Stmt {
@@ -563,6 +558,7 @@ impl AstNode for Stmt {
             || ReturnStmt::can_cast(kind)
             || SwitchStmt::can_cast(kind)
             || AttributedStmt::can_cast(kind)
+            || UnsafeStmt::can_cast(kind)
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -615,6 +611,9 @@ impl AstNode for Stmt {
         if AttributedStmt::can_cast(kind) {
             return AttributedStmt::cast(node).map(Self::AttributedStmt);
         }
+        if UnsafeStmt::can_cast(kind) {
+            return UnsafeStmt::cast(node).map(Self::UnsafeStmt);
+        }
         None
     }
 
@@ -636,6 +635,7 @@ impl AstNode for Stmt {
             Self::ReturnStmt(it) => it.syntax(),
             Self::SwitchStmt(it) => it.syntax(),
             Self::AttributedStmt(it) => it.syntax(),
+            Self::UnsafeStmt(it) => it.syntax(),
         }
     }
 }
@@ -672,7 +672,7 @@ impl AstNode for UsingAlias {
 }
 
 /// ```text
-/// StructDecl = Attribute* Modifier* 'struct' Name TypeParamList? BaseList? WhereClause* (MemberList | ';')
+/// StructDecl = Attribute* Modifier* 'struct' Name TypeParamList? ParamList? BaseList? WhereClause* (MemberList | ';')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StructDecl {
@@ -693,6 +693,9 @@ impl StructDecl {
         support::child(&self.syntax)
     }
     pub fn type_param_list(&self) -> Option<TypeParamList> {
+        support::child(&self.syntax)
+    }
+    pub fn param_list(&self) -> Option<ParamList> {
         support::child(&self.syntax)
     }
     pub fn base_list(&self) -> Option<BaseList> {
@@ -764,64 +767,6 @@ impl ClassDecl {
 impl AstNode for ClassDecl {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ClassDecl
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// RecordDecl = Attribute* Modifier* 'record' kind:('class' | 'struct')? Name TypeParamList? ParamList? BaseList? WhereClause* (MemberList | ';')
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct RecordDecl {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl RecordDecl {
-    pub fn attributes(&self) -> AstChildren<Attribute> {
-        support::children(&self.syntax)
-    }
-    pub fn modifiers(&self) -> AstChildren<Modifier> {
-        support::children(&self.syntax)
-    }
-    pub fn record_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::RecordKw])
-    }
-    pub fn kind(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::ClassKw, SyntaxKind::StructKw])
-    }
-    pub fn name(&self) -> Option<Name> {
-        support::child(&self.syntax)
-    }
-    pub fn type_param_list(&self) -> Option<TypeParamList> {
-        support::child(&self.syntax)
-    }
-    pub fn param_list(&self) -> Option<ParamList> {
-        support::child(&self.syntax)
-    }
-    pub fn base_list(&self) -> Option<BaseList> {
-        support::child(&self.syntax)
-    }
-    pub fn where_clauses(&self) -> AstChildren<WhereClause> {
-        support::children(&self.syntax)
-    }
-    pub fn member_list(&self) -> Option<MemberList> {
-        support::child(&self.syntax)
-    }
-    pub fn semicolon_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Semicolon])
-    }
-}
-
-impl AstNode for RecordDecl {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::RecordDecl
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -1125,13 +1070,12 @@ impl AstNode for FieldDecl {
 }
 
 /// ```text
-/// TypeDecl = StructDecl | ClassDecl | RecordDecl | UnionDecl | EnumDecl | InterfaceDecl
+/// TypeDecl = StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeDecl {
     StructDecl(StructDecl),
     ClassDecl(ClassDecl),
-    RecordDecl(RecordDecl),
     UnionDecl(UnionDecl),
     EnumDecl(EnumDecl),
     InterfaceDecl(InterfaceDecl),
@@ -1141,7 +1085,6 @@ impl AstNode for TypeDecl {
     fn can_cast(kind: SyntaxKind) -> bool {
         StructDecl::can_cast(kind)
             || ClassDecl::can_cast(kind)
-            || RecordDecl::can_cast(kind)
             || UnionDecl::can_cast(kind)
             || EnumDecl::can_cast(kind)
             || InterfaceDecl::can_cast(kind)
@@ -1154,9 +1097,6 @@ impl AstNode for TypeDecl {
         }
         if ClassDecl::can_cast(kind) {
             return ClassDecl::cast(node).map(Self::ClassDecl);
-        }
-        if RecordDecl::can_cast(kind) {
-            return RecordDecl::cast(node).map(Self::RecordDecl);
         }
         if UnionDecl::can_cast(kind) {
             return UnionDecl::cast(node).map(Self::UnionDecl);
@@ -1174,7 +1114,6 @@ impl AstNode for TypeDecl {
         match self {
             Self::StructDecl(it) => it.syntax(),
             Self::ClassDecl(it) => it.syntax(),
-            Self::RecordDecl(it) => it.syntax(),
             Self::UnionDecl(it) => it.syntax(),
             Self::EnumDecl(it) => it.syntax(),
             Self::InterfaceDecl(it) => it.syntax(),
@@ -1183,7 +1122,7 @@ impl AstNode for TypeDecl {
 }
 
 /// ```text
-/// Modifier = kind:('public' | 'internal' | 'private' | 'file' | 'static' | 'mut' | 'readonly' | 'unique' | 'shared' | 'ref' | 'required' | 'async' | 'lazy' | 'const' | 'indirect' | 'extern' | 'move' | 'in' | 'out' | 'params' | 'this' | 'abstract')
+/// Modifier = kind:('public' | 'internal' | 'private' | 'file' | 'static' | 'mut' | 'readonly' | 'unique' | 'shared' | 'ref' | 'async' | 'lazy' | 'const' | 'indirect' | 'extern' | 'move' | 'in' | 'out' | 'params' | 'this' | 'abstract')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Modifier {
@@ -1205,7 +1144,6 @@ impl Modifier {
                 SyntaxKind::UniqueKw,
                 SyntaxKind::SharedKw,
                 SyntaxKind::RefKw,
-                SyntaxKind::RequiredKw,
                 SyntaxKind::AsyncKw,
                 SyntaxKind::LazyKw,
                 SyntaxKind::ConstKw,
@@ -1682,6 +1620,46 @@ impl AstNode for TypeParamList {
 }
 
 /// ```text
+/// ParamList = '(' (Param (',' Param)* ','?)? ')'
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ParamList {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl ParamList {
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::LParen])
+    }
+    pub fn param(&self) -> Option<Param> {
+        support::child(&self.syntax)
+    }
+    pub fn params(&self) -> AstChildren<Param> {
+        support::children(&self.syntax)
+    }
+    pub fn comma_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::Comma])
+    }
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::RParen])
+    }
+}
+
+impl AstNode for ParamList {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ParamList
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
 /// WhereClause = 'where' NameRef ':' Constraint (',' Constraint)*
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -1756,47 +1734,7 @@ impl AstNode for MemberList {
 }
 
 /// ```text
-/// ParamList = '(' (Param (',' Param)* ','?)? ')'
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ParamList {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl ParamList {
-    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::LParen])
-    }
-    pub fn param(&self) -> Option<Param> {
-        support::child(&self.syntax)
-    }
-    pub fn params(&self) -> AstChildren<Param> {
-        support::children(&self.syntax)
-    }
-    pub fn comma_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Comma])
-    }
-    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::RParen])
-    }
-}
-
-impl AstNode for ParamList {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::ParamList
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// Member = FieldDecl | PropertyDecl | IndexerDecl | FunctionDecl | ConstructorDecl | DestructorDecl | OperatorDecl | ConversionOperatorDecl | AssocTypeDecl | StructDecl | ClassDecl | RecordDecl | UnionDecl | EnumDecl | InterfaceDecl | SpliceMember
+/// Member = FieldDecl | PropertyDecl | IndexerDecl | FunctionDecl | ConstructorDecl | DestructorDecl | OperatorDecl | ConversionOperatorDecl | AssocTypeDecl | StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl | SpliceMember
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Member {
@@ -1811,7 +1749,6 @@ pub enum Member {
     AssocTypeDecl(AssocTypeDecl),
     StructDecl(StructDecl),
     ClassDecl(ClassDecl),
-    RecordDecl(RecordDecl),
     UnionDecl(UnionDecl),
     EnumDecl(EnumDecl),
     InterfaceDecl(InterfaceDecl),
@@ -1831,7 +1768,6 @@ impl AstNode for Member {
             || AssocTypeDecl::can_cast(kind)
             || StructDecl::can_cast(kind)
             || ClassDecl::can_cast(kind)
-            || RecordDecl::can_cast(kind)
             || UnionDecl::can_cast(kind)
             || EnumDecl::can_cast(kind)
             || InterfaceDecl::can_cast(kind)
@@ -1873,9 +1809,6 @@ impl AstNode for Member {
         if ClassDecl::can_cast(kind) {
             return ClassDecl::cast(node).map(Self::ClassDecl);
         }
-        if RecordDecl::can_cast(kind) {
-            return RecordDecl::cast(node).map(Self::RecordDecl);
-        }
         if UnionDecl::can_cast(kind) {
             return UnionDecl::cast(node).map(Self::UnionDecl);
         }
@@ -1904,7 +1837,6 @@ impl AstNode for Member {
             Self::AssocTypeDecl(it) => it.syntax(),
             Self::StructDecl(it) => it.syntax(),
             Self::ClassDecl(it) => it.syntax(),
-            Self::RecordDecl(it) => it.syntax(),
             Self::UnionDecl(it) => it.syntax(),
             Self::EnumDecl(it) => it.syntax(),
             Self::InterfaceDecl(it) => it.syntax(),
@@ -2845,7 +2777,7 @@ impl AstNode for AccessorList {
 }
 
 /// ```text
-/// Accessor = Attribute* Modifier* kind:('get' | 'set' | 'init') (Block | ExprBody ';' | ';')
+/// Accessor = Attribute* Modifier* kind:('get' | 'set') (Block | ExprBody ';' | ';')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Accessor {
@@ -2860,10 +2792,7 @@ impl Accessor {
         support::children(&self.syntax)
     }
     pub fn kind(&self) -> Option<SyntaxToken> {
-        support::token(
-            &self.syntax,
-            &[SyntaxKind::GetKw, SyntaxKind::SetKw, SyntaxKind::InitKw],
-        )
+        support::token(&self.syntax, &[SyntaxKind::GetKw, SyntaxKind::SetKw])
     }
     pub fn block(&self) -> Option<Block> {
         support::child(&self.syntax)
@@ -3205,7 +3134,7 @@ impl AstNode for PathType {
 }
 
 /// ```text
-/// PredefinedType = kind:('bool' | 'byte' | 'sbyte' | 'short' | 'ushort' | 'int' | 'uint' | 'long' | 'ulong' | 'nint' | 'nuint' | 'float' | 'double' | 'char' | 'string' | 'void')
+/// PredefinedType = kind:('bool' | 'byte' | 'sbyte' | 'short' | 'ushort' | 'int' | 'uint' | 'long' | 'ulong' | 'nint' | 'nuint' | 'float' | 'double' | 'char' | 'string')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PredefinedType {
@@ -3232,7 +3161,6 @@ impl PredefinedType {
                 SyntaxKind::DoubleKw,
                 SyntaxKind::CharKw,
                 SyntaxKind::StringKw,
-                SyntaxKind::VoidKw,
             ],
         )
     }
@@ -4015,7 +3943,38 @@ impl AstNode for AttributedStmt {
 }
 
 /// ```text
-/// LocalDecl = kw:('let' | 'var')? VariableDeclarator (',' VariableDeclarator)*
+/// UnsafeStmt = 'unsafe' Block
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UnsafeStmt {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl UnsafeStmt {
+    pub fn unsafe_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::UnsafeKw])
+    }
+    pub fn block(&self) -> Option<Block> {
+        support::child(&self.syntax)
+    }
+}
+
+impl AstNode for UnsafeStmt {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::UnsafeStmt
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
+/// LocalDecl = kw:('let' | 'var') VariableDeclarator (',' VariableDeclarator)*
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LocalDecl {
@@ -4589,7 +4548,7 @@ impl AstNode for WhenClause {
 }
 
 /// ```text
-/// LiteralExpr = value:('int_number' | 'real_number' | 'char_literal' | 'string_literal' | 'verbatim_string' | 'raw_string' | 'true' | 'false' | 'none')
+/// LiteralExpr = value:('int_number' | 'real_number' | 'char_literal' | 'string_literal' | 'raw_string' | 'true' | 'false' | 'none')
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LiteralExpr {
@@ -4605,7 +4564,6 @@ impl LiteralExpr {
                 SyntaxKind::RealNumber,
                 SyntaxKind::Char,
                 SyntaxKind::String,
-                SyntaxKind::VerbatimString,
                 SyntaxKind::RawString,
                 SyntaxKind::TrueKw,
                 SyntaxKind::FalseKw,
@@ -6191,7 +6149,7 @@ impl AstNode for Arg {
 }
 
 /// ```text
-/// DeclExpr = kw:('let' | 'var')? Name (':' Type)?
+/// DeclExpr = kw:('let' | 'var') Name (':' Type)?
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DeclExpr {

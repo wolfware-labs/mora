@@ -20,8 +20,7 @@ pub fn char_value(text: &str) -> Option<char> {
     }
 }
 
-/// The value of a [`String`](crate::SyntaxKind::String),
-/// [`VerbatimString`](crate::SyntaxKind::VerbatimString) or
+/// The value of a [`String`](crate::SyntaxKind::String) or
 /// [`RawString`](crate::SyntaxKind::RawString) token, and whether it has the
 /// `u8` suffix.
 pub fn string_value(text: &str) -> Option<(String, bool)> {
@@ -29,9 +28,7 @@ pub fn string_value(text: &str) -> Option<(String, bool)> {
         Some(text) => (text, true),
         None => (text, false),
     };
-    let value = if let Some(body) = text.strip_prefix("@\"") {
-        body.strip_suffix('"')?.replace("\"\"", "\"")
-    } else if text.starts_with('`') || text.starts_with("\"\"\"") {
+    let value = if text.starts_with('`') {
         raw_value(text)?
     } else {
         regular_value(text.strip_prefix('"')?.strip_suffix('"')?)?
@@ -111,19 +108,13 @@ mod tests {
             (r#""""#, "", false),
             (r#""\u{48}i \"there\"""#, "Hi \"there\"", false),
             (r#""abc"u8"#, "abc", true),
-            (r#"@"C:\temp\""x""""#, "C:\\temp\\\"x\"", false),
-            (r#"@"a"u8"#, "a", true),
-            (r#""""one "quoted" line""""#, "one \"quoted\" line", false),
-            ("\"\"\"\n    a\n      b\n    \"\"\"", "a\n  b", false),
-            ("\"\"\"\r\n  x\r\n  \"\"\"", "x", false),
-            (
-                "\"\"\"\"\n  \"\"\" inside\n  \"\"\"\"",
-                "\"\"\" inside",
-                false,
-            ),
-            ("\"\"\"\n  a\n\n  b\n  \"\"\"u8", "a\n\nb", true),
-            ("\"\"\"\n  \"\"\"", "", false),
-            ("\"\"\"\r\n\"\"\"", "", false),
+            ("`one \"quoted\" line`", "one \"quoted\" line", false),
+            ("`\n    a\n      b\n    `", "a\n  b", false),
+            ("`\r\n  x\r\n  `", "x", false),
+            ("``\n  ` inside\n  ``", "` inside", false),
+            ("`\n  a\n\n  b\n  `u8", "a\n\nb", true),
+            ("`\n  `", "", false),
+            ("`\r\n`", "", false),
             ("`C:\\data\\x.json`", "C:\\data\\x.json", false),
             ("``a`b``u8", "a`b", true),
             ("`\n    \"a\"\n      b\n    `", "\"a\"\n  b", false),

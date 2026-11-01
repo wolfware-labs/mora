@@ -1,4 +1,0 @@
-namespace Shop.Orders //~ ERROR MR0120
-{
-    class Order { }
-}

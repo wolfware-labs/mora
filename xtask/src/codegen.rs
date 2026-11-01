@@ -45,7 +45,7 @@ const OTHER_TOKENS: &[(&str, &str, &str, bool)] = &[
     (
         "Directive",
         "directive",
-        "A line starting with `#` and a directive name, such as `#region` (§3.2).",
+        "A `#region` or `#endregion` line (§3.2).",
         true,
     ),
     (
@@ -79,15 +79,9 @@ const OTHER_TOKENS: &[(&str, &str, &str, bool)] = &[
         false,
     ),
     (
-        "VerbatimString",
-        "verbatim_string",
-        "A verbatim string literal, such as `@\"C:\\temp\"`: an error (`MR0018`), lexed for recovery.",
-        false,
-    ),
-    (
         "RawString",
         "raw_string",
-        "A raw string literal, delimited by backticks, or by three or more quotes as an error.",
+        "A raw string literal, delimited by backticks.",
         false,
     ),
     (
@@ -1013,7 +1007,7 @@ mod tests {
     fn the_real_spec_has_both_keyword_lists() {
         let spec = std::fs::read_to_string(crate::root().join(crate::error_codes::SPEC)).unwrap();
         let tokens = Tokens::from_spec(&spec).unwrap();
-        assert_eq!(tokens.keywords.len(), 94);
+        assert_eq!(tokens.keywords.len(), 74);
         assert!(tokens.contextual.contains(&"adds".to_owned()));
     }
 

@@ -3,7 +3,6 @@
 
 //! Tests that pin parser behavior found untested by `cargo mutants` (§20.5).
 
-use mora_diag::codes;
 use mora_syntax::ast::{self, AstNode};
 use mora_syntax::{SyntaxKind as K, SyntaxNode, parse};
 
@@ -43,12 +42,12 @@ fn assert_clean_with(text: &str, kind: K) {
     assert!(has(text, kind), "no {kind:?} in {text:?}");
 }
 
-/// Reports one declaration in the C# order (`MR0135`) and nothing else,
-/// and holds a node of `kind`.
-fn assert_type_first_with(text: &str, kind: K) {
-    let codes: Vec<_> = parse(text).errors().iter().map(|e| e.code).collect();
-    assert_eq!(codes, [codes::MR0135], "{text:?}");
-    assert!(has(text, kind), "no {kind:?} in {text:?}");
+/// A property of type `ty` parses without errors: the member's shape
+/// needs `scan_type` to find the end of the type.
+fn assert_property_type(ty: &str) -> String {
+    let text = format!("class A {{ P: {ty} {{ get; }} }}");
+    assert_clean_with(&text, K::PropertyDecl);
+    text
 }
 
 // `ty`: `weak T` is a type of its own.
@@ -61,17 +60,17 @@ fn a_weak_field_type_parses() {
 }
 
 // `scan_type`: a splice type, a tuple type, an alias-qualified, nested or
-// array type before a name makes a local declaration in the C# order.
+// array type before `{` makes a property.
 
 #[test]
-fn a_spread_splice_type_declares_a_local() {
-    assert_type_first_with("F() { $..ts x; }", K::LocalDeclStmt);
+fn a_spread_splice_type_makes_a_property() {
+    assert_property_type("$..ts");
 }
 
 #[test]
-fn a_parenthesized_splice_type_declares_a_local() {
-    assert_type_first_with("F() { $(T) x; }", K::LocalDeclStmt);
-    assert_type_first_with("F() { $(f()) x; }", K::LocalDeclStmt);
+fn a_parenthesized_splice_type_makes_a_property() {
+    assert_property_type("$(T)");
+    assert_property_type("$(f())");
 }
 
 #[test]
@@ -83,28 +82,34 @@ fn an_unclosed_splice_type_ends_at_the_end_of_the_file() {
 }
 
 #[test]
-fn a_tuple_type_declares_a_local() {
-    assert_type_first_with("F() { (a: int, b: string) pair; }", K::LocalDeclStmt);
-    assert_type_first_with("F() { (int, string) pair; }", K::LocalDeclStmt);
+fn a_weak_or_unit_type_makes_a_property() {
+    let text = assert_property_type("weak Node?");
+    assert!(has(&text, K::WeakType));
+    assert_property_type("()");
 }
 
 #[test]
-fn an_alias_qualified_type_declares_a_local() {
-    let text = "F() { Alias::T x; }";
-    assert_type_first_with(text, K::LocalDeclStmt);
-    assert!(has(text, K::AliasQualifier));
+fn a_tuple_type_makes_a_property() {
+    assert_property_type("(a: int, b: string)");
+    assert_property_type("(int, string)");
+    assert_property_type("(int, string,)");
 }
 
 #[test]
-fn a_nested_generic_type_declares_a_local() {
-    assert_type_first_with("F() { Outer<int>.Inner x; }", K::LocalDeclStmt);
+fn an_alias_qualified_type_makes_a_property() {
+    let text = assert_property_type("Alias::T");
+    assert!(has(&text, K::AliasQualifier));
 }
 
 #[test]
-fn an_array_type_declares_a_local() {
-    let text = "F() { int[] xs; }";
-    assert_type_first_with(text, K::LocalDeclStmt);
-    assert!(has(text, K::ArrayType));
+fn a_nested_generic_type_makes_a_property() {
+    assert_property_type("Outer<int>.Inner");
+}
+
+#[test]
+fn an_array_type_makes_a_property() {
+    let text = assert_property_type("int[]");
+    assert!(has(&text, K::ArrayType));
 }
 
 #[test]
@@ -213,20 +218,17 @@ fn modifiers_do_not_make_an_attributed_statement() {
     );
 }
 
-// `at_declaration_start`: a typed variable at the top level is a local.
+// `at_declaration_start`: a variable at the top level is a local.
 
 #[test]
 fn a_top_level_variable_is_a_local() {
-    let text = "int x = 1;";
-    assert_type_first_with(text, K::LocalDeclStmt);
+    let text = "let x: int = 1;";
+    assert_clean_with(text, K::LocalDeclStmt);
     assert!(!has(text, K::FieldDecl));
 }
 
 #[test]
 fn an_operator_is_a_member_only() {
-    let text = "int operator <(A a, A b) => true;";
-    assert!(!has(text, K::OperatorDecl));
-    assert_eq!(messages(text)[0], "expected `;`");
     let text = "operator <(a: A, b: A): bool => true;";
     assert!(!has(text, K::OperatorDecl));
     assert_eq!(messages(text)[0], "expected a statement");
@@ -268,22 +270,44 @@ fn an_attribute_before_a_block_statement() {
     assert!(node(text, K::AttributedStmt).text().starts_with("[Trace]"));
 }
 
-// `record_follows`: `record` alone is a name.
+// `record`, `required` and `init` are names, not keywords.
 
 #[test]
-fn record_alone_is_a_name() {
-    let text = "record = 5;";
-    assert_clean_with(text, K::ExprStmt);
-    assert!(!has(text, K::RecordDecl));
+fn record_is_a_name() {
+    assert_clean_with("record = 5;", K::ExprStmt);
 }
 
-// `at_contextual_modifier`: `required` before a named type is a modifier.
+// `at_contextual_modifier`: `file` before a keyword or a name is a modifier.
 
 #[test]
-fn required_before_a_named_type_is_a_modifier() {
+fn file_is_a_modifier_before_a_declaration() {
+    for text in ["file class A { }", "file Helper() { }"] {
+        assert_clean_with(text, K::Modifier);
+        assert_eq!(node(text, K::Modifier).text(), "file", "{text:?}");
+    }
+}
+
+#[test]
+fn file_alone_is_a_name() {
+    assert_clean_with("file = 5;", K::ExprStmt);
+    assert!(!has("file = 5;", K::Modifier));
+}
+
+// `statement_inner`: `unsafe` starts a statement only before a block.
+
+#[test]
+fn unsafe_takes_a_block() {
+    assert_clean_with("F() { unsafe { Free(p); } }", K::UnsafeStmt);
+    let text = "F() { unsafe x; }";
+    assert!(!has(text, K::UnsafeStmt));
+    assert!(!messages(text).is_empty());
+}
+
+#[test]
+fn required_is_not_a_modifier() {
     let text = "class A { required X: Name; }";
-    assert_clean_with(text, K::Modifier);
-    assert_eq!(node(text, K::Modifier).text(), "required");
+    assert!(!has(text, K::Modifier));
+    assert!(!messages(text).is_empty());
 }
 
 // `attribute`: trailing commas and arguments without a name.
@@ -371,8 +395,8 @@ fn ref_after_a_type_constraint_is_not_a_ref_struct_constraint() {
 fn an_indexer_is_a_member_only() {
     for text in [
         "static this[0];",
-        "static int this[int i] => 0;",
-        "static int IList.this[int i] => 0;",
+        "static this[i: int]: int => 0;",
+        "static IList.this[i: int]: int => 0;",
     ] {
         assert!(!has(text, K::IndexerDecl), "{text:?}");
         assert!(!messages(text).is_empty(), "{text:?}");
@@ -380,62 +404,33 @@ fn an_indexer_is_a_member_only() {
 }
 
 #[test]
-fn a_type_first_operator_is_a_member_only() {
-    let text = "static int operator +(A a) => a;";
-    assert!(!has(text, K::OperatorDecl));
-}
-
-#[test]
-fn a_type_first_property_is_a_member_only() {
-    let text = "static int X => 1;";
+fn a_property_is_a_member_only() {
+    let text = "static X: int => 1;";
     assert!(!has(text, K::PropertyDecl));
-    assert!(has(text, K::FieldDecl));
 }
 
 #[test]
-fn an_attributed_type_first_local_stays_a_statement() {
-    let text = "[Cfg(Debug = true)] int x = 1;";
-    assert_type_first_with(text, K::AttributedStmt);
+fn an_attributed_local_stays_a_statement() {
+    let text = "[Cfg(Debug = true)] let x = 1;";
+    assert_clean_with(text, K::AttributedStmt);
     assert!(!has(text, K::FieldDecl));
 }
 
-// `shape`: a type-first explicit indexer, and a dot that is not one.
+// `shape`: a dot is an explicit indexer only before `this`.
 
 #[test]
-fn a_type_first_explicit_indexer() {
-    let text = "class A { int IList<int>.this[int i] => 0; }";
-    assert_eq!(
-        parse(text)
-            .errors()
-            .iter()
-            .map(|e| e.code)
-            .collect::<Vec<_>>(),
-        [codes::MR0135, codes::MR0135]
-    );
-    assert!(has(text, K::IndexerDecl));
+fn an_explicit_indexer() {
+    let text = "class A { IList<int>.this[i: int]: int => 0; }";
+    assert_clean_with(text, K::IndexerDecl);
     assert_eq!(node(text, K::ExplicitImpl).text(), "IList<int>.");
 }
 
-#[test]
-fn a_dot_without_this_is_not_an_indexer() {
-    let text = "class A { int X.; }";
-    assert!(!has(text, K::IndexerDecl));
-    assert!(has(text, K::FieldDecl));
-}
-
-// `shape`: a splice as the name of a type-first member.
+// `shape`: a splice as the name of a member.
 
 #[test]
-fn a_spliced_name_after_a_type() {
-    let text = "class A { int $f() => 0; int $g; }";
-    assert_eq!(
-        parse(text)
-            .errors()
-            .iter()
-            .map(|e| e.code)
-            .collect::<Vec<_>>(),
-        [codes::MR0135, codes::MR0135]
-    );
+fn a_spliced_member_name() {
+    let text = "class A { $f(): int => 0; $g: int; }";
+    assert_eq!(messages(text), Vec::<String>::new());
     assert_eq!(count(text, K::FunctionDecl), 1);
     assert_eq!(count(text, K::FieldDecl), 1);
     assert!(node(text, K::FunctionDecl).text().contains("$f"));
@@ -476,17 +471,7 @@ fn an_unclosed_call_at_the_end_is_not_a_function() {
     assert!(has(text, K::ExprStmt));
 }
 
-// `shape`: a tuple type first is a type, not a name, and a field has one
-// plain name where fields are allowed.
-
-#[test]
-fn a_tuple_return_type_written_first() {
-    let text = "class A { (int, int) F() => (1, 2); }";
-    let codes: Vec<_> = parse(text).errors().iter().map(|e| e.code).collect();
-    assert_eq!(codes, [codes::MR0135]);
-    assert!(has(text, K::FunctionDecl));
-    assert!(has(text, K::TupleType));
-}
+// `shape`: a field has one plain name where fields are allowed.
 
 #[test]
 fn a_field_needs_a_plain_name_and_a_place_for_fields() {

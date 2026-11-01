@@ -1,1 +1,0 @@
-let name = typeof(List<int>).Name; //~ ERROR MR0103

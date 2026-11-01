@@ -199,7 +199,7 @@ Done when:
 | [M1.2](#m12-syntax-tree-and-typed-ast) | Syntax tree and typed AST | `syntax` | M1.1 |
 | [M1.3](#m13-parser-items-and-declarations) | Parser: items and declarations | `syntax` | M1.2 |
 | [M1.4](#m14-parser-statements-and-expressions) | Parser: statements and expressions | `syntax` | M1.3 |
-| [M1.5](#m15-diagnostics-for-c-constructs) | Diagnostics for C# constructs | `syntax` | M1.4, M0.7 |
+| [M1.5](#m15-withdrawn) | Withdrawn | `syntax` | M1.4, M0.7 |
 | [M1.6](#m16-item-tree-name-resolution-and-entry-points) | Item tree, name resolution and entry points | `hir` | M1.3 |
 | [M1.7](#m17-types-and-signatures) | Types and signatures | `hir` | M1.6 |
 | [M1.8](#m18-body-lowering-to-hir) | Body lowering to HIR | `hir` | M1.7 |
@@ -259,16 +259,11 @@ Done when:
 - `a ? b : c`, `x?`, `x?.y`, `await f()?` and `F<A, B>(c)` parse as §7.4 and §14.4 say.
 - The fuzz target runs for 10 minutes in the nightly job without failures.
 
-### M1.5 Diagnostics for C# constructs
+### M1.5 Withdrawn
 
-Spec: [§3.2](docs/design/mora.md#32-comments-and-doc-comments), [§3.4](docs/design/mora.md#34-keywords), [§4.2](docs/design/mora.md#42-file-layout), [§4.3](docs/design/mora.md#43-using-directives), [§7.1](docs/design/mora.md#71-operator-precedence), [§6.5](docs/design/mora.md#65-positional-structs), [§6.9](docs/design/mora.md#69-members). Crates: `mora-syntax`, `mora-diag`. Blocked by: M1.4, M0.7.
+Spec: [§3.4](docs/design/mora.md#34-keywords), [§23](docs/design/mora.md#23-decisions-register). Crates: `mora-syntax`, `mora-diag`. Blocked by: M1.4, M0.7.
 
-Targeted errors with fixes for C# constructs Mora replaces: `MR0002` (`#` directives), `MR0101` to `MR0109` (reserved keywords), `MR0120` (block namespaces, with a rewrite), `MR0121` (`using` disposal), `MR0133` (`record`, with a rewrite to `struct`), `MR0134` (`required` and `init`), `MR0160` (`x!`). Each code gets its `docs/errors` page.
-
-Done when:
-
-- A UI test per code.
-- The `MR0120` fix, applied, produces a file that parses without errors.
+Withdrawn by D-59: the compiler knows only Mora syntax, so code in another language's syntax gets the ordinary syntax error. The codes this deliverable added were removed.
 
 ### M1.6 Item tree, name resolution and entry points
 
@@ -1306,7 +1301,7 @@ Done when:
 
 Spec: [§1.4](docs/design/mora.md#14-anti-goals), [§19.3](docs/design/mora.md#193-installation). Crates: `docs/site`. Blocked by: M7.8, M5.14.
 
-The site at the project domain (OQ-18): install guide, language tour following §2, the C# migration guide (UTF-8 `Length`, cold futures, copy-in/copy-out, no exceptions, no inheritance, destructors), the standard library reference, the error pages, and the macro guide.
+The site at the project domain (OQ-18): install guide, language tour following §2, the standard library reference, the error pages, and the macro guide.
 
 Done when:
 

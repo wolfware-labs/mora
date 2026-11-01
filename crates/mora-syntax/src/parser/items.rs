@@ -1,12 +1,9 @@
 //! Compilation units, declarations and members (§4, §6, §8.2, §9.2).
 
-use super::csharp::{self, OpenNamespace, TypeFirst};
 use super::exprs;
 use super::types::{self, name, name_ref, scan_type};
 use super::{Input, Marker, Parser, stmts};
-use crate::{SyntaxError, SyntaxKind};
-use mora_diag::codes;
-use mora_span::TextRange;
+use crate::SyntaxKind;
 
 use SyntaxKind as K;
 
@@ -66,21 +63,9 @@ enum Phase {
 pub(crate) fn source_file(p: &mut Parser<'_>) {
     let m = p.start();
     let mut phase = Phase::Imports;
-    let mut namespaces = Namespaces::default();
     while !p.at_end() {
         let before = p.pos();
-        if p.at(K::RBrace)
-            && let Some(open) = namespaces.open.pop()
-        {
-            // The end of a block namespace, reported with its start.
-            let close = p.range(0);
-            let e = p.start();
-            p.bump(K::RBrace);
-            e.complete(p, K::Error);
-            open.report(p, Some(close));
-            continue;
-        }
-        phase = top_level(p, phase, &mut namespaces);
+        phase = top_level(p, phase);
         if p.pos() == before {
             // Nothing could use the token: take it, so the loop moves on.
             let e = p.start();
@@ -89,26 +74,13 @@ pub(crate) fn source_file(p: &mut Parser<'_>) {
             e.complete(p, K::Error);
         }
     }
-    for open in namespaces.open.drain(..).rev() {
-        open.report(p, None);
-    }
     m.complete(p, K::SourceFile);
-}
-
-/// The namespace declarations seen so far.
-#[derive(Default)]
-struct Namespaces {
-    /// Whether the file had one before.
-    seen: bool,
-    /// Block namespaces whose `}` is still to come, innermost last.
-    open: Vec<OpenNamespace>,
 }
 
 /// Parses one top-level element and returns the phase after it. A header
 /// element out of order is still parsed, with an error.
-fn top_level(p: &mut Parser<'_>, phase: Phase, namespaces: &mut Namespaces) -> Phase {
-    let is_using = (p.at(K::UsingKw) && !csharp::at_using_statement(p))
-        || (p.at_contextual("global") && p.nth(1) == K::UsingKw);
+fn top_level(p: &mut Parser<'_>, phase: Phase) -> Phase {
+    let is_using = p.at(K::UsingKw) || (p.at_contextual("global") && p.nth(1) == K::UsingKw);
     let (element, latest, message) = if p.at(K::ImportKw) {
         (
             Phase::Imports,
@@ -139,7 +111,7 @@ fn top_level(p: &mut Parser<'_>, phase: Phase, namespaces: &mut Namespaces) -> P
     match element {
         Phase::Imports => import_decl(p),
         Phase::Usings => using_directive(p),
-        _ => file_namespace(p, namespaces),
+        _ => file_namespace(p),
     }
     phase.max(element)
 }
@@ -176,35 +148,12 @@ fn using_directive(p: &mut Parser<'_>) {
     m.complete(p, K::UsingDirective);
 }
 
-/// `namespace Users.Api;` (§4.2), or the C# block form `namespace X {`,
-/// whose `}` [`source_file`] takes.
-fn file_namespace(p: &mut Parser<'_>, namespaces: &mut Namespaces) {
+/// `namespace Users.Api;` (§4.2).
+fn file_namespace(p: &mut Parser<'_>) {
     let m = p.start();
-    let start = p.range(0).start();
     p.bump(K::NamespaceKw);
     types::path(p, true);
-    if p.at(K::LBrace) {
-        let name_end = p.prev_end();
-        let open = p.range(0);
-        let e = p.start();
-        p.bump(K::LBrace);
-        e.complete(p, K::Error);
-        // Only the first namespace of a file, with nothing nested in it,
-        // can become the file-scoped one.
-        let fixable = !namespaces.seen;
-        for outer in &mut namespaces.open {
-            outer.forbid_fix();
-        }
-        namespaces.open.push(OpenNamespace::new(
-            TextRange::new(start, name_end),
-            name_end,
-            open,
-            fixable && namespaces.open.is_empty(),
-        ));
-    } else {
-        p.expect(K::Semicolon);
-    }
-    namespaces.seen = true;
+    p.expect(K::Semicolon);
     m.complete(p, K::FileNamespace);
 }
 
@@ -231,9 +180,6 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
     }
     let attributed = p.pos() > start;
     let modifiers = modifiers(p, false);
-    // `event Action Changed;` is reported as a whole, not for its order too.
-    let event = (start..p.pos()).any(|i| p.input().kind(i) == K::EventKw);
-    let since = p.reported();
     let member = cx != Context::TopLevel;
     match p.current() {
         K::StructKw => struct_or_class(p, m, K::StructKw, K::StructDecl),
@@ -242,12 +188,11 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
         K::UnionKw => union_decl(p, m),
         K::EnumKw => enum_decl(p, m),
         K::MacroKw => macro_decl(p, m),
-        K::Ident if p.at_contextual("record") && record_follows(p) => record_decl(p, m),
         K::Tilde if member => destructor(p, m),
         K::ImplicitKw | K::ExplicitKw => conversion(p, m),
         K::Ident if member && p.at_contextual("type") && p.nth(1) == K::Ident => assoc_type(p, m),
-        K::OperatorKw => operator(p, m, None),
-        K::ThisKw if member && p.nth(1) == K::LBracket => indexer(p, m, 0, None),
+        K::OperatorKw => operator(p, m),
+        K::ThisKw if member && p.nth(1) == K::LBracket => indexer(p, m, 0),
         _ => {
             // `[Cfg(Debug = true)] Log(x);` at the top level (§6.11). There,
             // without modifiers, only a function has a shape.
@@ -270,21 +215,13 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
             }
         }
     }
-    if event {
-        p.withdraw(since, codes::MR0135);
-    }
     true
 }
 
 /// Whether a top-level declaration starts here rather than a statement:
-/// attributes, a modifier, a declaration keyword, or a type followed by a
-/// name and `(` (a function).
+/// attributes, a modifier, a declaration keyword, or a function.
 fn at_declaration_start(p: &Parser<'_>) -> bool {
-    if at_attribute(p)
-        || (p.at_any(MODIFIERS) && !p.at(K::ThisKw))
-        || at_contextual_modifier(p)
-        || csharp::at_reserved_modifier(p)
-    {
+    if at_attribute(p) || (p.at_any(MODIFIERS) && !p.at(K::ThisKw)) || at_contextual_modifier(p) {
         return true;
     }
     if p.at_any(&[
@@ -294,13 +231,11 @@ fn at_declaration_start(p: &Parser<'_>) -> bool {
         K::UnionKw,
         K::EnumKw,
         K::MacroKw,
-    ]) || (p.at_contextual("record") && record_follows(p))
-    {
+    ]) {
         return true;
     }
-    // `Add(a: int, b: int): int => a + b;`, or `int Add(int a, int b)`
-    // in the C# order.
-    at_function(p.input(), p.pos()) || at_type_first_function(p.input(), p.pos())
+    // `Add(a: int, b: int): int => a + b;`
+    at_function(p.input(), p.pos())
 }
 
 /// Whether a function declared name first starts at `at`: a name, its type
@@ -336,14 +271,6 @@ pub(crate) fn at_function(input: &Input<'_>, at: usize) -> bool {
         input.kind(i + 1),
         K::LBrace | K::FatArrow | K::Colon | K::WhereKw
     )
-}
-
-/// Whether a function declared in the C# order starts at `at`: a type, a
-/// name and `(` or `<`.
-pub(crate) fn at_type_first_function(input: &Input<'_>, at: usize) -> bool {
-    scan_type(input, at).is_some_and(|end| {
-        input.kind(end) == K::Ident && matches!(input.kind(end + 1), K::LParen | K::Lt)
-    })
 }
 
 /// Whether a `[` at the top level opens an attribute rather than a
@@ -385,16 +312,10 @@ pub(crate) fn at_attribute(p: &Parser<'_>) -> bool {
     !operator && !continues && i < input.len()
 }
 
-/// `record Point(...)`, `record class Point`, `record struct Point`.
-fn record_follows(p: &Parser<'_>) -> bool {
-    matches!(p.nth(1), K::Ident | K::ClassKw | K::StructKw)
-}
-
-/// The contextual modifiers `file` and `required`, when another word of the
-/// declaration follows (§6.1).
+/// The contextual modifier `file`, when another word of the declaration
+/// follows (§6.1).
 fn at_contextual_modifier(p: &Parser<'_>) -> bool {
-    (p.at_contextual("file") || p.at_contextual("required"))
-        && (p.nth(1) == K::Ident || p.nth(1).is_keyword())
+    p.at_contextual("file") && (p.nth(1) == K::Ident || p.nth(1).is_keyword())
 }
 
 /// Takes modifiers and returns their kinds. `this` is a modifier only on
@@ -402,26 +323,16 @@ fn at_contextual_modifier(p: &Parser<'_>) -> bool {
 /// an expression or an indexer.
 fn modifiers(p: &mut Parser<'_>, params: bool) -> Vec<SyntaxKind> {
     let mut kinds = Vec::new();
-    let mut ranges = Vec::new();
     loop {
         let m = p.start();
         if at_contextual_modifier(p) {
-            let kind = if p.at_contextual("file") {
-                K::FileKw
-            } else {
-                K::RequiredKw
-            };
-            p.bump_remap(kind);
-            kinds.push(kind);
+            p.bump_remap(K::FileKw);
+            kinds.push(K::FileKw);
         } else if p.at_any(MODIFIERS) && (params || !p.at(K::ThisKw)) {
             kinds.push(p.current());
-            ranges.push((p.current(), p.range(0)));
             p.bump_any();
-        } else if csharp::modifier(p) {
-            // `virtual`, `event` and the like: reported, then skipped.
         } else {
             m.abandon(p);
-            csharp::check_abstract(p, &ranges);
             return kinds;
         }
         m.complete(p, K::Modifier);
@@ -480,48 +391,20 @@ fn type_tail(p: &mut Parser<'_>) {
     }
 }
 
+/// A struct may have a parameter list, which makes it a positional struct
+/// (§6.5).
 fn struct_or_class(p: &mut Parser<'_>, m: Marker, keyword: SyntaxKind, kind: SyntaxKind) {
     p.bump(keyword);
     let owner = p.nth_text(0);
     type_head(p);
-    if p.at(K::LParen) {
-        // C# 12 primary constructors are not Mora (§6.9).
-        let start = p.range(0).start();
-        let e = p.start();
+    if keyword == K::StructKw && p.at(K::LParen) {
         param_list(p);
-        e.complete(p, K::Error);
-        let range = TextRange::new(start, p.prev_end().max(start));
-        p.report(
-            SyntaxError::new(
-                codes::MR0128,
-                range,
-                "a class or struct has no parameter list",
-            )
-            .with_note("Declare fields and a constructor."),
-        );
     }
     type_tail(p);
     if !p.eat(K::Semicolon) {
         member_list(p, Some(owner));
     }
     m.complete(p, kind);
-}
-
-fn record_decl(p: &mut Parser<'_>, m: Marker) {
-    p.bump_remap(K::RecordKw);
-    if p.at(K::ClassKw) || p.at(K::StructKw) {
-        p.bump_any();
-    }
-    let owner = p.nth_text(0);
-    type_head(p);
-    if p.at(K::LParen) {
-        param_list(p);
-    }
-    type_tail(p);
-    if !p.eat(K::Semicolon) {
-        member_list(p, Some(owner));
-    }
-    m.complete(p, K::RecordDecl);
 }
 
 fn interface_decl(p: &mut Parser<'_>, m: Marker) {
@@ -636,7 +519,7 @@ fn members(p: &mut Parser<'_>, owner: Option<&str>) {
             exprs::splice(p);
             p.eat(K::Semicolon);
             m.complete(p, K::SpliceMember);
-        } else if !(p.at(K::DelegateKw) && csharp::statement(p)) {
+        } else {
             declaration(p, cx);
         }
         if p.pos() == before {
@@ -664,20 +547,17 @@ enum Kind {
     Property,
     Field,
     Indexer,
-    Operator,
 }
 
-/// A member's kind, the segments of its dotted name (more than one for an
-/// explicit implementation, `IShape.Area`), and whether its type comes
-/// before the name, as in C#.
+/// A member's kind and the segments of its dotted name (more than one for
+/// an explicit implementation, `IShape.Area`).
 #[derive(Clone, Copy)]
 struct Shape {
     kind: Kind,
     segments: usize,
-    type_first: bool,
 }
 
-/// The member that starts here, in either order, or `None`. At the top
+/// The member that starts here, or `None`. At the top
 /// level a field needs `modifiers` (`const`, `static`): without them a
 /// declaration is a local, which is a statement.
 fn shape(p: &Parser<'_>, cx: Context<'_>, modifiers: bool) -> Option<Shape> {
@@ -685,13 +565,7 @@ fn shape(p: &Parser<'_>, cx: Context<'_>, modifiers: bool) -> Option<Shape> {
     let at = p.pos();
     let member = cx != Context::TopLevel;
     let fields = member || modifiers;
-    let shape = |kind, segments, type_first| {
-        Some(Shape {
-            kind,
-            segments,
-            type_first,
-        })
-    };
+    let shape = |kind, segments| Some(Shape { kind, segments });
     // Name first: `Area(): float`, `Count: int`, `IList<int>.this[i: int]`.
     let (segments, name_at, end) = if p.at(K::Dollar) {
         let end = types::scan_splice(input, at)?;
@@ -702,64 +576,36 @@ fn shape(p: &Parser<'_>, cx: Context<'_>, modifiers: bool) -> Option<Shape> {
     if segments > 0 {
         match input.kind(end) {
             K::Dot if input.kind(end + 1) == K::ThisKw && member => {
-                return shape(Kind::Indexer, segments, false);
+                return shape(Kind::Indexer, segments);
             }
             K::LParen | K::Lt => {
                 if let Context::Member { owner: Some(owner) } = cx
                     && segments == 1
                     && input.text(name_at) == owner
                 {
-                    return shape(Kind::Constructor, 1, false);
+                    return shape(Kind::Constructor, 1);
                 }
                 if member || at_function(input, name_at) || p.at(K::Dollar) {
-                    return shape(Kind::Function, segments, false);
+                    return shape(Kind::Function, segments);
                 }
             }
             K::Colon => {
                 let after = scan_type(input, end + 1).map(|i| input.kind(i));
                 if member && matches!(after, Some(K::LBrace | K::FatArrow)) {
-                    return shape(Kind::Property, segments, false);
+                    return shape(Kind::Property, segments);
                 }
                 if fields && segments == 1 {
-                    return shape(Kind::Field, 1, false);
+                    return shape(Kind::Field, 1);
                 }
             }
             K::Eq | K::Semicolon | K::Comma if fields && segments == 1 && !p.at(K::Dollar) => {
                 // `Count;`: a field without its type, reported when parsed.
-                return shape(Kind::Field, 1, false);
+                return shape(Kind::Field, 1);
             }
             _ => {}
         }
     }
-    // Type first: `int Count;`, `void Tick()`, `T this[int i]`.
-    let after_type = scan_type(input, at)?;
-    match input.kind(after_type) {
-        K::OperatorKw if member => shape(Kind::Operator, 0, true),
-        K::ThisKw if member => shape(Kind::Indexer, 0, true),
-        K::Dollar => {
-            let end = types::scan_splice(input, after_type)?;
-            if input.kind(end) == K::LParen {
-                shape(Kind::Function, 1, true)
-            } else if fields {
-                shape(Kind::Field, 1, true)
-            } else {
-                None
-            }
-        }
-        K::Ident => {
-            let (segments, _, end) = name_segments(p, after_type);
-            match input.kind(end) {
-                K::Dot if input.kind(end + 1) == K::ThisKw && member => {
-                    shape(Kind::Indexer, segments, true)
-                }
-                K::LParen | K::Lt => shape(Kind::Function, segments, true),
-                K::LBrace | K::FatArrow if member => shape(Kind::Property, segments, true),
-                _ if fields => shape(Kind::Field, 1, true),
-                _ => None,
-            }
-        }
-        _ => None,
-    }
+    None
 }
 
 fn member_with_shape(p: &mut Parser<'_>, m: Marker, shape: Shape) {
@@ -771,13 +617,11 @@ fn member_with_shape(p: &mut Parser<'_>, m: Marker, shape: Shape) {
         m.complete(p, K::FieldDecl);
         return;
     }
-    let first = shape.type_first.then(|| TypeFirst::parse(p));
     match shape.kind {
-        Kind::Function => function(p, m, shape.segments, first),
+        Kind::Function => function(p, m, shape.segments),
         Kind::Constructor => constructor(p, m),
-        Kind::Property => property(p, m, shape.segments, first),
-        Kind::Indexer => indexer(p, m, shape.segments, first),
-        _ => operator(p, m, first),
+        Kind::Property => property(p, m, shape.segments),
+        _ => indexer(p, m, shape.segments),
     }
 }
 
@@ -796,20 +640,14 @@ fn member_name(p: &mut Parser<'_>, segments: usize) {
 
 /// `Deposit(amount: decimal): decimal { ... }`, `Max<T>(a: T, b: T): T
 /// where T : IComparable<T>`, `Tick() { }` (§6.1).
-fn function(p: &mut Parser<'_>, m: Marker, segments: usize, first: Option<TypeFirst>) {
+fn function(p: &mut Parser<'_>, m: Marker, segments: usize) {
     member_name(p, segments);
-    let name_end = p.prev_end();
     if p.at(K::Lt) {
         type_param_list(p);
     }
     param_list(p);
-    match first {
-        Some(first) => {
-            let end = p.prev_end();
-            first.report_at(p, name_end, &[end], "", true);
-        }
-        None if p.at(K::Colon) => types::annotation(p, true),
-        None => {}
+    if p.at(K::Colon) {
+        types::annotation(p);
     }
     while p.at(K::WhereKw) {
         where_clause(p);
@@ -819,12 +657,9 @@ fn function(p: &mut Parser<'_>, m: Marker, segments: usize, first: Option<TypeFi
 }
 
 /// `Count: int { get; }`, `IsEmpty: bool => Count == 0;` (§6.9).
-fn property(p: &mut Parser<'_>, m: Marker, segments: usize, first: Option<TypeFirst>) {
+fn property(p: &mut Parser<'_>, m: Marker, segments: usize) {
     member_name(p, segments);
-    match first {
-        Some(first) => first.report(p, ""),
-        None => required_annotation(p),
-    }
+    required_annotation(p);
     if p.at(K::LBrace) {
         accessor_list(p);
         if p.eat(K::Eq) {
@@ -841,7 +676,7 @@ fn property(p: &mut Parser<'_>, m: Marker, segments: usize, first: Option<TypeFi
 /// `: Type` where a declaration must have one.
 fn required_annotation(p: &mut Parser<'_>) {
     if p.at(K::Colon) {
-        types::annotation(p, false);
+        types::annotation(p);
     } else {
         p.error("expected `:` and a type");
     }
@@ -896,53 +731,32 @@ fn explicit_impl(p: &mut Parser<'_>, segments: usize) {
 pub(crate) enum Declarators {
     /// Fields, constants and statics: every declarator has a type.
     Field,
-    /// Locals, after `let` or `var` (`keyword`) or, in the C# order,
-    /// after neither.
-    Local { keyword: bool },
+    /// Locals, after `let` or `var`: a type is optional.
+    Local,
 }
 
-/// `Count: int = 0, Peak: int` or, for a local, `x = 1, y: int`. A type
-/// written first, `int x = 1, y`, goes into the first declarator and is
-/// reported once, with a fix that gives each declarator the type.
+/// `Count: int = 0, Peak: int` or, for a local, `x = 1, y: int`.
 pub(crate) fn variable_declarators(p: &mut Parser<'_>, at: Declarators) {
     let mut d = p.start();
-    let first = types::at_type_first(p).then(|| TypeFirst::parse(p));
-    let mut names = Vec::new();
-    let mut initialized = None;
     loop {
         if p.at(K::Dollar) {
             exprs::splice(p);
         } else {
             name(p);
         }
-        names.push(p.prev_end());
-        if first.is_none() {
-            if at == Declarators::Field {
-                required_annotation(p);
-            } else if p.at(K::Colon) {
-                types::annotation(p, false);
-            }
+        if at == Declarators::Field {
+            required_annotation(p);
+        } else if p.at(K::Colon) {
+            types::annotation(p);
         }
-        let init = p.eat(K::Eq);
-        if init {
+        if p.eat(K::Eq) {
             exprs::expr(p);
         }
-        initialized.get_or_insert(init);
         d.complete(p, K::VariableDeclarator);
         if !p.eat(K::Comma) {
             break;
         }
         d = p.start();
-    }
-    if let Some(first) = first {
-        // `T x = e;` was a variable, `var x: T = e;`; `T x;` is assigned
-        // once later, `let x: T;`.
-        let keyword = match (at, initialized) {
-            (Declarators::Local { keyword: false }, Some(true)) => "var ",
-            (Declarators::Local { keyword: false }, _) => "let ",
-            _ => "",
-        };
-        first.report_at(p, names[0], &names, keyword, false);
     }
 }
 
@@ -955,13 +769,13 @@ fn accessor_list(p: &mut Parser<'_>) {
             attribute(p);
         }
         modifiers(p, false);
-        let kind = ["get", "set", "init"]
+        let kind = ["get", "set"]
             .iter()
-            .zip([K::GetKw, K::SetKw, K::InitKw])
+            .zip([K::GetKw, K::SetKw])
             .find(|(word, _)| p.at_contextual(word))
             .map(|(_, kind)| kind);
         let Some(kind) = kind else {
-            p.error("expected `get`, `set` or `init`");
+            p.error("expected `get` or `set`");
             accessor.complete(p, K::Error);
             break;
         };
@@ -975,12 +789,11 @@ fn accessor_list(p: &mut Parser<'_>) {
 
 /// `public this[i: int]: T { ... }`; with `segments`, an explicit
 /// implementation such as `IList<int>.this[i: int]: int`.
-fn indexer(p: &mut Parser<'_>, m: Marker, segments: usize, first: Option<TypeFirst>) {
+fn indexer(p: &mut Parser<'_>, m: Marker, segments: usize) {
     if segments > 0 {
         explicit_impl(p, segments);
     }
     p.expect(K::ThisKw);
-    let name_end = p.prev_end();
     p.expect(K::LBracket);
     while !p.at(K::RBracket) && !p.at_end() {
         param(p);
@@ -989,13 +802,7 @@ fn indexer(p: &mut Parser<'_>, m: Marker, segments: usize, first: Option<TypeFir
         }
     }
     p.expect(K::RBracket);
-    match first {
-        Some(first) => {
-            let end = p.prev_end();
-            first.report_at(p, name_end, &[end], "", false);
-        }
-        None => required_annotation(p),
-    }
+    required_annotation(p);
     if p.at(K::LBrace) {
         accessor_list(p);
     } else {
@@ -1058,21 +865,15 @@ const OVERLOADABLE: &[SyntaxKind] = &[
 ];
 
 /// `public static operator +(a: Vec, b: Vec): Vec => ...` (§6.9).
-fn operator(p: &mut Parser<'_>, m: Marker, first: Option<TypeFirst>) {
+fn operator(p: &mut Parser<'_>, m: Marker) {
     p.bump(K::OperatorKw);
     match OVERLOADABLE.iter().find(|&&kind| p.at(kind)) {
         Some(&kind) => p.bump(kind),
         None => p.error("expected an operator"),
     }
-    let name_end = p.prev_end();
     param_list(p);
-    match first {
-        Some(first) => {
-            let end = p.prev_end();
-            first.report_at(p, name_end, &[end], "", true);
-        }
-        None if p.at(K::Colon) => types::annotation(p, true),
-        None => {}
+    if p.at(K::Colon) {
+        types::annotation(p);
     }
     body_or_semicolon(p);
     m.complete(p, K::OperatorDecl);
@@ -1124,14 +925,8 @@ fn param(p: &mut Parser<'_>) {
         attribute(p);
     }
     modifiers(p, true);
-    if types::at_type_first(p) {
-        let first = TypeFirst::parse(p);
-        name(p);
-        first.report(p, "");
-    } else {
-        name(p);
-        required_annotation(p);
-    }
+    name(p);
+    required_annotation(p);
     if p.eat(K::Eq) {
         exprs::expr(p);
     }
@@ -1227,7 +1022,5 @@ fn expr_body(p: &mut Parser<'_>) {
 pub(crate) fn local_function(p: &mut Parser<'_>) {
     let m = p.start();
     modifiers(p, false);
-    let type_first = !at_function(p.input(), p.pos());
-    let first = type_first.then(|| TypeFirst::parse(p));
-    function(p, m, 1, first);
+    function(p, m, 1);
 }

@@ -1,2 +1,0 @@
-let box: object = 1; //~ ERROR MR0102
-Show(value: dynamic) { } //~ ERROR MR0102

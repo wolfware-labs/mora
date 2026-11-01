@@ -375,7 +375,7 @@ Console.WriteLine(\"Hello\");
 // not an example
 ```
 
-```csharp
+```rust
 // expect: not Mora
 ```
 

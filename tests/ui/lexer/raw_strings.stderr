@@ -1,0 +1,5 @@
+error[MR0016]: more than one `$` needs a raw string, written with backticks
+  --> tests/ui/lexer/raw_strings.mr:11:14
+   |
+11 | let braces = $$"{{id}}"; //~ ERROR MR0016
+   |              ^^^

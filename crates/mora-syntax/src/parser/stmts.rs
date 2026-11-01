@@ -2,8 +2,7 @@
 
 use super::exprs::{self, at_expr_start};
 use super::items::Declarators;
-use super::types::scan_type;
-use super::{Parser, csharp, items, patterns};
+use super::{Parser, items, patterns};
 use crate::SyntaxKind;
 
 use SyntaxKind as K;
@@ -44,9 +43,6 @@ pub(crate) fn statement(p: &mut Parser<'_>) {
 }
 
 fn statement_inner(p: &mut Parser<'_>) {
-    if csharp::statement(p) {
-        return;
-    }
     match p.current() {
         K::LBrace => block(p),
         K::Semicolon => {
@@ -63,6 +59,12 @@ fn statement_inner(p: &mut Parser<'_>) {
         K::ContinueKw => keyword_stmt(p, K::ContinueKw, K::ContinueStmt),
         K::ReturnKw => return_stmt(p),
         K::SwitchKw if p.nth(1) == K::LParen => switch_stmt(p),
+        K::UnsafeKw if p.nth(1) == K::LBrace => {
+            let m = p.start();
+            p.bump(K::UnsafeKw);
+            block(p);
+            m.complete(p, K::UnsafeStmt);
+        }
         K::LBracket if items::at_attribute(p) => {
             let m = p.start();
             while p.at(K::LBracket) {
@@ -78,8 +80,6 @@ fn statement_inner(p: &mut Parser<'_>) {
             items::local_function(p);
             m.complete(p, K::LocalFunctionStmt);
         }
-        // `int x = 1;`, the C# order, reported when parsed.
-        _ if at_type_first_local(p) => local_decl_stmt(p),
         _ if at_expr_start(p) => {
             let m = p.start();
             exprs::expr(p);
@@ -91,41 +91,29 @@ fn statement_inner(p: &mut Parser<'_>) {
 }
 
 /// `Add(a: int, b: int): int => a + b;` or `static Max<T>(...)` in a
-/// body, or `int Add(int a, int b)` in the C# order.
+/// body.
 fn at_local_function(p: &Parser<'_>) -> bool {
     let input = p.input();
     let mut at = p.pos();
     while matches!(input.kind(at), K::StaticKw | K::AsyncKw | K::ExternKw) {
         at += 1;
     }
-    items::at_function(input, at) || items::at_type_first_function(input, at)
-}
-
-/// `int x = 1;`, `List<int> xs;`, `User? u = none, v;`: a local in the C#
-/// order. A local declared name first starts with `let` or `var`.
-fn at_type_first_local(p: &Parser<'_>) -> bool {
-    let input = p.input();
-    scan_type(input, p.pos()).is_some_and(|end| {
-        input.kind(end) == K::Ident
-            && matches!(input.kind(end + 1), K::Eq | K::Semicolon | K::Comma)
-    })
+    items::at_function(input, at)
 }
 
 /// `let x = 1;`, `var x: int = 1;`, `let x: int;` (§7.10).
-pub(crate) fn local_decl_stmt(p: &mut Parser<'_>) {
+fn local_decl_stmt(p: &mut Parser<'_>) {
     let m = p.start();
     local_decl(p);
     p.expect(K::Semicolon);
     m.complete(p, K::LocalDeclStmt);
 }
 
+/// At `let` or `var`.
 fn local_decl(p: &mut Parser<'_>) {
     let m = p.start();
-    let keyword = p.at(K::LetKw) || p.at(K::VarKw);
-    if keyword {
-        p.bump_any();
-    }
-    items::variable_declarators(p, Declarators::Local { keyword });
+    p.bump_any();
+    items::variable_declarators(p, Declarators::Local);
     m.complete(p, K::LocalDecl);
 }
 
@@ -133,7 +121,7 @@ fn local_decl(p: &mut Parser<'_>) {
 fn deconstruct_stmt(p: &mut Parser<'_>) {
     let m = p.start();
     p.bump_any();
-    patterns::tuple_designation(p, Some(""));
+    patterns::tuple_designation(p, true);
     p.expect(K::Eq);
     exprs::expr(p);
     p.expect(K::Semicolon);
@@ -202,7 +190,7 @@ fn for_stmt(p: &mut Parser<'_>) {
     p.bump(K::ForKw);
     p.expect(K::LParen);
     if !p.at(K::Semicolon) {
-        if p.at(K::LetKw) || p.at(K::VarKw) || at_type_first_local(p) {
+        if p.at(K::LetKw) || p.at(K::VarKw) {
             local_decl(p);
         } else {
             let init = p.start();
@@ -239,12 +227,10 @@ fn foreach_stmt(p: &mut Parser<'_>) {
     p.bump(K::ForeachKw);
     p.expect(K::LParen);
     p.eat(K::RefKw);
-    let keyword = p.at(K::LetKw) || p.at(K::VarKw);
-    if keyword {
+    if p.at(K::LetKw) || p.at(K::VarKw) {
         p.bump_any();
     }
-    // `foreach (int x in xs)` becomes `foreach (let x: int in xs)`.
-    patterns::designation(p, Some(if keyword { "" } else { "let " }));
+    patterns::designation(p, true);
     p.expect(K::InKw);
     exprs::expr(p);
     p.expect(K::RParen);

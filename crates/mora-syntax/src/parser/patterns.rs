@@ -1,7 +1,6 @@
 //! Patterns (§7.8). `or` binds loosest, then `and`, then `not` and the
 //! relational patterns, then the rest.
 
-use super::csharp::TypeFirst;
 use super::exprs::{self, pattern_operand};
 use super::types::{self, PREDEFINED, scan_type};
 use super::{CompletedMarker, Parser};
@@ -84,7 +83,7 @@ fn primary_pattern(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     if p.at(K::LetKw) || p.at(K::VarKw) {
         let m = p.start();
         p.bump_any();
-        designation(p, None);
+        designation(p, false);
         return Some(m.complete(p, K::BindingPattern));
     }
     if p.at(K::LParen) {
@@ -104,7 +103,7 @@ fn primary_pattern(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         if next == K::Ident && !is_pattern_word(p.nth_text(end - at)) {
             let m = p.start();
             types::ty(p);
-            designation(p, None);
+            designation(p, false);
             return Some(m.complete(p, K::DeclarationPattern));
         }
         // `User { Name: "Ada" } u`.
@@ -151,7 +150,7 @@ fn is_plain_path(input: &super::Input<'_>, at: usize, end: usize) -> bool {
 
 /// Whether the type at `at..end` can only be a type: a predefined type
 /// (unless member access follows) or one with generic arguments, `?` or
-/// `[]`. Parentheses never get here: as in C#, `(int, string)` is a
+/// `[]`. Parentheses never get here: `(int, string)` is a
 /// positional pattern of two type patterns.
 fn type_only(input: &super::Input<'_>, at: usize, end: usize) -> bool {
     if PREDEFINED.contains(&input.kind(at)) {
@@ -160,38 +159,27 @@ fn type_only(input: &super::Input<'_>, at: usize, end: usize) -> bool {
     (at..end).any(|i| matches!(input.kind(i), K::Lt | K::Question | K::LBracket))
 }
 
-/// A name, `_` or `(a, b)` after `let`, `var` or a type. In a statement
-/// (`typed`), a name may have a type, `x: int`; the C# order `int x` is
-/// reported with a fix that puts the keyword `typed` holds before it. In a
-/// pattern a name has none: `x: int` would read as the end of a case label.
-pub(crate) fn designation(p: &mut Parser<'_>, typed: Option<&str>) {
+/// A name, `_` or `(a, b)` after `let` or `var`. In a statement (`typed`),
+/// a name may have a type, `x: int`. In a pattern a name has none: `x: int`
+/// would read as the end of a case label.
+pub(crate) fn designation(p: &mut Parser<'_>, typed: bool) {
     if p.at(K::LParen) {
-        tuple_designation(p, typed.map(|_| ""));
+        tuple_designation(p, typed);
     } else if p.at_contextual("_") {
         let m = p.start();
         p.bump_remap(K::Underscore);
         m.complete(p, K::DiscardDesignation);
     } else {
         let m = p.start();
-        match typed {
-            Some(keyword) if types::at_type_first(p) => {
-                let first = TypeFirst::parse(p);
-                types::name(p);
-                first.report(p, keyword);
-            }
-            Some(_) => {
-                types::name(p);
-                if p.at(K::Colon) {
-                    types::annotation(p, false);
-                }
-            }
-            None => types::name(p),
+        types::name(p);
+        if typed && p.at(K::Colon) {
+            types::annotation(p);
         }
         m.complete(p, K::NameDesignation);
     }
 }
 
-pub(crate) fn tuple_designation(p: &mut Parser<'_>, typed: Option<&str>) {
+pub(crate) fn tuple_designation(p: &mut Parser<'_>, typed: bool) {
     let m = p.start();
     p.bump(K::LParen);
     while !p.at(K::RParen) && !p.at_end() {
@@ -255,7 +243,7 @@ fn single_pattern_in_parens(p: &Parser<'_>) -> bool {
 fn property_body(p: &mut Parser<'_>) {
     fields(p, K::LBrace, K::RBrace);
     if p.at(K::Ident) && !is_pattern_word(p.nth_text(0)) || p.at(K::LParen) {
-        designation(p, None);
+        designation(p, false);
     }
 }
 
