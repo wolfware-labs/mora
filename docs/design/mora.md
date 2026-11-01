@@ -1658,7 +1658,7 @@ public interface IError : IDisplay {
 
 One error serves three readers (D-108). `Code` is for programs: alerting, dashboards and clients branch on it, never on message text, so it stays the same when the message changes. `PublicMessage` is the only text that may reach an end user, and an error without one is internal. `ToString()` and the chain of `Source()` are for developers and go to the log (§15.10). `Source()` is a method rather than a getter because boxing an error allocates, which a getter may not do (§6.9).
 
-The MVP standard library defines `IoError`, `ParseError`, `FormatError`, `JsonError` and `HttpError` (§15, §16), whose codes start with `io.`, `parse.`, `format.`, `json.` and `http.`. An application usually declares one union per layer, with the standard-library macro `@Error` (§9.9):
+The MVP standard library defines `IoError`, `ParseError`, `FormatError`, `JsonError`, `HttpError`, `TimeoutError` and `TimeError` (§12.4, §15, §16), whose codes start with `io.`, `parse.`, `format.`, `json.`, `http.`, `task.` and `time.`. An application usually declares one union per layer, with the standard-library macro `@Error` (§9.9):
 
 ```mora
 @Error
@@ -1794,7 +1794,7 @@ The compiler turns each async function into a state machine struct (§14.9):
 | `await Task.WithDeadline(at, f)` | The same with an absolute deadline `at: MonoTime` (§15.6) |
 | `Task.Remaining` | `TimeSpan?`: the time left before the current task's deadline, or `none` when it has none |
 
-`TimeoutError` is a struct with no fields that implements `IError`; its message is `deadline exceeded`.
+`TimeoutError` is a struct with no fields that implements `IError`; its message is `deadline exceeded` and its code `task.timeout`. It is internal, with no `PublicMessage` or `HttpStatus` (§11.2), so a handler that returns it gets a 500 problem response; the 503 of an expired request deadline (§16.1) comes from the server, not from this error.
 
 Futures given to `scope.Spawn` and `Task.SpawnDetached` own everything they use (§12.3), so a spawned task can never refer to a local of its spawner.
 
@@ -2249,7 +2249,7 @@ Operators that need the whole sequence (`OrderBy`, `GroupBy`, `Reverse`, `Distin
 | `LocalDate`, `LocalTime`, `LocalDateTime` | Calendar values with no time zone: a birthday, "09:00 every day". `LocalDate.Of(year, month, day)` and the matching `Of` on the others return `Result<_, TimeError>`, so an invalid date is an error value. Components: `Year`, `Month`, `Day` and `DayOfWeek` on dates, `Hour`, `Minute`, `Second` and `Nanosecond` on times, all of them on `LocalDateTime`. Comparison, ISO 8601 `ToString()`, and `Parse` returning `Result<_, TimeError>` |
 | `Period` | Calendar arithmetic: `Period.Days(n)`, `Months(n)`, `Years(n)`. `LocalDate + Period.Months(1)` moves by calendar months and clamps the day (January 31 plus one month is February 28 or 29); a `TimeSpan` is always exact |
 | `Clock` | `Now()`, the one wall-clock reading in `Std`, routed through the World. `MonoTime.Now()` also goes through the World. Behind the real World, the wall clock is a hosted service of `mora-rt` (§13.1) and monotonic time comes from `mora_pal_now` (§19.4) |
-| `TimeError` | A union implementing `IError`: `OutOfRange(Field: string, Value: long)` for a component outside its calendar range, and `Format(Input: string)` for text `Parse` rejects |
+| `TimeError` | A union implementing `IError`: `OutOfRange(Field: string, Value: long)` for a component outside its calendar range (code `time.out_of_range`), and `Format(Input: string)` for text `Parse` rejects (code `time.format`). Both cases are internal, with no `PublicMessage` or `HttpStatus` (§11.2) |
 
 - **Durations use `MonoTime`.** The wall clock can jump (NTP, manual changes), so lint `wall-clock-duration` (warn by default) reports `Instant - Instant` where both readings come from `Clock.Now()` in the same function, with a fix to `Stopwatch` or `MonoTime`.
 - **Post-MVP:** `TimeZone` from the IANA time-zone database, `ZonedDateTime` (a `LocalDateTime` with a zone and an offset), explicit resolution of times in a daylight-saving gap or overlap, and RFC 9557 zone suffixes in JSON.
