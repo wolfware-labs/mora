@@ -322,7 +322,7 @@ sizeof stackalloc static string struct switch this true uint ulong union unique
 unsafe ushort using var weak where while yield
 ```
 
-Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows ref struct`, §8.2); `_` (discards in patterns and deconstruction, §7.8).
+Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (accessors); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, §4.4); `type` (associated types, §8.7); `allows` (`allows ref struct`, §8.2); `newtype` (declaration start, §6.12); `test` (section position, §15.9); `contract` (section position, §6.13), and inside a contract section `invariant`, `requires`, `fails`, `ensures`, `also`, `old` and `result`; `_` (discards in patterns and deconstruction, §7.8).
 
 The compiler knows only Mora's syntax (D-59). A word that is not a keyword is an identifier, and code written in another language's syntax gets the ordinary syntax error, `MR0110`.
 
@@ -589,7 +589,8 @@ Checked conversions that can fail return options: `int.TryFrom(x)` gives `int?`.
 ### 6.1 Overview
 
 ```ebnf
-TypeDecl  = StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl ;
+TypeDecl  = StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl | NewtypeDecl ;
+NewtypeDecl = Attribute* Modifier* "newtype" Identifier ":" Type ( "is" Pattern )? ( ";" | TypeBody ) ;   (* §6.12 *)
 Modifier  = "public" | "internal" | "private" | "file" | "static" | "mut" | "readonly"
           | "unique" | "shared" | "ref" | "async" | "lazy" | "const" | "indirect"
           | "extern" ;
@@ -820,13 +821,86 @@ Attributes are compile-time only (D-10). An attribute either names a macro (§9)
 | `[MustUse]` | type, function | Discarding a value of that type, or that function's result, warns `MR2002` |
 | `[NonExhaustive]` | union, enum | §6.6 |
 | `[Flags]` | enum | §6.7 |
-| `[Test]`, `[Test(Ignore = "reason")]` | function | Test function for `mora test` (§17.5) |
+| `[Test]`, `[Test(Ignore = "reason")]` | function in a `test` section, or at file level in `tests/` | Test function for `mora test` (§15.9) |
 | `[Import(Lib = "c", Name = "strlen")]` | `extern` function | FFI import (§13.9) |
 | `[Export(Name = "...")]` | function | Exported with the C ABI under that name |
 | `[Layout(C)]` | struct | C field order and alignment, for FFI |
 | `[Inline]`, `[Inline(Never)]` | function | Inlining hint |
 | `[Obsolete("message")]` | any declaration | Using it warns `MR2003` with the message |
 | `[RequiresCapability("net.listen")]` | function | Declares that calling it needs the capability (§18.6) |
+
+### 6.12 Newtypes
+
+`newtype Name : T;` declares a new value type with the same layout as `T`, its underlying type (D-62). It may carry a **refinement**, written with the patterns of §7.8 after `is`, that every value of the type satisfies:
+
+```mora
+public newtype UserId : long;
+public newtype OrderId : long;
+public newtype Port : int is >= 1 and <= 65535;
+public newtype Percent : double is >= 0.0 and <= 100.0;
+public newtype Slug : string is { Length: > 0 and <= 64 };
+```
+
+- **Layout.** The same as `T`, with no tag and no header. `Port?` is laid out as every option of a value type is (§5.6).
+- **Into the underlying type.** A newtype converts implicitly to `T`, because every `Port` is an `int`.
+- **From the underlying type.** A value of the underlying type never converts implicitly; only a constant does, as the next rule says. `UserId.From(value: long): UserId` wraps a value of the underlying type when the newtype has no refinement. With a refinement, `Port.From(value: int): Port?` checks it and returns `none` when it fails. `Port.Parse` parses a `T` and then checks the refinement, and its `ParseError` names the refinement.
+- **Constants are checked at compile time.** A constant of the underlying type assigned to a newtype is checked by constant evaluation (§14.6): `let port: Port = 8080;` compiles, and `let port: Port = 70000;` is error `MR0260`, "70000 is not a valid `Port` (requires `>= 1 and <= 65535`)".
+- **Distinct types.** A `UserId` is not an `OrderId`, though both are `long`: passing one where the other is expected is an ordinary type mismatch.
+- **Derived members.** Equality, hashing, ordering, printing and `[Json]` come from the underlying type, so a `UserId` is a JSON number. Deserializing runs the refinement and reports a `JsonError` that names it.
+- **No derived arithmetic.** `UserId + UserId` does not compile. `[Arithmetic]` opts in to same-type `+` and `-` and to `*` and `/` by a scalar of the underlying type. On a refined newtype, each result is checked against the refinement in every profile, and a result outside it panics: `Port` 65535 plus 1 is not a `Port`.
+- **Members.** A newtype may have a body with members, as a struct does. Inside it, `value` names the underlying value and is read-only; a member that needs a different value builds one through `From`.
+- **Default value.** A newtype implements `IDefault` (§8.5) when its underlying type does and that default satisfies the refinement, which constant evaluation checks. `Port`'s underlying default, `0`, fails `>= 1`, so `default(Port)`, `new Port[4]` and a `[Default]` field of type `Port` are error `MR0190`, unless the body implements `IDefault` with a valid value.
+
+The refinement is checked once, where a value is created (`From`, `Parse`, a constant, deserialization, a default value, an `[Arithmetic]` result), so code that receives a `Port` never checks it again. A predicate refinement that calls a function, `newtype Email : string where EmailAddress.IsValid(value);`, comes after the MVP, once effect inference can prove the predicate pure (OQ-22).
+
+### 6.13 Contract sections [post-MVP]
+
+A type states the rules of its members in a `contract` section, linked to each member by name, so the rules never sit on the signature line (D-63). The MVP reserves `contract` at section position; the checks arrive in v0.2.
+
+```mora
+public class Account
+{
+    public mut Balance: Cents;
+    public mut IsFrozen: bool;
+
+    public Withdraw(amount: Cents): Result<(), AccountError>
+    {
+        Balance -= amount;
+        return Ok(());
+    }
+
+    contract
+    {
+        invariant Balance >= 0;
+
+        Withdraw
+        {
+            fails with AccountError.Frozen when IsFrozen;
+            fails with AccountError.Insufficient when amount > Balance;
+            ensures Balance == old(Balance) - amount;
+        }
+    }
+}
+```
+
+| Clause | Constrains | Checked | On violation |
+|---|---|---|---|
+| `invariant cond;` | The type's state | After constructors and after every public member that may assign fields | Panic that blames the member |
+| `requires cond;` | The caller's input | Before the body, unless proven or turned off by the profile (below) | Panic that blames the caller |
+| `fails with E when cond;` | A declared failure | Before the body, in every build, because it is program behaviour | Returns `Err(E)` and the body does not run |
+| `ensures cond;` | The result and the new state | After the body, in `dev` and under `mora test`; trusted in `release` | Panic that blames the member |
+
+- **Linked by name.** An entry names a member, and the member's parameters are in scope. Only when overloads share a name does the entry add parameter types: `Withdraw(Cents) { ... }`. An unknown or ambiguous name is an error with one fix per candidate.
+- **Order.** `requires` clauses run first, then `fails` clauses in written order, then the body.
+- **Expressions are effect-free.** `result` names the return value inside `ensures`. `old(e)` is valid only inside `ensures`, evaluates `e` on entry and requires a copyable type.
+- **Visibility.** `requires` and `fails` refer only to members at least as visible as the member, because a caller must be able to check them.
+- **Messages.** A violation prints the clause's source text and the values of its operands, as `#Assert` does (§9.9).
+- **Placement.** A type may have several `contract` sections, so an entry can sit next to its member. Free functions use a `contract` section at file level.
+- **Interfaces** carry contracts and their implementations inherit them. An implementation may only weaken `requires` (`requires else`, OR-ed) or strengthen `ensures` (`ensures also`, AND-ed).
+- **Profiles.** `contracts = "all" | "public-requires" | "none"` in `[profile.*]`; `dev` and `mora test` default to `"all"`, `release` to `"public-requires"`. `fails` clauses are behaviour and run in every profile.
+- **Readers.** Package metadata stores the sections. Hover, generated documentation, JSON Schema, `mora diff` and the property tester read them, and a stronger `requires`, a weaker `ensures` or a new `fails` case on a public member is a breaking change.
+
+Single-value ranges belong in newtype refinements (§6.12), so a contract section holds the relational rules, the failures and the postconditions.
 
 ## 7. Expressions and statements
 
@@ -1158,6 +1232,7 @@ These macros replace a fixed derive list; the compiler has no special knowledge 
 | `[Default]` | `IDefault` from field initializers or field defaults; for unions, the case marked `[Default]` | `IDefault` |
 | `[Clone]` | `IClone<T>`, cloning fields that implement `IClone` and copying the rest | copyable or `IClone` |
 | `[Json]` | `IJsonSerialize` and `IJsonDeserialize` (§16.3) | `IJsonSerialize` / `IJsonDeserialize` |
+| `[Arithmetic]` | On a newtype (§6.12): same-type `+` and `-`, and `*` and `/` by a value of the underlying type; on a refined newtype each result is checked against the refinement | The underlying type has those operators |
 | `#Assert(condition)` | An assertion that, on failure, prints the condition's source text and the values of its operands: `assertion failed: total > 0 (total = -3)` | |
 
 A `weak` field is skipped by `Equatable`, `Hashable` and `Comparable`, and printed as `<weak>` by `Display`.
@@ -1667,7 +1742,7 @@ Macro expansion (§9) sits between signature resolution and body checking. `mora
 
 ### 14.6 Constant evaluation
 
-`const` values, `static readonly` initializers and default parameter values are evaluated by a MIR interpreter at compile time. In the MVP the interpreter supports arithmetic, comparisons, string literals and concatenation of constants, construction of plain structs, tuples and unions, and arrays of such values. Anything else is error `MR0460` with the hint to use `static lazy`.
+`const` values, `static readonly` initializers, default parameter values, constants converted to a newtype and the defaults of refined newtypes (§6.12) are evaluated by a MIR interpreter at compile time. In the MVP the interpreter supports arithmetic, comparisons, string literals and concatenation of constants, construction of plain structs, tuples and unions, arrays of such values, and matching a value against a newtype's refinement pattern. Anything else is error `MR0460` with the hint to use `static lazy`.
 
 ### 14.7 MIR
 
@@ -1829,7 +1904,52 @@ Operators that need the whole sequence (`OrderBy`, `GroupBy`, `Reverse`, `Distin
 
 ### 15.9 Testing
 
-`[Test]` functions take no parameters and return `()`, `Result<(), E>` or, if async, either one. `Assert.Equal(expected, actual)`, `Assert.NotEqual`, `Assert.True`, `Assert.False`, `Assert.Null`, `Assert.NotNull`, `Assert.Contains` and `Assert.Panics(() => ...)` are in `Std.Testing`. A failed assertion panics with a message that shows both values. `Assert.Panics` runs the closure in a child process (§17.5), since panics abort.
+Unit tests live next to the code they test, in a `test` section (D-64):
+
+```mora
+public struct Order
+{
+    public Lines: List<Line>;
+
+    public Total(): Cents
+    {
+        return Lines.Sum(l => l.Price * l.Quantity);
+    }
+}
+
+test
+{
+    [Test]
+    EmptyOrderTotalsZero()
+    {
+        let order = new Order { Lines = [] };
+        let zero: Cents = 0;
+        Assert.Equal(zero, order.Total());
+    }
+
+    [Test]
+    TotalMultipliesPriceByQuantity()
+    {
+        let order = new Order { Lines = [OneLine(price: 250, quantity: 2)] };
+        let expected: Cents = 500;
+        Assert.Equal(expected, order.Total());
+    }
+
+    OneLine(price: Cents, quantity: int): Line    // a helper: no [Test], still test-only
+    {
+        return new Line { Price = price, Quantity = quantity };
+    }
+}
+```
+
+- A `test { }` section sits at file level or inside a type, and a file may have several.
+- Inside a section, `[Test]` marks a test and anything else is a helper. `[Test]` outside a test section is error `MR0145`, with a fix that moves the function into one. Files in `tests/` are exempt: each is an integration test program, and its `[Test]` functions sit at file level (§17.5).
+- Sections, their tests and their helpers are compiled only under `mora test`. They never reach a `build` or `run` binary and raise no dead-code warnings.
+- A section at file level sees what other code in its file sees, `internal` and `file` items included. A section inside a type also sees the type's `private` members.
+- `Order.tests.mr` next to `Order.mr` is a test section in its entirety, for tests that outgrow the file.
+- Integration tests stay in `tests/*.mr` and see only `public` items (§17.5).
+
+A `[Test]` function returns `()`, `Result<(), E>` or, if async, either one. In the MVP it takes no parameters. Parameters with generated inputs, shrinking and contract fuzzing come in v0.2 (§6.13), and the runner is designed for them. `Assert.Equal(expected, actual)`, `Assert.NotEqual`, `Assert.True`, `Assert.False`, `Assert.None`, `Assert.NotNone`, `Assert.Contains` and `Assert.Panics(() => ...)` are in `Std.Testing`. A failed assertion panics with a message that shows both values. `Assert.Panics` runs the closure in a child process (§17.5), since panics abort.
 
 ### 15.10 What is not in the MVP
 
@@ -1970,6 +2090,7 @@ users-api/
   src/
     Program.mr
     Model.mr
+    Model.tests.mr  # unit tests for Model.mr, built only by `mora test`
   tests/            # integration tests: each file is a separate test program
     ApiTests.mr
   target/           # build output, ignored by git
@@ -1981,7 +2102,7 @@ users-api/
 
 ### 17.5 Test runner
 
-`mora test` compiles the project with `Test = true`, collects `[Test]` functions from `src/` (unit tests, which can see `internal` items) and from every file in `tests/` (integration tests, which see only `public` items), builds one test executable, and runs each test. Because a panic aborts (§11.4), the runner forks a child process per test on Unix and spawns one per test on Windows; a panicking test fails without stopping the others. Output follows `dotnet test` conventions: one line per failing test with the assertion message, and a summary `Passed: 41, Failed: 1, Ignored: 2`. `--leak-check` (on by default under `mora test`) fails a test that leaves objects alive (§10.11).
+`mora test` compiles the project with `Test = true`, collects `[Test]` functions from the `test` sections and `.tests.mr` files in `src/` (unit tests, which can see `internal` items, §15.9) and from every file in `tests/` (integration tests, which see only `public` items), builds one test executable, and runs each test. Because a panic aborts (§11.4), the runner forks a child process per test on Unix and spawns one per test on Windows; a panicking test fails without stopping the others. Output follows `dotnet test` conventions: one line per failing test with the assertion message, and a summary `Passed: 41, Failed: 1, Ignored: 2`. `--leak-check` (on by default under `mora test`) fails a test that leaves objects alive (§10.11).
 
 ### 17.6 Diagnostics
 
@@ -2262,9 +2383,9 @@ Mora is built in thin vertical slices: each milestone runs real programs end to 
 | **M0: Foundations** | Repository, CI on Linux, macOS and Windows, workspace crates and layering check, spans and diagnostics, error-code registry, test harnesses (UI, run, spec examples), `mora-rt` skeleton built for every Tier 1 target | CI green on all three OSes; harnesses run an empty suite; `cargo xtask layers` enforces §14.2 |
 | **M1: Hello, native** | Lexer and full parser with a lossless tree, name resolution and type checking for namespaces, functions, structs, primitives, strings, locals and control flow, MIR lowering, Cranelift code generation, linking on every Tier 1 target, `Console.WriteLine` with interpolation, `mora build`, `run` and `check` | §2.1 builds and runs on every Tier 1 target in CI; the M1 run tests pass through JIT and AOT |
 | **M2: Memory model** | Classes, structs, unique classes, parameter modes, move checking, drop elaboration, destructors, aliased-place borrows, views and spans, weak references, closures, ARC insertion and optimization, debug runtime leak tracking | The suite of §20.3 passes; the §10.13 snapshots pass |
-| **M3: Expressive core** | Unions, enums, patterns and exhaustiveness, options and `none` with flow narrowing, `Result` and `?`, operators and conversions, generics and monomorphization, interfaces with static and dynamic dispatch, associated types, properties, indexers, extension methods, tuples, collection expressions | Run and UI tests for every construct of §§5 to 8; every §2.4 example runs |
+| **M3: Expressive core** | Unions, enums, patterns and exhaustiveness, options and `none` with flow narrowing, `Result` and `?`, operators and conversions, generics and monomorphization, interfaces with static and dynamic dispatch, associated types, properties, indexers, extension methods, tuples, collection expressions, newtypes and refinements | Run and UI tests for every construct of §§5 to 8; every §2.4 example runs |
 | **M4: Macros** | `macro` declarations, `code` quoting and splices, hygiene, the `Std.Meta` model, the sandboxed JIT runner and its cache, `mora expand`, `MacroTest`, and the standard-library macros of §9.9 except `[Json]` | Every §9 example runs; `[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` pass their `MacroTest` suites; structs get their automatic implementations from these macros |
-| **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `[Json]` macro, `Std.Testing` and `mora test` | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; LINQ chains meet §15.5 with no allocation |
+| **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `[Json]` macro, `Std.Testing`, `mora test` and `test` sections | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; LINQ chains meet §15.5 with no allocation |
 | **M6: Async and HTTP** | Async lowering, futures, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server, routing, results, `HttpError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
 | **M7: Developer experience and v0.1** | Language server, VS Code extension, formatter, REPL, `mora new` templates, `mora explain` and error pages, documentation site with the language tour, installers, release workflow, budgets | v0.1.0 published on every channel of §19.3; §1.5 holds; budgets of §20.6 measured and either met or revised in this document |
 | M8: WebAssembly and libraries | §18.1 to §18.4 | post-MVP |
@@ -2341,6 +2462,9 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-59 | The compiler knows only Mora syntax: code from other languages gets the ordinary syntax error, with no dedicated codes or fixes | user | 3.4, 17.6 |
 | D-60 | The MVP runtime is thread-ready, not threaded: reference counting has plain and atomic forms, the executor lives in a per-thread context, and `Std` keeps no global mutable state | user | 12.1, 13.3 |
 | D-61 | Values derived from object identity come from a per-process counter, never from an address | user | 6.3 |
+| D-62 | `newtype Name : T is pattern;` declares a new value type with `T`'s layout and an optional pattern refinement checked where values are created | user | 6.12 |
+| D-63 | Contracts live in `contract` sections linked to members by name, never on the signature line; the MVP reserves the word and v0.2 checks them | user | 6.13 |
+| D-64 | Unit tests live in `test` sections or sibling `.tests.mr` files, compiled only under `mora test` | user | 15.9 |
 
 ## 24. Open questions
 
@@ -2366,6 +2490,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | OQ-19 | Which big-endian target, if any, gets a CI guard (s390x under QEMU is the candidate)? | None | M13 |
 | OQ-20 | Do structs also get generated ordering (`IComparable<T>`, by field order)? | No; `[Comparable]` adds it (§9.9) | M4 |
 | OQ-21 | The rules by which the compiler stores a value inline, on the stack or in a heap cell (§6.1, §10.13) | A struct lives inline in its owner and is boxed only as §8.4 says; a class lives on the heap | M2 |
+| OQ-22 | Predicate refinements on newtypes (`where EmailAddress.IsValid(value)`): which functions may a predicate call, and how is that checked? | Only patterns in the MVP (§6.12) | v0.2 |
 
 ## 25. References
 
