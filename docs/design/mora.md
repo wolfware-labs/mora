@@ -1173,14 +1173,14 @@ let name = ReadName();
 let bad: Html = name;            // error: `string` does not convert to `Html`
 ```
 
-A type `T` is an interpolation handler when it implements `IInterpolate<T>`; implementing `IInterpolate` with any other type argument is the usual unsatisfied-constraint error at the declaration, because `Begin` must return the handler itself. A hole reaches it typed, when the hole's type implements `IHole<T>` for that handler, or as a displayable value:
+A type is an interpolation handler when it implements `IInterpolate`, whose members refer to the handler as `Self`, as `IFrom` does (§5.10). A hole reaches it typed, when the hole's type implements `IHole<T>` for that handler, or as a displayable value:
 
 ```mora
-public interface IInterpolate<TSelf> {
-    static abstract Begin(literalBytes: int, holeCount: int): TSelf;
+public interface IInterpolate {
+    static abstract Begin(literalBytes: int, holeCount: int): Self;
     Enabled: bool => true;            // false skips every part that follows
     mut AppendLiteral(text: Literal);
-    mut AppendHole<T>(value: T, format: Literal, source: Literal) where T : IHole<TSelf>, allows move;
+    mut AppendHole<T>(value: T, format: Literal, source: Literal) where T : IHole<Self>, allows move;
     mut AppendDisplay<T>(value: T, format: Literal, source: Literal) where T : IDisplay, allows move;
 }
 
@@ -1189,7 +1189,7 @@ public interface IHole<THandler> {
 }
 ```
 
-- **Lowering.** When the target type `T` of `$"..."` implements `IInterpolate<T>`, with itself as the argument, the compiler calls `T.Begin` with the total length of the literal parts and the number of holes, then, if `Enabled` is `true`, `AppendLiteral` for each literal part and one call for each hole, in source order. The calls are statically dispatched and inlined like any other generic code (§8.3). The handler value is the expression's value. When `Enabled` is `false` no part is appended and no hole expression is evaluated, which is how a disabled log level costs one branch.
+- **Lowering.** When the target type `T` of `$"..."` implements `IInterpolate`, the compiler calls `T.Begin` with the total length of the literal parts and the number of holes, then, if `Enabled` is `true`, `AppendLiteral` for each literal part and one call for each hole, in source order. The calls are statically dispatched and inlined like any other generic code (§8.3). The handler value is the expression's value. When `Enabled` is `false` no part is appended and no hole expression is evaluated, which is how a disabled log level costs one branch.
 - **Holes.** A hole whose type implements `IHole<T>` for the handler goes to `AppendHole`, so a handler can take some types specially, as `Html` takes a nested `Html` fragment. Any other hole whose type implements `IDisplay` goes to `AppendDisplay`, which receives the value itself, not its text, so the handler decides how to encode it. A hole with neither is an error that names both interfaces. A hole is borrowed for the call (§10.3), so a move-only value can be a hole and stays where it is. `format` holds the text after the hole's expression, alignment included (`,10:F2`), and is empty when there is none. `source` is the hole's expression as written (`user.Id`), which log handlers use as a field name.
 - **`Literal`** is text the compiler knows (§15.2): the literal parts of an interpolated string, and a string literal or `const` string written where a `Literal` is expected. Only the compiler creates one, and no function turns a run-time `string` into a `Literal`. Since a handler's trusted text arrives only as `Literal`, text read at run time becomes markup, a query or a command line only through a named escape hatch such as `Html.Unchecked`, which is linted (below).
 - **No conversion from `string`.** A handler type does not implement `IFrom<string>`, so `let bad: Html = name;` does not compile. A handler that needs an escape hatch offers a named function, such as `Html.Unchecked(text)`, and lint `unchecked-injection` (warn by default) flags every call.
@@ -1266,7 +1266,7 @@ public static TotalArea(shapes: List<any IShape>): double {
 | `IEnumerator<T>` | `mut Next(): T?`; default `SizeHint(): (Lower: int, Upper: int?)`, which returns `(0, none)` | `foreach`, LINQ |
 | `IFuture<T>` | `mut Poll(ref waker: Waker): Poll<T>` | `await`, `Task.*` (§12.2) |
 | `IParse<T>` | `static abstract Parse(text: ReadOnlySpan<byte>): Result<T, ParseError>` | `int.Parse`, `RouteValue<T>`, query values |
-| `IInterpolate<TSelf>` | `static abstract Begin(literalBytes: int, holeCount: int): TSelf`; default `Enabled: bool`, which is `true`; `mut AppendLiteral(text: Literal)`; `mut AppendHole<T>(value: T, format: Literal, source: Literal) where T : IHole<TSelf>, allows move`; `mut AppendDisplay<T>(value: T, format: Literal, source: Literal) where T : IDisplay, allows move` | Interpolated strings with a handler target (§7.14) |
+| `IInterpolate` | `static abstract Begin(literalBytes: int, holeCount: int): Self`; default `Enabled: bool`, which is `true`; `mut AppendLiteral(text: Literal)`; `mut AppendHole<T>(value: T, format: Literal, source: Literal) where T : IHole<Self>, allows move`; `mut AppendDisplay<T>(value: T, format: Literal, source: Literal) where T : IDisplay, allows move` | Interpolated strings with a handler target (§7.14) |
 | `IHole<THandler>` | `AppendTo(ref handler: THandler, format: Literal)` | Holes of an interpolated string with a handler target (§7.14) |
 | `INumber<T>` | Arithmetic and comparison operators, `Zero`, `One`, `MinValue`, `MaxValue` as static abstract members | Generic math over primitives |
 
@@ -2884,7 +2884,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-102 | Effects are inferred per function from capability-marked std functions, charged to the code that performs them, and bounded where written with `uses`; `uses none` means no capability; lint `blocking-in-async` | user | 6.14, 9.7, 14.8, 18.6 |
 | D-103 | `=>` getters and index `get` accessors are checked to be cheap (no heap allocation, loop, mutation or failure, `MR0251`), trusting `Std` functions marked `@Cheap` not to loop (`MR0254` outside `Std`); a `stored` getter is recalculated when an input is written, and its inputs are writable only inside its type (`MR0252`) | user | 6.9, 6.11, 15.3 |
 | D-104 | Change notification is the `@Observable` macro over `Signal<T>`, not a language feature; its generated `SetX` is marked `@SoleWriter`, so any other assignment to an observed field is `MR0253`; cached `memo` getters are post-MVP | user | 6.11, 9.9, 15.8 |
-| D-105 | An interpolated string builds the handler type its target asks for (`IInterpolate<T>`, `IHole<T>`); trusted text arrives only as the compiler-made `Literal`, and `string` never converts to a handler type such as `Html` or `Url` | user | 7.13, 7.14, 8.5, 15.2 |
+| D-105 | An interpolated string builds the handler type its target asks for (`IInterpolate`, `IHole<T>`); trusted text arrives only as the compiler-made `Literal`, and `string` never converts to a handler type such as `Html` or `Url` | user | 7.13, 7.14, 8.5, 15.2 |
 | D-106 | `Secret<T>` prints redacted, is read only through a view in `Use`, keeps one copy of its plaintext behind a counted reference and erases it in its destructor, and is never serialized without `@JsonSecret` | user | 6.14, 15.11, 16.3 |
 | D-107 | Logging takes interpolated strings and records each hole as a field named after its source text; a disabled level skips the holes; spans end when their value is dropped; logging needs no capability | user | 15.10, 16.1 |
 | D-108 | `IError` carries `Code`, `PublicMessage` and `HttpStatus`; HTTP handlers return any `E : IError` and the server maps it without boxing, showing only public messages; `Report` collects context and is reached explicitly with `.Context(...)` or `.Report()`, never by a bare `?` | user | 11.2, 11.5, 16.1, 16.2 |
