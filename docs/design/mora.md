@@ -2898,10 +2898,10 @@ Mora is built in thin vertical slices: each milestone runs real programs end to 
 | **M5: Standard library core** | Text, collections with borrow counts, LINQ, console, environment, time, random, files, JSON values and the `@Json` macro, `Html` and `Url`, logging and tracing, `Secret<T>`, `Report`, `Std.Testing`, `mora test` and `test` sections, insertion-ordered hash tables, collection sizing, SIMD text kernels, bounds-check removal, `mora explain-cost` | The std API reference builds from doc comments; JSONTestSuite parsing cases pass; chains of streaming LINQ operators meet §15.5 with no allocation |
 | **M6: Async and HTTP** | Async lowering, inline futures and pooled task blocks, executor, tasks and cancellation, reactor, TCP, timers, HTTP/1.1 server with pooled buffers, routing, results, `HttpError` and error responses from `IError` | The acceptance test of §20.2 passes on every Tier 1 target. The MVP is functionally complete |
 | **M7: Developer experience and v0.1** | Language server with the cost lens, VS Code extension, formatter, REPL, `mora bench`, `mora new` templates, `mora explain` and error pages, documentation site with the language tour, installers, release workflow, budgets | v0.1.0 published on every channel of §19.3; §1.5 holds; budgets of §20.6 measured and either met or revised in this document |
-| M8: WebAssembly and libraries | §18.1 to §18.4 | post-MVP |
-| M9: Packages and capabilities | §18.5, §18.6 | post-MVP |
-| M10: Threads | §12.6, OQ-6, OQ-7 | post-MVP |
-| M11: Language growth | Inheritance, variance, iterators, retroactive implementations, arenas, unsafe, `decimal`, `async?`, more macro kinds (OQ-3, 4, 5, 9, 11, 13; §9.10) | post-MVP |
+| M8: WebAssembly and libraries | §18.1 to §18.4, OQ-15, a stable plugin ABI at an opt-in boundary | post-MVP |
+| M9: Packages and capabilities | §18.5, §18.6, grants narrowed per dependency, sandboxed runs | post-MVP |
+| M10: Threads | §12.6, OQ-1, OQ-6, OQ-7, supervised worker processes | post-MVP |
+| M11: Language growth | Inheritance, variance, iterators, retroactive implementations, arenas, unsafe, `decimal`, `async?`, more macro kinds (OQ-3, 4, 5, 9, 10, 11, 12, 13; §9.10) | post-MVP |
 | M12: Registry and signing | §18.7 | post-MVP |
 | M13: Backends and targets | LLVM release backend, Component Model, Windows debug info, embedded targets | post-MVP |
 | M14: Contracts and checked types | §6.13, `where` predicates, property tests, unit algebra, compile-time evaluation | post-MVP |
