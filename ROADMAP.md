@@ -416,7 +416,7 @@ Done when:
 
 | ID | Deliverable | Area | Blocked by |
 |---|---|---|---|
-| [M2.1](#m21-classes-fields-properties-and-constructors) | Classes, fields, properties and constructors | `hir` | M1.16 |
+| [M2.1](#m21-classes-fields-getters-and-constructors) | Classes, fields, getters and constructors | `hir` | M1.16 |
 | [M2.2](#m22-positional-structs) | Positional structs | `hir` | M2.1 |
 | [M2.3](#m23-shared-objects-and-reference-counts-in-the-runtime) | Shared objects and reference counts in the runtime | `rt` | M2.1 |
 | [M2.4](#m24-parameter-modes-and-this) | Parameter modes and `this` | `mir` | M2.1 |
@@ -432,16 +432,19 @@ Done when:
 | [M2.14](#m214-debug-runtime-poisoning-and-leak-report) | Debug runtime: poisoning and leak report | `rt` | M2.3 |
 | [M2.15](#m215-memory-model-test-suite) | Memory-model test suite | `testkit` | M2.6, M2.9, M2.10, M2.13, M2.14 |
 
-### M2.1 Classes, fields, properties and constructors
+### M2.1 Classes, fields, getters and constructors
 
 Spec: [§6.3](docs/design/mora.md#63-classes), [§6.9](docs/design/mora.md#69-members). Crates: `mora-hir`, `mora-mir`. Blocked by: M1.16.
 
-Class declarations, read-only and `mut` fields (D-15), auto-properties with `get`, `set` and `private set`, computed properties, constructors with `: this(...)` chaining, definite initialization `MR0140`, memberwise creation (`MR0143`, `MR0144`), initializers after a constructor, and `new` producing a heap object (counting arrives in M2.3).
+Class declarations, read-only and `mut` fields (D-15), write scopes `mut(private)`, `mut(ns)` and `mut(internal)` with lint `redundant-mut-scope` (D-101), `=>` getters and `stored` getters with recalculation on write (`MR0252`), constructors with `: this(...)` chaining, definite initialization `MR0140`, memberwise creation (`MR0143`, `MR0144`), initializers after a constructor, and `new` producing a heap object (counting arrives in M2.3).
 
 Done when:
 
 - UI tests for `MR0140`, `MR0143`, `MR0144` and assigning a read-only field.
-- Run tests for every property form.
+- UI tests for writes outside a field's write scope, `redundant-mut-scope` and `MR0252`.
+- Run tests showing that a `stored` getter reads the value recalculated by the last write to each input.
+
+The getter cheapness check (`MR0251`) and the part of `MR0252` about capabilities and `dyn` calls need the effect analysis of §6.14 and arrive with it.
 
 ### M2.2 Positional structs
 
@@ -831,7 +834,7 @@ Done when:
 
 Spec: [§9.5](docs/design/mora.md#95-the-typed-model-stdmeta). Crates: `mora-hir`, `std`. Blocked by: M4.1.
 
-The read-only model of §9.5 built from HIR signatures (`Type`, `Field`, `Property`, `Method`, `Case`, `Attribute`, `Expr`), `Fail` and `Warn` with locations in user code.
+The read-only model of §9.5 built from HIR signatures (`Type`, `Field`, `Getter`, `Method`, `Case`, `Attribute`, `Expr`), `Fail` and `Warn` with locations in user code.
 
 Done when:
 

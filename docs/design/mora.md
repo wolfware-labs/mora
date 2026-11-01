@@ -234,12 +234,12 @@ DELETE /users/1                     -> 404
 public struct Point(X: float, Y: float);     // value: copied, no identity
 
 public class Node {                          // shared: reference counted
-    public Children: List<Node> { get; } = new();
+    public Children: List<Node> = [];
     public Parent: weak Node;                // back-reference: does not keep the parent alive
 }
 
 public unique class TempFile {               // unique: one owner, moved, never aliased
-    public Path: string { get; }
+    public Path: string;
     public TempFile(path: string) { Path = path; File.WriteAllText(path, "").Expect("create temp file"); }
     ~TempFile() { _ = File.Delete(Path); }     // runs exactly when the owner goes out of scope
 }
@@ -653,19 +653,23 @@ public struct Vector3 {
 
 ```mora
 public class Counter {
-    private mut _count: int;                // mutable field
-    public Name: string { get; }            // set once, in the constructor
-    public Step: int { get; set; } = 1;     // mutable auto-property
+    public Name: string;                     // read-only: set when the object is created
+    public mut Step: int = 1;                // written wherever it can be read
+    public mut(private) Count: int = 0;      // read anywhere, written only inside Counter
 
-    public Counter(name: string) { Name = name; }
+    public IsIdle: bool => Count == 0;                   // getter: checked to be cheap
+    public stored Label: string => $"{Name}: {Count}";   // recalculated when Count changes
 
-    public Tick() { _count += Step; }
-    public Count: int => _count;
+    public Tick() { Count += Step; }
 }
+
+let counter = new Counter { Name = "requests" };
+counter.Step = 2;                            // a plain store
+counter.Tick();                              // work happens in a method call
 ```
 
 - A class is a shared reference type with identity: heap-allocated with a reference count (§10.4, §13.3).
-- **Fields are read-only unless marked `mut`** (D-15). A read-only field is assigned only in its initializer, a constructor or a memberwise `new` (§6.9). `{ get; set; }` and `{ get; private set; }` auto-properties have a mutable backing field; `{ get; }` does not.
+- **Fields are read-only unless marked `mut`** (D-15). A read-only field is assigned only in its initializer, a constructor or a memberwise `new` (§6.9). Who may write a `mut` field, and getters, are in §6.9.
 - A class gets no generated equality, hashing, printing or `with`: two objects with the same fields are still two objects. `==` on a class is error `MR0233` unless the class implements `IEquatable<T>`, by hand or with `@Equatable` (§9.9). `ReferenceEquals(a, b)` compares identity.
 - An object's address is never observable. A value derived from identity, such as an identity hash or an object number in debug output, comes from a per-process counter and is assigned the first time it is asked for, so two runs that receive the same inputs in the same order, I/O completions and task scheduling included, produce the same values (D-61).
 - Mutating a `mut` field through any reference is allowed, as in C#. A `let` local of class type means the local cannot be reassigned; it does not freeze the object.
@@ -733,12 +737,13 @@ Unlike C#, an enum is **closed**: `switch` over it is checked for exhaustiveness
 ```mora
 public interface IShape {
     Area(): float;
-    Name: string => "shape";                // default implementation
-    static abstract Unit: IShape { get; }   // static abstract member, as in C# 11
+    Name: string => "shape";                // getter with a default implementation
+    Sides: int;                             // getter without one
+    static abstract Unit: IShape;           // static abstract getter
 }
 ```
 
-- Interfaces declare methods, properties, indexers, operators and static abstract members, with or without default implementations. An interface may extend other interfaces.
+- Interfaces declare methods, getters, indexers, operators and static abstract members, with or without default implementations. An interface may extend other interfaces. An interface has no fields: `Sides: int;` declares a getter, which an implementing type provides with a field it can read there, a getter or a `stored` getter (§6.9).
 - A struct, class or union implements an interface by listing it in its base list and providing every member that has no default. Implementation is by name and signature, as in C#; explicit implementation (`IShape.Area(): float => ...`) is allowed and makes the member callable only through the interface.
 - Members of different interfaces are different members, even when they have the same name and signature. A type that implements `IReader` and `IWriter`, each with a default `Describe()`, uses `IReader`'s default through `IReader` and `IWriter`'s through `IWriter`. A default is not a member of the implementing type: `pipe.Describe()` compiles only if the type declares `Describe()`, and a public member the type declares implements every interface member it matches, as in C#.
 - A type's own implementation always replaces a default, whether the member is called through a generic parameter or through a dynamic interface value. Inside a default, `this` is the implementing type: generic code calls the default directly, specialized for that type, and a dynamic interface value calls it through the vtable (§13.6).
@@ -759,12 +764,12 @@ public interface IShape {
 
 ### 6.9 Members
 
-**Declaration order.** Every declaration puts the name first and the type after a colon (D-58). A field or property is `Balance: decimal`. A method is its name, its parameters and then `:` and the return type: `public Deposit(amount: decimal): decimal`. A function with no `: Type` after its parameter list returns `()`. A parameter is `amount: decimal`, with any mode or modifier before the name: `ref p: Point`, `params xs: ReadOnlySpan<int>`. The same order holds for locals (§7.10), lambda parameters (§7.6), local functions, union case fields and positional parameters.
+**Declaration order.** Every declaration puts the name first and the type after a colon (D-58). A field is `Balance: decimal`, and a getter `Total: decimal => ...`. A method is its name, its parameters and then `:` and the return type: `public Deposit(amount: decimal): decimal`. A function with no `: Type` after its parameter list returns `()`. A parameter is `amount: decimal`, with any mode or modifier before the name: `ref p: Point`, `params xs: ReadOnlySpan<int>`. The same order holds for locals (§7.10), lambda parameters (§7.6), local functions, union case fields and positional parameters.
 
 ```mora
 public class Account {
-    public mut Balance: decimal;
-    public Owner: string { get; }
+    public mut(private) Balance: decimal;
+    public Owner: string;
 
     public Account(owner: string) { Owner = owner; }
 
@@ -781,7 +786,16 @@ public class Account {
 
 **Methods** follow C# syntax, apart from the order above, including expression bodies (`=>`), optional parameters with constant defaults (`port: int = 80`), named arguments, `params` arrays (`params xs: ReadOnlySpan<T>`) and overloading by parameter types. Overload resolution follows the C# rules restricted to the conversions of §5.10. Parameter modes are in §10.3.
 
-**Properties and indexers** use C# accessor syntax: `get`, `set`, expression-bodied getters and `this[...]` indexers. A setter on a struct is a `mut` member.
+**Fields and getters** (D-101, D-103). Two rules hold everywhere: reading a member without parentheses never does heavy work, and `x.F = v` written outside the type is always a plain store. State lives in fields; a value computed from them is a getter; a write that does work is a method.
+
+- **Fields.** A field's visibility says who reads it (§4.5), and `mut` says who writes it. A bare `mut` field is writable wherever it is readable, which is its effective visibility: `public mut Step: int` in an unmarked type is writable in the folder, and in a `public` type everywhere.
+- **Write scopes.** `mut(private)`, `mut(ns)` and `mut(internal)` narrow writes to the type, the folder (namespace) and the project: `public mut(private) Count: int` is read anywhere and written only inside its type. `ns` is a keyword only inside `mut(...)`, because an unmarked declaration already means the folder. A scope that is not narrower than the field's effective visibility changes nothing, and lint `redundant-mut-scope` (warn by default) offers a fix to bare `mut`. It is a lint and not an error because it repeats rather than misleads, and narrowing a type's visibility can make a scope redundant without the field's line changing.
+- **Getters.** `Name: T => expr;` computes a value on each read. The compiler checks that a getter is cheap: its body reads fields, constants and literals, and calls only functions that the analysis of §6.14 finds do not allocate on the heap, loop, mutate state or fail. Looping includes recursion; mutating is writing a field, an element or a `static mut`, or calling a `mut` method; failing is reaching `panic`, `Expect` or a function that can, while arithmetic overflow and index checks do not count. A getter that breaks the rule is error `MR0251`, which names the call and how it breaks it: ``getter `Total` loops (through `Sum`, line 12); make it a method or `stored` ``. These four facts are computed together with effects but are not effects: `uses none` (§6.14) says nothing about them.
+- **Stored getters.** `stored Name: T => expr;` keeps a hidden field that the compiler recalculates whenever one of its inputs is written, so a read is one load and the body may allocate or loop. Its inputs are the fields the body reads, and each MUST be read-only or a field of this object writable only inside its type (`mut(private)` or `private mut`), so every recalculation happens inside the type's own constructors and methods, memberwise creation and `with`. The body MUST use no capability, reach no `dyn` call and read no `static mut` (§6.14). A broken rule is error `MR0252`, naming the input or call. Callers cannot tell a `stored` getter from a plain one, so changing one into the other never breaks them.
+- **No accessors on fields or getters.** A member is a field, a getter or a method: `{ get; }`, `{ get; set; }` and other accessor bodies are not Mora syntax (`MR0110`), and there are no setters. A write that validates, converts or notifies is a method, such as `SetEmail(value: string): Result<(), EmailError>`.
+- **Indexers** keep their accessors: `this[index: int]: T { get => ...; set => ...; }`, with `value` naming the assigned value in `set`. A `set` accessor on a struct is a `mut` member. Whether indexers move to the same model is OQ-27.
+- **Change notification** comes from the `@Observable` macro (§9.9), not from the language (D-104).
+- **Not in the MVP:** a getter computed on first read and cached (`memo`), which needs a way to invalidate it when a collection it read changes.
 
 **Constructors.** `public T(...) { ... }`, as in C#. A constructor may first run another constructor of the same type with `: this(...)`, as in `public Counter(name: string) : this(name, 1) { }`; the fields that constructor assigns count as assigned. A class has no parameter list after its name: every field's mutability and ownership is written in a field declaration (D-51). A struct may have one, which makes it a positional struct (§6.5) whose parameters are public read-only fields. Every field without an initializer MUST be assigned on every path before the constructor returns, and `this` MUST NOT be used except to assign fields until then (`MR0140`). Constructors cannot fail; use a static factory that returns `Result<T, E>` when construction can fail.
 
@@ -797,13 +811,13 @@ public class Options {
 let options = new Options { Port = 8080, Retries = 5 };
 ```
 
-- `new T { F = v, ... }` MUST assign every field that has no initializer (`MR0143`). It may also assign a field that has one, and the value given replaces the initializer. An auto-property counts as a field and is assigned by its name.
+- `new T { F = v, ... }` MUST assign every field that has no initializer (`MR0143`). It may also assign a field that has one, and the value given replaces the initializer. A getter, plain or `stored`, is never assigned.
 - Read-only fields may be assigned, because creating a value is not mutating it.
 - `new() { F = v, ... }` does the same where the target type is known. On such a type, `new T()` and `new()` name no fields.
 - Memberwise creation is available only where every field without an initializer is visible. Where one is not, `new T { ... }` is error `MR0144`. A library type that keeps such a field private is created only through what the library provides.
-- Declaring any constructor turns memberwise creation off. A type enforces its invariants with a constructor, or with a static factory that returns `Result<T, E>`. On such a type, `new T(args) { M = v }` runs the constructor and then assigns the listed members as ordinary assignments, so it may name only `mut` fields and properties with a `set` accessor.
+- Declaring any constructor turns memberwise creation off. A type enforces its invariants with a constructor, or with a static factory that returns `Result<T, E>`. On such a type, `new T(args) { M = v }` runs the constructor and then assigns the listed members as ordinary assignments, so it may name only fields writable at that point.
 
-A field without an initializer is required: every way of creating the value sets it. A read-only field or property can be set only when the value is created.
+A field without an initializer is required: every way of creating the value sets it. A read-only field can be set only when the value is created.
 
 **Destructors.** `~T() { ... }` declares the destructor (D-17). A class, unique class or struct may have one. It takes no parameters and no modifiers. It runs exactly once, when the value dies (§10.8). Inside it, `this` is a borrow that MUST NOT escape (`MR0142`). A method called from the destructor could still store `this`; the runtime checks after every class destructor that the strong count is still zero, and aborts with `object of type T was resurrected by its destructor` otherwise (D-46). A struct with a destructor is move-only.
 
@@ -877,7 +891,8 @@ Attributes are compile-time only (D-10). An attribute is `@` and a name, with ar
 | `@Layout(C)` | struct | C field order and alignment, for FFI |
 | `@Inline`, `@Inline(Never)` | function | Inlining hint |
 | `@Obsolete("message")` | any declaration | Using it warns `MR2003` with the message |
-| `@RequiresCapability("net.listen")` | function | Declares that calling it needs the capability (§18.6) |
+| `@RequiresCapability("net.listen")` | function | Declares that calling it uses the capability (§6.14, §18.6) |
+| `@Blocking` | function | Declares that calling it blocks the executor thread (§6.14) |
 
 ### 6.12 Newtypes
 
@@ -948,6 +963,47 @@ public class Account {
 
 Single-value ranges belong in newtype refinements (§6.12), so a contract section holds the relational rules, the failures and the postconditions.
 
+### 6.14 Effects
+
+The compiler infers which capabilities each function can use, and a declaration may state an upper bound with `uses` (D-102). Effects are an analysis, not part of any type the programmer has to write.
+
+```mora
+public class PriceService {
+    private _rates: RateClient;
+
+    // No annotation: hover shows `uses net.outbound, clock`
+    public async PriceCents(order: Order): Result<int, PricingError> {
+        let rate = await _rates.Get(order.Currency, DateTime.UtcNow)?;
+        return Pricing.Apply(order.TotalCents, rate);
+    }
+}
+
+public static class Pricing {
+    // A checked bound: reading DateTime.UtcNow here is error MR0250
+    public static Apply(cents: int, rate: Rate): int uses none {
+        return cents * rate.Numerator / rate.Denominator;
+    }
+}
+
+public interface IComparer<T> {
+    Compare(a: T, b: T): int uses none;      // every implementation is checked
+}
+
+// A comparator passed here can never do I/O
+public Sort<T>(items: List<T>, compare: (T, T) => int uses none) { ... }
+```
+
+- **Vocabulary.** The capabilities of §18.6: `fs.read`, `fs.write`, `net.outbound`, `net.listen`, `env`, `clock`, `random`, `process` and `ffi`; `fs` and `net` name both of their halves. The analysis also reports two facts that are not capabilities: `blocking`, a call that blocks the executor thread (§12.1), and `dyn`, a call to code the compiler cannot see.
+- **Sources.** A function marked `@RequiresCapability("...")` uses that capability, a function marked `@Blocking` is blocking, and an `extern` function uses `ffi` (§6.11). Nothing else introduces an effect; the standard library carries the marks.
+- **Inference.** A function's effect set is the union of the effects of the code written inside it, including the lambdas it creates, and of the functions it calls, computed per strongly connected component of the call graph so that recursion needs no annotation. A call through a function-typed `in` parameter adds nothing to the callee: the closure passed there is a view known at the call site (§5.8, §10.9), so its effects are added to the caller. A generic function is analyzed per instantiation, so `list.Sort(compare)` uses exactly what `compare` uses.
+- **Dynamic calls.** A call through an escaping function value or an `any I` value adds `dyn`, unless the function type or the interface method has a bound, which then stands for the call.
+- **Attribution.** An effect is charged to the function, and so to the package, whose code performs it. A lambda written in an app and passed into a library carries the app's effects, not the library's. Authority travels with values and closures, never with the call stack, which lets §18.6 check grants per package without effect parameters.
+- **Bounds.** `uses` follows the return type, or the parameter list when there is none, and comes before `where` and the body. It lists capabilities, or says `none`. An inferred capability outside the bound, or a `dyn` call, is error `MR0250`, which prints the call path that brings it in. A bound on an interface method is checked against every implementation, and a bound on a function type against every lambda or method converted to it. `blocking` is not a capability and is never bounded.
+- **`uses none` means no capability.** It does not mean that the function allocates nothing, mutates nothing or never panics; those are separate facts (§6.9).
+- **Seeing effects.** Hover shows a function's set, and an optional inlay hint shows it after the signature. `mora explain-effects <function>` prints each effect with the call path that introduces it: `clock <- DateTime.UtcNow at src/Price.mr:12`.
+- **`blocking-in-async`** (lint, warn by default) reports an `async` function whose set contains `blocking`, with the path, however many calls down the blocking call is.
+- The same analysis gives the macro sandbox (§9.7), the getter rules (§6.9) and the capability set of each package (§18.6).
+
 ## 7. Expressions and statements
 
 Expressions and statements follow C# syntax and evaluation order (left to right, operands before the operator, arguments in order) unless this section says otherwise.
@@ -982,7 +1038,7 @@ From highest to lowest:
 
 ### 7.3 Object creation
 
-`new T(args)`, `new T(args) { Prop = v }`, target-typed `new()` and `new(args)`, and `new T[n]` for an array of `n` default values. Arrays with given elements come from collection expressions (§7.9). `new` on a struct or union creates a value; on a class, a heap object with a strong count of one; on a unique class, a heap object owned by the receiving place.
+`new T(args)`, `new T(args) { F = v }`, target-typed `new()` and `new(args)`, and `new T[n]` for an array of `n` default values. Arrays with given elements come from collection expressions (§7.9). `new` on a struct or union creates a value; on a class, a heap object with a strong count of one; on a unique class, a heap object owned by the receiving place.
 
 ### 7.4 Propagation: `?`
 
@@ -1164,7 +1220,7 @@ public static TotalArea(shapes: List<any IShape>): double {
 | `IFrom<S>` | `static abstract From(value: S): Self` | Implicit conversions and `?` (§5.10, §11.3) |
 | `IHashable` | `Hash(ref h: Hasher)` | `Dictionary`, `HashSet` |
 | `IDisplay` | `Format(ref f: Formatter, spec: ReadOnlySpan<byte>)` and `ToString(): string`, each with a default written in terms of the other | Interpolation, `Console.WriteLine`, `ToString()` |
-| `IDefault` | `static abstract Default: T { get; }` | `default`, `new T[n]`, `@Default` |
+| `IDefault` | `static abstract Default: T;` | `default`, `new T[n]`, `@Default` |
 | `IClone<T>` | `Clone(): T` | Explicit deep copies. Copying a class reference never clones |
 | `IEnumerable<T>` | `type Enumerator : IEnumerator<T>; GetEnumerator(): Enumerator` | `foreach`, LINQ |
 | `IEnumerator<T>` | `mut Next(): T?`; default `SizeHint(): (Lower: int, Upper: int?)`, which returns `(0, none)` | `foreach`, LINQ |
@@ -1224,7 +1280,7 @@ There are two kinds, told apart by the first parameter:
 
 | Kind | First parameter | Used as | Returns |
 |---|---|---|---|
-| **Attribute macro** | `t: Type` (a struct, class, union or enum) or `m: Member` (a field, property or method) | `@Name` or `@Name(args)` on the declaration | `code { ... }`: members added to the type |
+| **Attribute macro** | `t: Type` (a struct, class, union or enum) or `m: Member` (a field, getter or method) | `@Name` or `@Name(args)` on the declaration | `code { ... }`: members added to the type |
 | **Expression macro** | anything else | `#Name(args)` in an expression | `code(...)`: one expression that replaces the call |
 
 - Further parameters of an attribute macro are its attribute arguments, which must be compile-time constants and may be named and optional: `@Json(NameCase = NameCase.Snake)` calls `macro Json(t: Type, nameCase: NameCase = NameCase.Camel)`.
@@ -1250,7 +1306,7 @@ The result has type `Code`. Quoted code is ordinary Mora: it is parsed when the 
 |---|---|---|
 | `$x` or `$(expr)` | `Code` | The code fragment |
 | | `Type` | A reference to the type |
-| | `Field`, `Property`, `Method`, `Case` | Its name, as an identifier in member position (`this.$f`) |
+| | `Field`, `Getter`, `Method`, `Case` | Its name, as an identifier in member position (`this.$f`) |
 | | `Ident` (from `Ident.Of("Get" + f.Name)`) | An identifier |
 | | `string`, number, `bool`, enum | A literal |
 | `$..xs` | `IEnumerable<Code>` and the like | Each element in sequence: members one after another, or arguments separated by commas |
@@ -1271,8 +1327,9 @@ Macros read a read-only view of the declarations they are attached to. They neve
 
 | Type | Members |
 |---|---|
-| `Type` | `Name`, `FullName`, `Kind` (`Struct`, `Class`, `UniqueClass`, `Union`, `Enum`), `IsPositional`, `TypeParameters`, `Fields`, `Properties`, `Methods`, `Cases`, `Attributes`, `Implements(Type)`, `IsCopyable`, `IsPlain`, `IsOptional`, `Underlying` (for `T?`, `T[]`, `List<T>`, `Dictionary<K, V>`), `TypeArguments`, `Location`, `Doc` |
-| `Field`, `Property` | `Name`, `Type`, `IsMut`, `IsWeak`, `IsPublic`, `HasInitializer`, `Attributes`, `Location`, `Doc` |
+| `Type` | `Name`, `FullName`, `Kind` (`Struct`, `Class`, `UniqueClass`, `Union`, `Enum`), `IsPositional`, `TypeParameters`, `Fields`, `Getters`, `Methods`, `Cases`, `Attributes`, `Implements(Type)`, `IsCopyable`, `IsPlain`, `IsOptional`, `Underlying` (for `T?`, `T[]`, `List<T>`, `Dictionary<K, V>`), `TypeArguments`, `Location`, `Doc` |
+| `Field` | `Name`, `Type`, `IsMut`, `WriteScope`, `IsWeak`, `IsPublic`, `HasInitializer`, `Attributes`, `Location`, `Doc` |
+| `Getter` | `Name`, `Type`, `IsStored`, `Inputs` (the fields a `stored` getter reads), `IsPublic`, `Attributes`, `Location`, `Doc` |
 | `Method` | `Name`, `Parameters` (`Name`, `Type`, `Mode`, `HasDefault`), `ReturnType`, `IsAsync`, `IsStatic`, `Attributes`, `Location` |
 | `Case` | `Name`, `Fields`, `Index` |
 | `Attribute` | `Name`, `Arguments` (constants by name) |
@@ -1289,7 +1346,7 @@ Structs get their `Equatable`, `Hashable` and `Display` automatically (§6.2): t
 ### 9.7 Running macros
 
 - Macros are compiled with the JIT (§14.16) and run inside the compiler during a build, after declarations and signatures are resolved and before function bodies are type-checked (§14.1).
-- **Sandbox.** A macro, and everything it calls, may not use a function marked `@RequiresCapability`: no files, network, environment, clock or randomness (`MR0613`). Its output therefore depends only on its inputs, which is what makes caching sound.
+- **Sandbox.** A macro's effect set (§6.14) MUST contain no capability and no `dyn` call: no files, network, environment, clock or randomness (`MR0613`). Its output therefore depends only on its inputs, which is what makes caching sound.
 - **Limits.** Each invocation gets 5 seconds and 256 MiB. A macro that exceeds them, or panics, fails the build with an error at the use site that includes the macro's panic message and location.
 - **Caching.** An expansion is cached under a hash of the toolchain version, the model it read, and the MIR of the macro and of every function the macro calls, directly or transitively. Editing a helper that a macro calls therefore reruns that macro; editing an ordinary function body reruns no macro, and editing a field reruns only the macros on that type.
 - **Same project.** A macro may be used in the project that declares it, as long as the macro and the functions it calls do not themselves depend on types that use the macro (`MR0614`, which shows the cycle).
@@ -1317,9 +1374,10 @@ These macros replace a fixed derive list; the compiler has no special knowledge 
 | `@Json` | `IJsonSerialize` and `IJsonDeserialize` (§16.3) | `IJsonSerialize` / `IJsonDeserialize` |
 | `@Error` | On a union or struct: `IError`, and for each case with a single field marked `@From`, `IFrom<F>` for that field's type `F`, wrapping the value in the case; never on an `indirect` case (§11.3) | `IDisplay` on the type |
 | `@Arithmetic` | On a newtype (§6.12): same-type `+` and `-`, and `*` and `/` by a value of the underlying type; on a refined newtype each result is checked against the refinement | The underlying type has those operators |
+| `@Observable` | On a class: for each `mut` field `X` of type `F`, a method `SetX(value: F)` that assigns the field and, when the value changed, emits on a generated field `XChanged: Signal<F>` (§15.8); a `stored` getter whose inputs include `X` gets its own signal, emitted after it is recalculated. It warns, through `Std.Meta.Warn`, on a `mut` field writable outside the type, since a direct write would not notify | `IEquatable` on `mut` fields |
 | `#Assert(condition)` | An assertion that, on failure, prints the condition's source text and the values of its operands: `assertion failed: total > 0 (total = -3)` | |
 
-A `weak` field is skipped by `Equatable`, `Hashable` and `Comparable`, and printed as `<weak>` by `Display`.
+A `weak` field is skipped by `Equatable`, `Hashable` and `Comparable`, and printed as `<weak>` by `Display`. These macros read a type's `Fields`; getters are computed from fields, so they are not compared, hashed, printed or serialized.
 
 ### 9.10 Not in the MVP
 
@@ -1894,6 +1952,7 @@ Run on generic MIR, before async lowering, in this order:
 3. **Borrow check.** For each call, classifies every borrowed argument place as exclusive or aliased (§10.4), reports conflicts (`MR0320`), and rewrites aliased non-plain borrows into `Snapshot` and `WriteBack`. Inserts root keep-alive copies where the root is not provably held by an exclusive place.
 4. **View check.** Liveness of view locals; reports changes to a view's source while the view is live (`MR0341`), views escaping their scope (`MR0340`, `MR0342`, `MR0343`). Inserts the collection borrow guards of §10.10.
 5. **Escape check.** Reports storing a borrowed parameter of a move-only type (`MR0310`) and captures that §10.9 forbids.
+6. **Effect check.** Computes each function's effect set and getter facts per strongly connected component of the call graph (§6.14, §6.9), then checks `uses` bounds (`MR0250`), getters (`MR0251`) and `stored` getters (`MR0252`), and runs `blocking-in-async`. Calls a generic function makes through its type parameters are resolved per instantiation, so a bound on generic code is checked for every instantiation the program uses. Results are cached per function in the analysis database (§14.3).
 
 Every diagnostic from these checks is written for the audience of §1.4: it names the variables and lines involved, says in one sentence what would go wrong, and offers at least one fix that the LSP can apply.
 
@@ -2080,7 +2139,7 @@ Operators that need the whole sequence (`OrderBy`, `GroupBy`, `Reverse`, `Distin
 
 ### 15.8 Events
 
-`Signal<T>` replaces C# events. `Subscribe(move handler: (T) => ())` returns a `Subscription` (unique): dropping it unsubscribes. `SubscribeWeak(target, handler)` holds the target weakly and drops the subscription when the target dies, which removes the classic .NET event-handler leak. `Emit(value: T)` calls each live handler in subscription order.
+`Signal<T>` replaces C# events. `Subscribe(move handler: (T) => ())` returns a `Subscription` (unique): dropping it unsubscribes. `SubscribeWeak(target, handler)` holds the target weakly and drops the subscription when the target dies, which removes the classic .NET event-handler leak. `Emit(value: T)` calls each live handler in subscription order. The `@Observable` macro (§9.9) generates one signal per `mut` field for change notification.
 
 ### 15.9 Testing
 
@@ -2190,8 +2249,8 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
 
 | Mora | JSON |
 |---|---|
-| Property `FirstName` | `"firstName"`: camelCase by default, as `JsonSerializerDefaults.Web` does |
-| `@JsonName("x")` on a property | `"x"` |
+| Field `FirstName` | `"firstName"`: camelCase by default, as `JsonSerializerDefaults.Web` does |
+| `@JsonName("x")` on a field | `"x"` |
 | `@JsonIgnore` | skipped |
 | `T?` | `null` when `None`; on input, a missing property also reads as `null` |
 | Non-optional property missing on input | `JsonError` naming the property: `missing property "name"` |
@@ -2223,6 +2282,7 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
 | `mora fmt [--check]` | Formats every `.mr` file in the project |
 | `mora repl` | Interactive loop (§14.16) |
 | `mora explain MR0310` | Prints the long explanation of an error code, with examples of the error and its fix |
+| `mora explain-effects <function>` | Prints the function's effect set and, for each effect, the call path that introduces it (§6.14) |
 | `mora explain-cost [function] [--diff <revision>]` | Lists, per function and after optimization, every heap allocation with its type, size and the reason it was not promoted (`user` escapes: stored into `_users` on line 14), every `any` box, retains and releases left inside loops, snapshots and copy-in/copy-out, struct copies over 64 bytes, calls left inside loops, bounds checks left in loops, future state sizes and recursive-await boxes, and reuse sites. `--diff` compares with another revision (D-76) |
 | `mora bench [filter]` | Builds the test sections and `tests/` with the `release` profile (§15.9), runs `@Benchmark` functions and reports time with deterministic counts: allocations, bytes allocated, and retains executed under the debug runtime |
 | `mora lsp` | Runs the language server on stdin and stdout |
@@ -2405,7 +2465,7 @@ caps = ["net.outbound"]
 
 ### 18.6 Capabilities
 
-Every library declares the capabilities it needs in `mora.caps`: `net.outbound`, `net.listen`, `fs.read`, `fs.write`, `env`, `clock`, `random`, `process`, `ffi`. The MVP standard library already tags its functions with `@RequiresCapability` and `mora check` computes the set each project uses, so the data exists before enforcement does.
+Every library declares the capabilities it needs in `mora.caps`: `net.outbound`, `net.listen`, `fs.read`, `fs.write`, `env`, `clock`, `random`, `process`, `ffi`. The MVP standard library already tags its functions with `@RequiresCapability` and `mora check` computes the set each project uses from the effect analysis (§6.14), so the data exists before enforcement does.
 
 The app manifest grants capabilities per package. A dependency whose update adds a capability fails the build until the grant is approved. On wasm targets an ungranted capability is not linked; on native targets the compiler enforces grants statically, and an `ffi` grant means "trust fully". A JSON parser that suddenly wants the network becomes a build error.
 
@@ -2606,7 +2666,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-12 | Integer overflow panics in debug and wraps in release unless configured; `+%` family always wraps | draft, author | 7.12 |
 | D-13 | The MVP is native-first: Cranelift native code and JIT; the wasm backend and `.wasm` libraries are post-MVP | author | 1.5, 18 |
 | D-14 | `string` is UTF-8 with byte `Length`; `char` is a Unicode scalar value | author | 5.2, 5.3 |
-| D-15 | Fields are read-only unless marked `mut` | draft | 6.3 |
+| D-15 | Fields are read-only unless marked `mut` (write scopes added by D-101) | draft | 6.3, 6.9 |
 | D-16 | Union case names resolve without the union prefix where the union is the expected type | author | 6.6 |
 | D-17 | Destructors use C#'s `~T()` syntax and run deterministically | author | 6.9 |
 | D-18 | `Future<T>`, `TaskHandle<T>` and `Subscription` are unique; I/O handles are shared classes so async methods can keep them alive; no automatic rule makes types unique. Amended by D-73: a future is a move-only state value, and `Future<T>` is its boxed form | author | 6.4 |
@@ -2692,6 +2752,10 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-98 | Extensions are declared only in extension blocks, `extension<T>(list: List<T>) { ... }`; a future `extension T : I` follows the orphan rule in libraries, apps are exempt, and libraries wrap foreign types in a `newtype` | user | 6.9, OQ-5 |
 | D-99 | `new` stays; `[]` with a `Dictionary` target is an empty dictionary | user | 7.9 |
 | D-100 | `@From` never marks a field of an `indirect` case, because wrapping it would allocate in an implicit conversion | author | 11.3 |
+| D-101 | State lives in fields: visibility says who reads, `mut` who writes, and `mut(private)`, `mut(ns)` or `mut(internal)` narrows writes; auto-properties, accessor bodies and setters are removed, and a write that does work is a method | user | 6.3, 6.9, 9.5 |
+| D-102 | Effects are inferred per function from capability-marked std functions, charged to the code that performs them, and bounded where written with `uses`; `uses none` means no capability; lint `blocking-in-async` | user | 6.14, 9.7, 14.8, 18.6 |
+| D-103 | `=>` getters are checked to be cheap (no heap allocation, loop, mutation or failure, `MR0251`); a `stored` getter is recalculated when an input is written, and its inputs are writable only inside its type (`MR0252`) | user | 6.9 |
+| D-104 | Change notification is the `@Observable` macro over `Signal<T>`, not a language feature; cached `memo` getters are post-MVP | user | 9.9, 15.8 |
 
 ## 24. Open questions
 
@@ -2722,6 +2786,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | OQ-24 | Default hash function for `Dictionary` and `HashSet`: speed against resistance to hash flooding for string keys | Keyed fast hash, `Hasher.Strong` available | M5 |
 | OQ-25 | Is `scoped` a keyword that checks the fact, or only a hover annotation? | Hover only in the MVP | M7 |
 | OQ-26 | Is the boxed future spelled `Future<T>` or `any IFuture<T>`? | `Future<T>` | M6 |
+| OQ-27 | Do indexers move to the model of D-101, with a getter and a write method instead of `get` and `set` accessors? | Indexers keep accessors | M3 |
 
 ## 25. References
 
