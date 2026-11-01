@@ -806,13 +806,14 @@ Done when:
 
 Spec: [§7.14](docs/design/mora.md#714-interpolation-handlers), [§7.13](docs/design/mora.md#713-other-expressions), [§8.5](docs/design/mora.md#85-built-in-interfaces). Crates: `mora-hir`, `mora-mir`, `std`. Blocked by: M3.10.
 
-`IInterpolate<T>`, `IHole<T>` and `Literal` (D-105): lowering an interpolated string whose target implements `IInterpolate<T>` to `Begin`, `AppendLiteral` and `AppendHole` calls, skipping every part when `Enabled` is `false`, the hole's format and source text, and the lints `unchecked-injection` and `skipped-hole-effects`.
+`IInterpolate<T>`, `IHole<T>` and `Literal` (D-105): lowering an interpolated string whose target implements `IInterpolate<T>` to `Begin`, `AppendLiteral`, and `AppendHole` for holes that implement `IHole<T>` or `AppendDisplay` for other `IDisplay` holes, skipping every part when `Enabled` is `false`, the hole's format and source text, and the lints `unchecked-injection` and `skipped-hole-effects`.
 
 Done when:
 
 - A test handler records its calls: literal parts and holes arrive in source order, with each hole's format and source text.
 - A hole with a side effect does not run when `Enabled` is `false`.
-- UI tests: a hole type without `IHole<T>` names the missing implementation; assigning a `string` to a handler type does not compile.
+- A hole type with only `IDisplay` goes to `AppendDisplay`, and one that also implements `IHole<T>` goes to `AppendHole`.
+- UI tests: a hole type with neither `IHole<T>` nor `IDisplay` is an error naming both; assigning a `string` to a handler type does not compile.
 
 ## M4: Macros
 
@@ -912,7 +913,7 @@ Done when:
 
 Spec: [§9](docs/design/mora.md#9-macros), [§17.6](docs/design/mora.md#176-diagnostics). Crates: `docs`. Blocked by: M4.7.
 
-`docs/errors` pages for `MR0610` to `MR0614` and a guide `docs/guide/macros.md` that walks through writing, debugging and testing a macro, with every example executable.
+`docs/errors` pages for `MR0610` to `MR0615` and a guide `docs/guide/macros.md` that walks through writing, debugging and testing a macro, with every example executable.
 
 Done when:
 

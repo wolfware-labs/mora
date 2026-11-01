@@ -2361,7 +2361,7 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
 
 **Responses for errors.** A handler's `Err(e)` becomes a response through `e`'s `IError` members, the same way for `HttpError` and for an application's errors (D-108):
 
-- An error with a `PublicMessage` gets the status `HttpStatus`, or 500 when that is `none`, and the body `{"error":"<PublicMessage>"}` with `Content-Type: application/json`.
+- An error with a `PublicMessage` gets the status `HttpStatus`, or 500 when that is `none`, and the body `{"error":"<PublicMessage>"}` with `Content-Type: application/json`, the message written as an escaped JSON string.
 - An internal error, with no `PublicMessage`, gets status 500 and an `application/problem+json` body (RFC 9457) with the standard `type`, `title` and `status` members and, beyond them, only the code and the request's trace id: `{"type":"about:blank","title":"Internal Server Error","status":500,"code":"app_error.io","traceId":"4bf92f3577b34da6"}`. Its text never reaches the client.
 - An internal error is also logged as one `Error` event with the code, `ToString()` and the `Source` chain, in the request's span, so the trace id in the response finds the full story in the log.
 
