@@ -240,7 +240,7 @@ Done when:
 
 Spec: [§4](docs/design/mora.md#4-program-structure), [§6](docs/design/mora.md#6-declarations), [§9.2](docs/design/mora.md#92-declaring-macros). Crates: `mora-syntax`. Blocked by: M1.2.
 
-Recursive-descent parsing of compilation units: imports, using directives, file-scoped namespaces, attributes, every type declaration (struct and positional struct, class, unique class, union, enum, interface, `ref struct`, `macro`), members (fields, properties, indexers, methods, constructors including primary constructors, destructors, operators, conversions), modifiers, type parameters and constraints, with recovery at member and item boundaries.
+Recursive-descent parsing of compilation units: using directives, attributes, every type declaration (struct and positional struct, class, unique class, union, enum, interface, `ref struct`, `macro`), extension blocks, members (fields, properties, indexers, methods, constructors including primary constructors, destructors, operators, conversions), modifiers, type parameters and constraints, with recovery at member and item boundaries.
 
 Done when:
 
@@ -269,7 +269,7 @@ Withdrawn by D-59: the compiler knows only Mora syntax, so code in another langu
 
 Spec: [§4](docs/design/mora.md#4-program-structure), [§14.5](docs/design/mora.md#145-name-resolution-and-types). Crates: `mora-hir`, `mora-syntax`. Blocked by: M1.3.
 
-Per-file item trees and the project def map: namespaces from folders with `MR0121` (D-96), nested types, `using`, `using static`, aliases, `global using`, the implicit prelude, the folder-default visibility of §4.5 (D-97), dependency names for path dependencies (resolved in M3.14), and entry point detection with `MR0124` and `MR0125`. The parser stops accepting namespace declarations, `import` declarations and `Alias::`, and `namespace` leaves the keyword list of §3.4.
+Per-file item trees and the project def map: namespaces from folders with `MR0121` (D-96), nested types, `using`, `using static`, aliases, `global using`, the implicit prelude, the folder-default visibility of §4.5 (D-97), dependency names for path dependencies (resolved in M3.14), and entry point detection with `MR0124` and `MR0125`.
 
 Done when:
 

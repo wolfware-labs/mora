@@ -301,10 +301,10 @@ Reserved keywords (never identifiers):
 ```text
 abstract as async await bool break byte char class const continue default do
 double else enum extern false float for foreach if import in indirect int
-interface internal is lazy let long macro move mut namespace new nint none nuint
-operator out params private public ref return sbyte shared short sizeof
-stackalloc static string struct switch this true uint ulong union unique unsafe
-ushort using var weak where while yield
+interface internal is lazy let long macro move mut new nint none nuint operator
+out params private public ref return sbyte shared short sizeof stackalloc static
+string struct switch this true uint ulong union unique unsafe ushort using var
+weak where while yield
 ```
 
 `out` has no meaning in the MVP; it stays reserved for variance annotations (§8.8). `import` has no meaning in the MVP either; it stays reserved for inline imports in scripts (§18.5).

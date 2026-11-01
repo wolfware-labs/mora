@@ -60,8 +60,6 @@ pub enum SyntaxKind {
     Comma,
     /// `:`
     Colon,
-    /// `::`
-    ColonColon,
     /// `;`
     Semicolon,
     /// `?`
@@ -236,8 +234,6 @@ pub enum SyntaxKind {
     MoveKw,
     /// The keyword `mut`.
     MutKw,
-    /// The keyword `namespace`.
-    NamespaceKw,
     /// The keyword `new`.
     NewKw,
     /// The keyword `nint`.
@@ -382,20 +378,14 @@ pub enum SyntaxKind {
     NameRef,
     /// A `Path` node.
     Path,
-    /// A `AliasQualifier` node.
-    AliasQualifier,
     /// A `PathSegment` node.
     PathSegment,
     /// A `GenericArgList` node.
     GenericArgList,
     /// A `SourceFile` node.
     SourceFile,
-    /// A `ImportDecl` node.
-    ImportDecl,
     /// A `UsingDirective` node.
     UsingDirective,
-    /// A `FileNamespace` node.
-    FileNamespace,
     /// A `UsingAlias` node.
     UsingAlias,
     /// A `StructDecl` node.
@@ -410,6 +400,8 @@ pub enum SyntaxKind {
     InterfaceDecl,
     /// A `MacroDecl` node.
     MacroDecl,
+    /// A `ExtensionDecl` node.
+    ExtensionDecl,
     /// A `FunctionDecl` node.
     FunctionDecl,
     /// A `FieldDecl` node.
@@ -446,6 +438,8 @@ pub enum SyntaxKind {
     AddsClause,
     /// A `Block` node.
     Block,
+    /// A `Param` node.
+    Param,
     /// A `PropertyDecl` node.
     PropertyDecl,
     /// A `IndexerDecl` node.
@@ -466,8 +460,6 @@ pub enum SyntaxKind {
     ExplicitImpl,
     /// A `Splice` node.
     Splice,
-    /// A `Param` node.
-    Param,
     /// A `VariableDeclarator` node.
     VariableDeclarator,
     /// A `AccessorList` node.
@@ -715,7 +707,6 @@ impl SyntaxKind {
         DotDot,
         Comma,
         Colon,
-        ColonColon,
         Semicolon,
         Question,
         QuestionQuestion,
@@ -803,7 +794,6 @@ impl SyntaxKind {
         MacroKw,
         MoveKw,
         MutKw,
-        NamespaceKw,
         NewKw,
         NintKw,
         NoneKw,
@@ -876,13 +866,10 @@ impl SyntaxKind {
         Name,
         NameRef,
         Path,
-        AliasQualifier,
         PathSegment,
         GenericArgList,
         SourceFile,
-        ImportDecl,
         UsingDirective,
-        FileNamespace,
         UsingAlias,
         StructDecl,
         ClassDecl,
@@ -890,6 +877,7 @@ impl SyntaxKind {
         EnumDecl,
         InterfaceDecl,
         MacroDecl,
+        ExtensionDecl,
         FunctionDecl,
         FieldDecl,
         Modifier,
@@ -908,6 +896,7 @@ impl SyntaxKind {
         EnumMember,
         AddsClause,
         Block,
+        Param,
         PropertyDecl,
         IndexerDecl,
         ConstructorDecl,
@@ -918,7 +907,6 @@ impl SyntaxKind {
         ExprBody,
         ExplicitImpl,
         Splice,
-        Param,
         VariableDeclarator,
         AccessorList,
         Accessor,
@@ -1038,7 +1026,6 @@ impl SyntaxKind {
         DotDot,
         Comma,
         Colon,
-        ColonColon,
         Semicolon,
         Question,
         QuestionQuestion,
@@ -1125,7 +1112,6 @@ impl SyntaxKind {
         MacroKw,
         MoveKw,
         MutKw,
-        NamespaceKw,
         NewKw,
         NintKw,
         NoneKw,
@@ -1217,7 +1203,6 @@ impl SyntaxKind {
             DotDot => "..",
             Comma => ",",
             Colon => ":",
-            ColonColon => "::",
             Semicolon => ";",
             Question => "?",
             QuestionQuestion => "??",
@@ -1305,7 +1290,6 @@ impl SyntaxKind {
             MacroKw => "macro",
             MoveKw => "move",
             MutKw => "mut",
-            NamespaceKw => "namespace",
             NewKw => "new",
             NintKw => "nint",
             NoneKw => "none",
@@ -1416,7 +1400,6 @@ impl SyntaxKind {
             "macro" => MacroKw,
             "move" => MoveKw,
             "mut" => MutKw,
-            "namespace" => NamespaceKw,
             "new" => NewKw,
             "nint" => NintKw,
             "none" => NoneKw,

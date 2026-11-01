@@ -1,4 +1,4 @@
-SourceFile@0..473
+SourceFile@0..468
   ExprStmt@0..35
     CallExpr@0..34
       MemberExpr@0..17
@@ -418,37 +418,34 @@ SourceFile@0..473
       RBracket@427..428 "]"
     Semicolon@428..429 ";"
   Newline@429..430 "\n"
-  FunctionDecl@430..472
+  FunctionDecl@430..467
     Modifier@430..436
       StaticKw@430..436 "static"
     Whitespace@436..437 " "
     Name@437..442
       Ident@437..442 "Shout"
-    ParamList@442..458
+    ParamList@442..453
       LParen@442..443 "("
-      Param@443..457
-        Modifier@443..447
-          ThisKw@443..447 "this"
-        Whitespace@447..448 " "
-        Name@448..449
-          Ident@448..449 "s"
-        Colon@449..450 ":"
-        Whitespace@450..451 " "
-        PredefinedType@451..457
-          StringKw@451..457 "string"
-      RParen@457..458 ")"
-    Colon@458..459 ":"
-    Whitespace@459..460 " "
-    PredefinedType@460..466
-      StringKw@460..466 "string"
-    Whitespace@466..467 " "
-    ExprBody@467..471
-      FatArrow@467..469 "=>"
-      Whitespace@469..470 " "
-      PathExpr@470..471
-        Path@470..471
-          PathSegment@470..471
-            NameRef@470..471
-              Ident@470..471 "s"
-    Semicolon@471..472 ";"
-  Newline@472..473 "\n"
+      Param@443..452
+        Name@443..444
+          Ident@443..444 "s"
+        Colon@444..445 ":"
+        Whitespace@445..446 " "
+        PredefinedType@446..452
+          StringKw@446..452 "string"
+      RParen@452..453 ")"
+    Colon@453..454 ":"
+    Whitespace@454..455 " "
+    PredefinedType@455..461
+      StringKw@455..461 "string"
+    Whitespace@461..462 " "
+    ExprBody@462..466
+      FatArrow@462..464 "=>"
+      Whitespace@464..465 " "
+      PathExpr@465..466
+        Path@465..466
+          PathSegment@465..466
+            NameRef@465..466
+              Ident@465..466 "s"
+    Semicolon@466..467 ";"
+  Newline@467..468 "\n"

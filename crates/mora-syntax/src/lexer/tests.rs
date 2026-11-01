@@ -46,17 +46,23 @@ fn every_keyword_and_punctuation_lexes_as_itself() {
         assert_eq!(tokens(text), [(kind, text)], "{text}");
         assert!(errors(text).is_empty(), "{text}");
     }
-    assert_eq!(SyntaxKind::KEYWORDS.len(), 70);
+    assert_eq!(SyntaxKind::KEYWORDS.len(), 69);
 }
 
 #[test]
 fn contextual_keywords_are_identifiers() {
-    for word in [
-        "get", "set", "value", "when", "and", "or", "not", "with", "file", "nameof", "global",
-        "arena", "args", "code", "adds",
-    ] {
-        assert_eq!(tokens(word), [(K::Ident, word)]);
+    for &kind in SyntaxKind::CONTEXTUAL_KEYWORDS {
+        let word = kind.text().unwrap();
+        assert_eq!(tokens(word), [(K::Ident, word)], "{word}");
     }
+    assert!(SyntaxKind::CONTEXTUAL_KEYWORDS.contains(&K::ExtensionKw));
+    assert!(!SyntaxKind::KEYWORDS.contains(&K::ExtensionKw));
+}
+
+#[test]
+fn removed_keywords_are_identifiers() {
+    assert_eq!(tokens("namespace"), [(K::Ident, "namespace")]);
+    assert_eq!(SyntaxKind::keyword("namespace"), None);
 }
 
 #[test]
@@ -332,8 +338,7 @@ fn interpolated_strings() {
             (K::InterpStart, "$\""),
             (K::HoleOpen, "{"),
             (K::Ident, "x"),
-            (K::ColonColon, "::"),
-            (K::Ident, "Y"),
+            (K::HoleFormat, "::Y"),
             (K::HoleClose, "}"),
             (K::InterpEnd, "\""),
         ]

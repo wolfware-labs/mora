@@ -8,7 +8,8 @@
 //   - A rule that is only an alternation of nodes becomes an enum.
 //   - Composite tokens the parser glues from adjacent pieces: '>=' '>>' '>>=' '>>>' '>>>=' '?['.
 //   - Contextual keywords are remapped by the parser in position (§3.4); extra ones used
-//     here: 'from' (imports), 'type' (associated types), 'allows' (constraint), 'any' (types), '_' (discard).
+//     here: 'extension' (declarations), 'type' (associated types), 'allows' (constraint), 'any' (types),
+//     '_' (discard).
 
 //*************************//
 //      Names and paths    //
@@ -20,13 +21,9 @@ Name =
 NameRef =
   'ident'
 
-// `Std.Net.Http`, `List<int>`, `Core::Text.Parser`, `TSource.Enumerator` (§4.4, §8.7).
+// `Std.Net.Http`, `List<int>`, `Core.Text.Parser`, `TSource.Enumerator` (§4.4, §8.7).
 Path =
-  AliasQualifier? PathSegment ('.' PathSegment)*
-
-// `Alias::` picks one of two imports that put the same namespace in scope (§4.4).
-AliasQualifier =
-  NameRef '::'
+  PathSegment ('.' PathSegment)*
 
 PathSegment =
   NameRef GenericArgList?
@@ -39,22 +36,16 @@ GenericArgList =
 //      Compilation unit   //
 //*************************//
 
-// §4.2: CompilationUnit = ImportDecl* UsingDirective* FileNamespace? TopLevelItem* ;
+// §4.2: CompilationUnit = UsingDirective* TopLevelItem* ;
 SourceFile =
-  ImportDecl*
   UsingDirective*
-  FileNamespace?
   TopLevelItem*
 
-// §4.2: Attribute* Modifier* (TypeDecl | FunctionDecl | ConstDecl | StaticDecl) | Statement.
+// §4.2: Attribute* Modifier* (TypeDecl | FunctionDecl | ConstDecl | StaticDecl | ExtensionDecl) | Statement.
 // A local declaration without `const`/`static` at top level is a statement (LocalDeclStmt).
 TopLevelItem =
   Item
 | Stmt
-
-// §4.4: ImportDecl = "import" Identifier ( "from" StringLiteral )? ";" ;
-ImportDecl =
-  'import' Name ('from' source:'string_literal')? ';'
 
 // §4.3: `using X;`, `using static X;`, `using A = X;`, `global using ...;`
 UsingDirective =
@@ -62,10 +53,6 @@ UsingDirective =
 
 UsingAlias =
   Name '='
-
-// §4.2: FileNamespace = "namespace" QualifiedName ";" ;
-FileNamespace =
-  'namespace' Path ';'
 
 //*************************//
 //      Items              //
@@ -78,6 +65,7 @@ Item =
 | EnumDecl
 | InterfaceDecl
 | MacroDecl
+| ExtensionDecl
 | FunctionDecl
 | FieldDecl
 
@@ -91,7 +79,7 @@ TypeDecl =
 
 // §6.1 Modifier list, plus the ones the spec uses elsewhere:
 //   'move' (consuming methods §6.4, params §10.3), 'in' (param mode §10.3),
-//   'params' (§6.9), 'this' (extension methods §6.9),
+//   'params' (§6.9),
 //   'abstract' (`static abstract` interface members only, §6.8, §8.5).
 // `ref struct` and `unique class` are a modifier plus the declaration keyword.
 Modifier =
@@ -99,7 +87,7 @@ Modifier =
     'public' | 'internal' | 'private' | 'file'
   | 'static' | 'mut' | 'unique' | 'shared' | 'ref'
   | 'async' | 'lazy' | 'const' | 'indirect' | 'extern'
-  | 'move' | 'in' | 'params' | 'this' | 'abstract'
+  | 'move' | 'in' | 'params' | 'abstract'
   )
 
 // §6.11. `@Json`, `@Cfg(Os = "linux")`, `@Allow("MR2001")`: one attribute per `@`.
@@ -177,6 +165,12 @@ MacroDecl =
 // §9.2: AddsClause = "adds" Type ( "," Type )* ;
 AddsClause =
   'adds' Type (',' Type)*
+
+// §6.9: ExtensionDecl = Attribute* Modifier* "extension" TypeParams? "(" Param ")" Constraints* "{" Member* "}" ;
+ExtensionDecl =
+  Attribute* Modifier*
+  'extension' TypeParamList? '(' Param ')' WhereClause*
+  MemberList
 
 //*************************//
 //      Members            //
@@ -578,7 +572,7 @@ InterpTextPart =
 InterpHole =
   'hole_open' value:Expr (',' alignment:Expr)? 'hole_format'? 'hole_close'
 
-// A simple or alias-qualified name, possibly generic: `x`, `Max<int>`, `Core::Parse`.
+// A simple name, possibly generic: `x`, `Max<int>`.
 // Dotted access parses as MemberExpr.
 PathExpr =
   Path

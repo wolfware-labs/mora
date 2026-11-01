@@ -25,7 +25,6 @@ const MODIFIERS: &[SyntaxKind] = &[
     K::MoveKw,
     K::InKw,
     K::ParamsKw,
-    K::ThisKw,
     K::AbstractKw,
 ];
 
@@ -43,27 +42,17 @@ const ITEM_RECOVERY: &[SyntaxKind] = &[
     K::EnumKw,
     K::InterfaceKw,
     K::MacroKw,
-    K::ImportKw,
     K::UsingKw,
-    K::NamespaceKw,
 ];
-
-/// How far into a file the parser is: imports, then usings, then the file
-/// namespace, then items and statements (§4.2).
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum Phase {
-    Imports,
-    Usings,
-    Namespace,
-    Items,
-}
 
 pub(crate) fn source_file(p: &mut Parser<'_>) {
     let m = p.start();
-    let mut phase = Phase::Imports;
+    // Whether an item or a statement has been seen: `using` directives
+    // come before them (§4.2).
+    let mut seen_item = false;
     while !p.at_end() {
         let before = p.pos();
-        phase = top_level(p, phase);
+        seen_item |= top_level(p, seen_item);
         if p.pos() == before {
             // Nothing could use the token: take it, so the loop moves on.
             let e = p.start();
@@ -75,56 +64,20 @@ pub(crate) fn source_file(p: &mut Parser<'_>) {
     m.complete(p, K::SourceFile);
 }
 
-/// Parses one top-level element and returns the phase after it. A header
-/// element out of order is still parsed, with an error.
-fn top_level(p: &mut Parser<'_>, phase: Phase) -> Phase {
-    let is_using = p.at(K::UsingKw) || (p.at_contextual("global") && p.nth(1) == K::UsingKw);
-    let (element, latest, message) = if p.at(K::ImportKw) {
-        (
-            Phase::Imports,
-            Phase::Imports,
-            "`import` declarations come first in a file",
-        )
-    } else if is_using {
-        (
-            Phase::Usings,
-            Phase::Usings,
-            "`using` directives come after the imports and before the namespace and the declarations",
-        )
-    } else if p.at(K::NamespaceKw) {
-        (
-            Phase::Namespace,
-            Phase::Usings,
-            "a file has one `namespace`, after its imports and usings and before its declarations",
-        )
-    } else {
-        if !declaration(p, Context::TopLevel) {
-            stmts::statement(p);
+/// Parses one top-level element and returns whether it was an item or a
+/// statement. A `using` directive after one is still parsed, with an error.
+fn top_level(p: &mut Parser<'_>, seen_item: bool) -> bool {
+    if p.at(K::UsingKw) || (p.at_contextual("global") && p.nth(1) == K::UsingKw) {
+        if seen_item {
+            p.error("`using` directives come before the declarations");
         }
-        return Phase::Items;
-    };
-    if phase > latest {
-        p.error(message);
+        using_directive(p);
+        return false;
     }
-    match element {
-        Phase::Imports => import_decl(p),
-        Phase::Usings => using_directive(p),
-        _ => file_namespace(p),
+    if !declaration(p, Context::TopLevel) {
+        stmts::statement(p);
     }
-    phase.max(element)
-}
-
-/// `import Core;`, `import Core from "../core";` (§4.4).
-fn import_decl(p: &mut Parser<'_>) {
-    let m = p.start();
-    p.bump(K::ImportKw);
-    name(p);
-    if p.at_contextual("from") {
-        p.bump_remap(K::FromKw);
-        p.expect(K::String);
-    }
-    p.expect(K::Semicolon);
-    m.complete(p, K::ImportDecl);
+    true
 }
 
 /// `using X;`, `using static X;`, `using A = X;`, `global using X;` (§4.3).
@@ -144,15 +97,6 @@ fn using_directive(p: &mut Parser<'_>) {
     types::path(p, true);
     p.expect(K::Semicolon);
     m.complete(p, K::UsingDirective);
-}
-
-/// `namespace Users.Api;` (§4.2).
-fn file_namespace(p: &mut Parser<'_>) {
-    let m = p.start();
-    p.bump(K::NamespaceKw);
-    types::path(p, true);
-    p.expect(K::Semicolon);
-    m.complete(p, K::FileNamespace);
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -176,8 +120,7 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
     while p.at(K::At) {
         attribute(p);
     }
-    let attributed = p.pos() > start;
-    let modifiers = modifiers(p, false);
+    let modifiers = modifiers(p);
     let member = cx != Context::TopLevel;
     match p.current() {
         K::StructKw => struct_or_class(p, m, K::StructKw, K::StructDecl),
@@ -186,14 +129,16 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
         K::UnionKw => union_decl(p, m),
         K::EnumKw => enum_decl(p, m),
         K::MacroKw => macro_decl(p, m),
+        K::Ident if !member && at_extension(p.input(), p.pos()) => extension_decl(p, m),
         K::Tilde if member => destructor(p, m),
         K::Ident if member && p.at_contextual("type") && p.nth(1) == K::Ident => assoc_type(p, m),
         K::OperatorKw => operator(p, m),
         K::ThisKw if member && p.nth(1) == K::LBracket => indexer(p, m, 0),
         _ => {
             // `@Cfg(Debug = true) Log(x);` at the top level (§6.11). There,
-            // without modifiers, only a function has a shape.
-            let statement = cx == Context::TopLevel && attributed && modifiers.is_empty();
+            // without modifiers, only a function has a shape, so tokens
+            // taken without one are attributes before a statement.
+            let statement = cx == Context::TopLevel && modifiers.is_empty();
             match shape(p, cx, !modifiers.is_empty()) {
                 Some(shape) => member_with_shape(p, m, shape),
                 _ if p.pos() == start => {
@@ -218,7 +163,7 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
 /// Whether a top-level declaration starts here rather than a statement:
 /// attributes, a modifier, a declaration keyword, or a function.
 fn at_declaration_start(p: &Parser<'_>) -> bool {
-    if p.at(K::At) || (p.at_any(MODIFIERS) && !p.at(K::ThisKw)) || at_contextual_modifier(p) {
+    if p.at(K::At) || p.at_any(MODIFIERS) || at_contextual_modifier(p) {
         return true;
     }
     if p.at_any(&[
@@ -231,23 +176,45 @@ fn at_declaration_start(p: &Parser<'_>) -> bool {
     ]) {
         return true;
     }
-    // `Add(a: int, b: int): int => a + b;`
-    at_function(p.input(), p.pos())
+    // `Add(a: int, b: int): int => a + b;`, `extension<T>(xs: List<T>) { }`
+    let input = p.input();
+    at_function(input, p.pos()) || at_extension(input, p.pos())
 }
 
 /// Whether a function declared name first starts at `at`: a name, its type
 /// parameters and its parameters, then what only a declaration has after
 /// them: a body, a return type or a `where` clause. `Log(x);` is a call.
 pub(crate) fn at_function(input: &Input<'_>, at: usize) -> bool {
+    matches!(
+        after_signature(input, at).map(|i| input.kind(i)),
+        Some(K::LBrace | K::FatArrow | K::ThinArrow | K::Colon | K::WhereKw)
+    )
+}
+
+/// Whether an extension block starts at `at`: the word `extension`, type
+/// parameters, the receiver in parentheses, then `{` or a `where` clause
+/// (§6.9). `extension(x);` is a call.
+fn at_extension(input: &Input<'_>, at: usize) -> bool {
+    input.kind(at) == K::Ident
+        && input.text(at) == "extension"
+        && matches!(
+            after_signature(input, at).map(|i| input.kind(i)),
+            Some(K::LBrace | K::WhereKw)
+        )
+}
+
+/// After a name at `at`, its optional generic arguments and a balanced
+/// parenthesized list, the position of the next token.
+fn after_signature(input: &Input<'_>, at: usize) -> Option<usize> {
     if input.kind(at) != K::Ident {
-        return false;
+        return None;
     }
     let mut i = at + 1;
     if let Some(end) = types::scan_generic_args(input, i) {
         i = end;
     }
     if input.kind(i) != K::LParen {
-        return false;
+        return None;
     }
     let mut depth = 0usize;
     loop {
@@ -256,18 +223,14 @@ pub(crate) fn at_function(input: &Input<'_>, at: usize) -> bool {
             K::RParen => {
                 depth -= 1;
                 if depth == 0 {
-                    break;
+                    return Some(i + 1);
                 }
             }
-            _ if i >= input.len() => return false,
+            _ if i >= input.len() => return None,
             _ => {}
         }
         i += 1;
     }
-    matches!(
-        input.kind(i + 1),
-        K::LBrace | K::FatArrow | K::ThinArrow | K::Colon | K::WhereKw
-    )
 }
 
 /// The contextual modifier `file`, when another word of the declaration
@@ -276,17 +239,15 @@ fn at_contextual_modifier(p: &Parser<'_>) -> bool {
     p.at_contextual("file") && (p.nth(1) == K::Ident || p.nth(1).is_keyword())
 }
 
-/// Takes modifiers and returns their kinds. `this` is a modifier only on
-/// a parameter (an extension method's receiver, §6.9); elsewhere it starts
-/// an expression or an indexer.
-fn modifiers(p: &mut Parser<'_>, params: bool) -> Vec<SyntaxKind> {
+/// Takes modifiers and returns their kinds.
+fn modifiers(p: &mut Parser<'_>) -> Vec<SyntaxKind> {
     let mut kinds = Vec::new();
     loop {
         let m = p.start();
         if at_contextual_modifier(p) {
             p.bump_remap(K::FileKw);
             kinds.push(K::FileKw);
-        } else if p.at_any(MODIFIERS) && (params || !p.at(K::ThisKw)) {
+        } else if p.at_any(MODIFIERS) {
             kinds.push(p.current());
             p.bump_any();
         } else {
@@ -355,6 +316,22 @@ fn struct_or_class(p: &mut Parser<'_>, m: Marker, keyword: SyntaxKind, kind: Syn
         member_list(p, Some(owner));
     }
     m.complete(p, kind);
+}
+
+/// `extension<T>(list: List<T>) where T : IEquatable<T> { members }` (§6.9).
+fn extension_decl(p: &mut Parser<'_>, m: Marker) {
+    p.bump_remap(K::ExtensionKw);
+    if p.at(K::Lt) {
+        type_param_list(p);
+    }
+    p.expect(K::LParen);
+    param(p);
+    p.expect(K::RParen);
+    while p.at(K::WhereKw) {
+        where_clause(p);
+    }
+    member_list(p, None);
+    m.complete(p, K::ExtensionDecl);
 }
 
 fn interface_decl(p: &mut Parser<'_>, m: Marker) {
@@ -713,7 +690,7 @@ fn accessor_list(p: &mut Parser<'_>) {
         while p.at(K::At) {
             attribute(p);
         }
-        modifiers(p, false);
+        modifiers(p);
         let kind = ["get", "set"]
             .iter()
             .zip([K::GetKw, K::SetKw])
@@ -861,7 +838,7 @@ fn param(p: &mut Parser<'_>) {
     while p.at(K::At) {
         attribute(p);
     }
-    modifiers(p, true);
+    modifiers(p);
     name(p);
     required_annotation(p, false);
     if p.eat(K::Eq) {
@@ -953,6 +930,6 @@ fn expr_body(p: &mut Parser<'_>) {
 /// name and the rest of a function (§7.11).
 pub(crate) fn local_function(p: &mut Parser<'_>) {
     let m = p.start();
-    modifiers(p, false);
+    modifiers(p);
     function(p, m, 1);
 }

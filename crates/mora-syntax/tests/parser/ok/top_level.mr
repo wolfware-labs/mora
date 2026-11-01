@@ -19,4 +19,4 @@ static Hits: int;
 let debug: bool = true;
 this.Name();
 this[0];
-static Shout(this s: string): string => s;
+static Shout(s: string): string => s;
