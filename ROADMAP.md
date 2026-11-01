@@ -1022,7 +1022,7 @@ Done when:
 
 Spec: [§15.6](docs/design/mora.md#156-console-environment-and-time). Crates: `std`, `mora-rt`. Blocked by: M5.2.
 
-The members of §15.6: `Console` input and error output, `Environment`, `Random`, `Math` and `MathF`, and the time types of D-111 (`Clock`, `Instant`, `MonoTime`, `TimeSpan`, `Stopwatch`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Period`) and lint `wall-clock-duration`, all with `@RequiresCapability` tags.
+The members of §15.6: `Console` input and error output, `Environment`, `Random`, `Math` and `MathF`, and the time types of D-111 (`Clock`, `Instant`, `MonoTime`, `TimeSpan`, `Stopwatch`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Period`) and lint `wall-clock-duration`. `@RequiresCapability` tags go on the members that use a capability, such as `Clock.Now()` and `MonoTime.Now()` (`clock`) and `Random.Shared` (`random`); value types and their arithmetic need none.
 
 Done when:
 
