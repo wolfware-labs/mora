@@ -13,9 +13,9 @@ Main() { }
 Log(1);
 Make<int>(1);
 [1, 2].Print();
-[Cfg(Debug = true)]
+@Cfg(Debug = true)
 static Hits: int;
-[Cfg(Debug = true)]
+@Cfg(Debug = true)
 let debug: bool = true;
 this.Name();
 this[0];

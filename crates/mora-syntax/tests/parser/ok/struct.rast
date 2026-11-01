@@ -9,7 +9,7 @@ SourceFile@0..410
     Whitespace@39..40 " "
     Name@40..45
       Ident@40..45 "Point"
-    Newline@45..46 "\n"
+    Whitespace@45..46 " "
     MemberList@46..211
       LBrace@46..47 "{"
       Newline@47..48 "\n"
@@ -161,7 +161,7 @@ SourceFile@0..410
       Whitespace@250..251 " "
       KindConstraint@251..257
         StructKw@251..257 "struct"
-    Newline@257..258 "\n"
+    Whitespace@257..258 " "
     MemberList@258..282
       LBrace@258..259 "{"
       Newline@259..260 "\n"

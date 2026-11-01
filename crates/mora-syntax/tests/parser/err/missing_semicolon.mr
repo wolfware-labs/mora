@@ -1,5 +1,4 @@
-public class A
-{
+public class A {
     public X: int
     public Y: int;
     public M() { }

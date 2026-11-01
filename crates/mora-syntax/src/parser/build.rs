@@ -10,7 +10,7 @@ use mora_span::{TextRange, TextSize};
 
 use super::{Event, SYNTAX_ERROR};
 use crate::lexer::Lexed;
-use crate::{GreenNode, SyntaxError, SyntaxKind, TreeBuilder};
+use crate::{GreenNode, SyntaxError, SyntaxFix, SyntaxKind, TreeBuilder};
 
 use SyntaxKind as K;
 
@@ -55,9 +55,9 @@ pub(super) fn build(
             }
             Event::Finish => sink.finish(),
             Event::Token { kind, n_raw } => sink.token(kind, n_raw),
-            Event::Error { message } => {
+            Event::Error { message, fix } => {
                 let wraps_token = matches!(events.get(i + 1), Some(Event::Token { .. }));
-                sink.error(message, wraps_token);
+                sink.error(message, fix, wraps_token);
             }
             Event::Tombstone => {}
         }
@@ -169,10 +169,17 @@ impl Sink<'_> {
     /// Reports `MR0110`: on the token that follows, when the parser wraps it
     /// in an `Error` node; otherwise just after the last token taken, where
     /// something is missing.
-    fn error(&mut self, message: String, wraps_token: bool) {
+    /// A `fix` replaces the token the error wraps; without one, it is
+    /// dropped.
+    fn error(&mut self, message: String, fix: Option<(String, String)>, wraps_token: bool) {
         let next = self.next_significant();
-        let range = if wraps_token && let Some(token) = self.lexed.tokens.get(next) {
-            token.range
+        let wrapped = if wraps_token {
+            self.lexed.tokens.get(next).map(|token| token.range)
+        } else {
+            None
+        };
+        let range = if let Some(range) = wrapped {
+            range
         } else {
             let end = self.lexed.tokens[..self.raw]
                 .iter()
@@ -181,8 +188,14 @@ impl Sink<'_> {
                 .map_or(TextSize::new(0), |token| token.range.end());
             TextRange::empty(end)
         };
-        self.errors
-            .push(SyntaxError::new(SYNTAX_ERROR, range, message));
+        let mut error = SyntaxError::new(SYNTAX_ERROR, range, message);
+        if let (Some(range), Some((message, replacement))) = (wrapped, fix) {
+            error = error.with_fix(SyntaxFix {
+                message,
+                edits: vec![(range, replacement)],
+            });
+        }
+        self.errors.push(error);
     }
 }
 
@@ -206,7 +219,6 @@ fn attaches_comments(kind: SyntaxKind) -> bool {
             | K::ConstructorDecl
             | K::DestructorDecl
             | K::OperatorDecl
-            | K::ConversionOperatorDecl
             | K::AssocTypeDecl
             | K::EnumMember
             | K::UnionCase

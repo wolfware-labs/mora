@@ -26,16 +26,23 @@ pub(crate) const PREDEFINED: &[SyntaxKind] = &[
 
 /// Parses a type, or reports that one is missing.
 pub(crate) fn ty(p: &mut Parser<'_>) {
-    ty_with(p, true);
+    ty_with(p, true, true);
 }
 
 /// The element type of `new int[10]` and `stackalloc byte[256]`: the
 /// brackets that follow belong to the allocation, not to the type.
 pub(crate) fn element_ty(p: &mut Parser<'_>) {
-    ty_with(p, false);
+    ty_with(p, false, true);
 }
 
-fn ty_with(p: &mut Parser<'_>, arrays: bool) {
+/// A member's type or a function's return type, which a `=>` body may
+/// follow: there `(int, int) => ...` is a tuple type and a body, so a
+/// function type must be written in parentheses (§5.8).
+pub(crate) fn member_ty(p: &mut Parser<'_>) {
+    ty_with(p, true, false);
+}
+
+fn ty_with(p: &mut Parser<'_>, arrays: bool, functions: bool) {
     if !at_type_start(p) {
         p.error("expected a type");
         return;
@@ -55,7 +62,18 @@ fn ty_with(p: &mut Parser<'_>, arrays: bool) {
             p.bump_any();
             m.complete(p, K::PredefinedType)
         }
-        K::LParen => tuple_type(p),
+        K::LParen => {
+            let tuple = tuple_type(p);
+            if functions && (p.at(K::FatArrow) || p.at(K::ThinArrow)) {
+                // `(int, int) => bool` (§5.8).
+                let m = tuple.precede(p);
+                arrow(p);
+                ty(p);
+                m.complete(p, K::FnType)
+            } else {
+                tuple
+            }
+        }
         K::WeakKw => {
             let m = p.start();
             p.bump(K::WeakKw);
@@ -101,7 +119,8 @@ pub(crate) fn at_any(input: &Input<'_>, at: usize) -> bool {
     input.text(at) == "any" && input.kind(at + 1) == K::Ident
 }
 
-/// `()`, `(int, string)`, `(x: int, y: string)`.
+/// `()`, `(int, string)`, `(x: int, y: string)`, and the parameters of a
+/// function type.
 fn tuple_type(p: &mut Parser<'_>) -> super::CompletedMarker {
     let m = p.start();
     p.bump(K::LParen);
@@ -122,10 +141,30 @@ fn tuple_type(p: &mut Parser<'_>) -> super::CompletedMarker {
     m.complete(p, K::TupleType)
 }
 
+/// The `=>` of a function type or a lambda. `->` is reserved for nothing
+/// else, so it is reported with a fix to `=>` and taken in its place.
+pub(crate) fn arrow(p: &mut Parser<'_>) {
+    if p.at(K::ThinArrow) {
+        let m = p.start();
+        p.error_with_fix("expected `=>`", "write `=>`", "=>");
+        p.bump(K::ThinArrow);
+        m.complete(p, K::Error);
+    } else {
+        p.expect(K::FatArrow);
+    }
+}
+
 /// `: Type` after a name or a parameter list.
 pub(crate) fn annotation(p: &mut Parser<'_>) {
     p.bump(K::Colon);
     ty(p);
+}
+
+/// `: Type` after a member's name or a function's parameters (see
+/// [`member_ty`]).
+pub(crate) fn member_annotation(p: &mut Parser<'_>) {
+    p.bump(K::Colon);
+    member_ty(p);
 }
 
 /// `Name`: a declared identifier.
@@ -239,30 +278,49 @@ pub(crate) fn scan_generic_args(input: &Input<'_>, at: usize) -> Option<usize> {
 /// The index after a type that starts at `at`, if one does. Used to decide
 /// between a declaration and an expression before parsing either.
 pub(crate) fn scan_type(input: &Input<'_>, at: usize) -> Option<usize> {
+    scan(input, at, true)
+}
+
+/// Like [`scan_type`], but parentheses followed by `=>` end the type
+/// instead of starting a function type: where a lambda can stand, as in
+/// `((x) => x)(5)`, `(x) => x` is read as a lambda.
+pub(crate) fn scan_type_no_fn(input: &Input<'_>, at: usize) -> Option<usize> {
+    scan(input, at, false)
+}
+
+fn scan(input: &Input<'_>, at: usize, functions: bool) -> Option<usize> {
     let mut i = match input.kind(at) {
         kind if PREDEFINED.contains(&kind) => at + 1,
-        K::WeakKw => return scan_type(input, at + 1),
-        K::Ident if at_any(input, at) => return scan_type(input, at + 1),
+        K::WeakKw => return scan(input, at + 1, functions),
+        K::Ident if at_any(input, at) => return scan(input, at + 1, functions),
         // `$t`, `$..ts`, `$(expr)` (§9.3).
         K::Dollar => scan_splice(input, at)?,
-        // `()`, the unit type.
-        K::LParen if input.kind(at + 1) == K::RParen => at + 2,
         K::LParen => {
-            let mut i = at + 1;
-            loop {
-                // `x: int` or `int`.
-                if input.kind(i) == K::Ident && input.kind(i + 1) == K::Colon {
-                    i += 2;
+            // `()`, the unit type, or a tuple.
+            let end = if input.kind(at + 1) == K::RParen {
+                at + 2
+            } else {
+                let mut i = at + 1;
+                loop {
+                    // `x: int` or `int`.
+                    if input.kind(i) == K::Ident && input.kind(i + 1) == K::Colon {
+                        i += 2;
+                    }
+                    i = scan_type(input, i)?;
+                    match input.kind(i) {
+                        // A trailing comma, as `tuple_type` takes: `(int, string,)`.
+                        K::Comma if input.kind(i + 1) == K::RParen => break i + 2,
+                        K::Comma => i += 1,
+                        K::RParen => break i + 1,
+                        _ => return None,
+                    }
                 }
-                i = scan_type(input, i)?;
-                match input.kind(i) {
-                    // A trailing comma, as `tuple_type` takes: `(int, string,)`.
-                    K::Comma if input.kind(i + 1) == K::RParen => break i + 2,
-                    K::Comma => i += 1,
-                    K::RParen => break i + 1,
-                    _ => return None,
-                }
+            };
+            // `(int) => bool`: the result type ends the function type.
+            if functions && matches!(input.kind(end), K::FatArrow | K::ThinArrow) {
+                return scan_type(input, end + 1);
             }
+            end
         }
         K::Ident => {
             let mut i = at;

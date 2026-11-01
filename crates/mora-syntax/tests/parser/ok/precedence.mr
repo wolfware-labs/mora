@@ -3,7 +3,7 @@ let primary = a.b?.c(d)[e]?[f]++ + g--;
 let propagation = Load()?;
 let unary = -a + !b + ~c + ++d + --e + ^f + (int)g + await h;
 let range = (a..b, a.., ..b, ..);
-let switching = x switch { 0 => "zero", _ => "many" };
+let switching = switch (x) { 0 => "zero", _ => "many" } + suffix;
 let with = user with { Name = "Ada" };
 let multiplicative = a * b / c % d *% e;
 let additive = a + b - c +% d -% e;

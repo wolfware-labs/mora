@@ -7,7 +7,7 @@ SourceFile@0..75
     Whitespace@12..13 " "
     Name@13..14
       Ident@13..14 "A"
-    Newline@14..15 "\n"
+    Whitespace@14..15 " "
     MemberList@15..74
       LBrace@15..16 "{"
       Newline@16..17 "\n"

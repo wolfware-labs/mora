@@ -267,8 +267,8 @@ fn precedence_follows_section_7_1() {
     assert_eq!(shape("a..b"), "RangeExpr(P, P)");
     assert_eq!(shape("a + b..c"), "BinExpr(P, RangeExpr(P, P))");
     assert_eq!(
-        shape("a * b switch { _ => 0 }"),
-        "BinExpr(P, SwitchExpr(P, SwitchArm(DiscardPattern, LiteralExpr)))"
+        shape("a * switch (b) { _ => 0 }"),
+        "BinExpr(P, SwitchExpr(P, SwitchArmList(SwitchArm(DiscardPattern, LiteralExpr))))"
     );
     assert_eq!(
         shape("a == b is int"),
@@ -349,16 +349,16 @@ fn patterns_follow_section_7_8() {
 #[test]
 fn switch_arm_names_are_not_lambdas() {
     assert_eq!(
-        shape("s switch { None => 0, ok => 1 }"),
-        "SwitchExpr(P, SwitchArm(ConstantPattern(P), LiteralExpr), SwitchArm(ConstantPattern(P), LiteralExpr))"
+        shape("switch (s) { None => 0, ok => 1 }"),
+        "SwitchExpr(P, SwitchArmList(SwitchArm(ConstantPattern(P), LiteralExpr), SwitchArm(ConstantPattern(P), LiteralExpr)))"
     );
     assert_eq!(
-        shape("n switch { _ when ok => 1 }"),
-        "SwitchExpr(P, SwitchArm(DiscardPattern, WhenClause(P), LiteralExpr))"
+        shape("switch (n) { _ when ok => 1 }"),
+        "SwitchExpr(P, SwitchArmList(SwitchArm(DiscardPattern, WhenClause(P), LiteralExpr)))"
     );
     assert_eq!(
-        shape("n switch { _ when xs.Any(x => x > 0) => 1 }"),
-        "SwitchExpr(P, SwitchArm(DiscardPattern, WhenClause(CallExpr(MemberExpr(P, NameRef))), LiteralExpr))"
+        shape("switch (n) { _ when xs.Any(x => x > 0) => 1 }"),
+        "SwitchExpr(P, SwitchArmList(SwitchArm(DiscardPattern, WhenClause(CallExpr(MemberExpr(P, NameRef))), LiteralExpr)))"
     );
 }
 
@@ -425,7 +425,7 @@ fn nothing_chains_after_propagation() {
         .collect();
     // `r?` ends the expression; `.Name` is then left over.
     assert_eq!(errors.first().map(String::as_str), Some("expected `;`"));
-    // A leading `[` is an attribute only when a statement follows the brackets.
+    // A leading `[` is always a collection; `@` starts an attribute.
     let stmts = |text: &str| -> Vec<String> {
         let parse = parse(text);
         assert!(parse.errors().is_empty(), "{text}: {:?}", parse.errors());
@@ -440,15 +440,16 @@ fn nothing_chains_after_propagation() {
     assert_eq!(stmts("[a] is [_];"), ["ExprStmt"]);
     assert_eq!(stmts("[a] < b;"), ["ExprStmt"]);
     assert_eq!(stmts("[a] with { };"), ["ExprStmt"]);
-    assert_eq!(stmts("[Cfg(Debug = true)]\nLog(1);"), ["AttributedStmt"]);
-    assert_eq!(stmts("[Inline] { }"), ["AttributedStmt"]);
+    assert_eq!(stmts("[Inline];"), ["ExprStmt"]);
+    assert_eq!(stmts("@Cfg(Debug = true)\nLog(1);"), ["AttributedStmt"]);
+    assert_eq!(stmts("@Inline { }"), ["AttributedStmt"]);
     assert_eq!(
-        stmts("[Cfg(Debug = true)]\nlet x: int = 1;"),
+        stmts("@Cfg(Debug = true)\nlet x: int = 1;"),
         ["AttributedStmt"]
     );
     assert_eq!(
-        stmts("[Inline]\nTwice(x: int): int => x * 2;"),
+        stmts("@Inline\nTwice(x: int): int => x * 2;"),
         ["FunctionDecl"]
     );
-    assert_eq!(stmts("[A]\n[B]\nstatic X: int;"), ["FieldDecl"]);
+    assert_eq!(stmts("@A\n@B\nstatic X: int;"), ["FieldDecl"]);
 }

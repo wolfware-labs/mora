@@ -1,5 +1,4 @@
-public interface IShape : IDisplay
-{
+public interface IShape : IDisplay {
     Area(): float;
     Name: string => "shape";
     Log(m: string);
@@ -7,11 +6,10 @@ public interface IShape : IDisplay
     type Points : IEnumerable<Point>;
 }
 
-[Derive]
-public macro Equatable(t: TypeInfo) adds IEquatable<T>
-{
+@Derive
+public macro Equatable(t: TypeInfo) adds IEquatable<T> {
     return code { };
 }
 
-[Import("c")]
+@Import("c")
 static extern puts(s: ReadOnlySpan<byte>): int;

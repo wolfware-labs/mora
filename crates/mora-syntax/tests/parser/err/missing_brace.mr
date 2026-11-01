@@ -1,7 +1,5 @@
-public class B
-{
-    public First()
-    {
+public class B {
+    public First() {
         Work();
 
     public Second() { }

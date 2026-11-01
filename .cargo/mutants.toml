@@ -26,8 +26,7 @@ exclude_re = [
     # identifier is always an identifier character, number errors always
     # start at offset 0, and the raw-string indent scan only gains or loses
     # blank lines.
-    '^crates/mora-syntax/src/lexer/mod\.rs:560:39: replace > with >= in Lexer<.a>::code_token$',
-    '^crates/mora-syntax/src/lexer/mod\.rs:592:51: replace \+ with - in Lexer<.a>::code_token$',
+    '^crates/mora-syntax/src/lexer/mod\.rs:496:35: replace > with >= in Lexer<.a>::code_token$',
     '^crates/mora-syntax/src/lexer/mod\.rs:1132:60: replace \+ with \* in Lexer<.a>::check_raw$',
     '^crates/mora-syntax/src/lexer/mod\.rs:1133:26: replace < with <= in Lexer<.a>::check_raw$',
     '^crates/mora-syntax/src/lexer/mod\.rs:1133:57: replace \+ with \* in Lexer<.a>::check_raw$',

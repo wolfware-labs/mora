@@ -1,5 +1,5 @@
-SourceFile@0..201
-  MacroDecl@0..144
+SourceFile@0..197
+  MacroDecl@0..140
     Modifier@0..6
       PublicKw@0..6 "public"
     Whitespace@6..7 " "
@@ -20,116 +20,115 @@ SourceFile@0..201
               NameRef@24..32
                 Ident@24..32 "TypeInfo"
       RParen@32..33 ")"
-    Newline@33..34 "\n"
-    Block@34..144
+    Whitespace@33..34 " "
+    Block@34..140
       LBrace@34..35 "{"
       Newline@35..36 "\n"
       Whitespace@36..40 "    "
-      ReturnStmt@40..142
+      ReturnStmt@40..138
         ReturnKw@40..46 "return"
         Whitespace@46..47 " "
-        QuoteExpr@47..141
+        QuoteExpr@47..137
           CodeKw@47..51 "code"
-          Newline@51..52 "\n"
-          Whitespace@52..56 "    "
-          MemberList@56..141
-            LBrace@56..57 "{"
-            Newline@57..58 "\n"
-            Whitespace@58..66 "        "
-            PropertyDecl@66..89
-              Modifier@66..72
-                PublicKw@66..72 "public"
-              Whitespace@72..73 " "
-              Name@73..78
-                Ident@73..78 "Count"
-              Colon@78..79 ":"
+          Whitespace@51..52 " "
+          MemberList@52..137
+            LBrace@52..53 "{"
+            Newline@53..54 "\n"
+            Whitespace@54..62 "        "
+            PropertyDecl@62..85
+              Modifier@62..68
+                PublicKw@62..68 "public"
+              Whitespace@68..69 " "
+              Name@69..74
+                Ident@69..74 "Count"
+              Colon@74..75 ":"
+              Whitespace@75..76 " "
+              PredefinedType@76..79
+                IntKw@76..79 "int"
               Whitespace@79..80 " "
-              PredefinedType@80..83
-                IntKw@80..83 "int"
-              Whitespace@83..84 " "
-              ExprBody@84..88
-                FatArrow@84..86 "=>"
-                Whitespace@86..87 " "
-                LiteralExpr@87..88
-                  IntNumber@87..88 "0"
-              Semicolon@88..89 ";"
-            Newline@89..90 "\n"
-            Whitespace@90..98 "        "
-            FieldDecl@98..108
-              VariableDeclarator@98..107
-                Name@98..103
-                  Ident@98..103 "value"
-                Colon@103..104 ":"
-                Whitespace@104..105 " "
-                SpliceType@105..107
-                  Splice@105..107
-                    Dollar@105..106 "$"
-                    NameRef@106..107
-                      Ident@106..107 "T"
-              Semicolon@107..108 ";"
-            Newline@108..109 "\n"
-            Whitespace@109..117 "        "
-            FunctionDecl@117..135
-              Splice@117..122
-                Dollar@117..118 "$"
-                NameRef@118..122
-                  Ident@118..122 "name"
-              ParamList@122..124
-                LParen@122..123 "("
-                RParen@123..124 ")"
-              Colon@124..125 ":"
+              ExprBody@80..84
+                FatArrow@80..82 "=>"
+                Whitespace@82..83 " "
+                LiteralExpr@83..84
+                  IntNumber@83..84 "0"
+              Semicolon@84..85 ";"
+            Newline@85..86 "\n"
+            Whitespace@86..94 "        "
+            FieldDecl@94..104
+              VariableDeclarator@94..103
+                Name@94..99
+                  Ident@94..99 "value"
+                Colon@99..100 ":"
+                Whitespace@100..101 " "
+                SpliceType@101..103
+                  Splice@101..103
+                    Dollar@101..102 "$"
+                    NameRef@102..103
+                      Ident@102..103 "T"
+              Semicolon@103..104 ";"
+            Newline@104..105 "\n"
+            Whitespace@105..113 "        "
+            FunctionDecl@113..131
+              Splice@113..118
+                Dollar@113..114 "$"
+                NameRef@114..118
+                  Ident@114..118 "name"
+              ParamList@118..120
+                LParen@118..119 "("
+                RParen@119..120 ")"
+              Colon@120..121 ":"
+              Whitespace@121..122 " "
+              PredefinedType@122..125
+                IntKw@122..125 "int"
               Whitespace@125..126 " "
-              PredefinedType@126..129
-                IntKw@126..129 "int"
-              Whitespace@129..130 " "
-              ExprBody@130..134
-                FatArrow@130..132 "=>"
-                Whitespace@132..133 " "
-                LiteralExpr@133..134
-                  IntNumber@133..134 "0"
-              Semicolon@134..135 ";"
-            Newline@135..136 "\n"
-            Whitespace@136..140 "    "
-            RBrace@140..141 "}"
-        Semicolon@141..142 ";"
-      Newline@142..143 "\n"
-      RBrace@143..144 "}"
-  Newline@144..145 "\n"
-  Newline@145..146 "\n"
-  ClassDecl@146..200
-    Modifier@146..152
-      PublicKw@146..152 "public"
-    Whitespace@152..153 " "
-    ClassKw@153..158 "class"
-    Whitespace@158..159 " "
-    Name@159..165
-      Ident@159..165 "Holder"
-    Newline@165..166 "\n"
-    MemberList@166..200
-      LBrace@166..167 "{"
-      Newline@167..168 "\n"
-      Whitespace@168..172 "    "
-      FieldDecl@172..182
-        VariableDeclarator@172..181
-          Name@172..177
-            Ident@172..177 "value"
-          Colon@177..178 ":"
-          Whitespace@178..179 " "
-          SpliceType@179..181
-            Splice@179..181
-              Dollar@179..180 "$"
-              NameRef@180..181
-                Ident@180..181 "T"
-        Semicolon@181..182 ";"
-      Newline@182..183 "\n"
-      Whitespace@183..187 "    "
-      SpliceMember@187..198
-        Splice@187..197
-          Dollar@187..188 "$"
-          DotDot@188..190 ".."
-          NameRef@190..197
-            Ident@190..197 "members"
-        Semicolon@197..198 ";"
-      Newline@198..199 "\n"
-      RBrace@199..200 "}"
-  Newline@200..201 "\n"
+              ExprBody@126..130
+                FatArrow@126..128 "=>"
+                Whitespace@128..129 " "
+                LiteralExpr@129..130
+                  IntNumber@129..130 "0"
+              Semicolon@130..131 ";"
+            Newline@131..132 "\n"
+            Whitespace@132..136 "    "
+            RBrace@136..137 "}"
+        Semicolon@137..138 ";"
+      Newline@138..139 "\n"
+      RBrace@139..140 "}"
+  Newline@140..141 "\n"
+  Newline@141..142 "\n"
+  ClassDecl@142..196
+    Modifier@142..148
+      PublicKw@142..148 "public"
+    Whitespace@148..149 " "
+    ClassKw@149..154 "class"
+    Whitespace@154..155 " "
+    Name@155..161
+      Ident@155..161 "Holder"
+    Whitespace@161..162 " "
+    MemberList@162..196
+      LBrace@162..163 "{"
+      Newline@163..164 "\n"
+      Whitespace@164..168 "    "
+      FieldDecl@168..178
+        VariableDeclarator@168..177
+          Name@168..173
+            Ident@168..173 "value"
+          Colon@173..174 ":"
+          Whitespace@174..175 " "
+          SpliceType@175..177
+            Splice@175..177
+              Dollar@175..176 "$"
+              NameRef@176..177
+                Ident@176..177 "T"
+        Semicolon@177..178 ";"
+      Newline@178..179 "\n"
+      Whitespace@179..183 "    "
+      SpliceMember@183..194
+        Splice@183..193
+          Dollar@183..184 "$"
+          DotDot@184..186 ".."
+          NameRef@186..193
+            Ident@186..193 "members"
+        Semicolon@193..194 ";"
+      Newline@194..195 "\n"
+      RBrace@195..196 "}"
+  Newline@196..197 "\n"

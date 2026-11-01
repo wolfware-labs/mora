@@ -1,5 +1,4 @@
-Run(items: List<int>, counts: Dictionary<string, int>)
-{
+Run(items: List<int>, counts: Dictionary<string, int>) {
     let total = 0;
     var count = 1;
     let limit: int = 10;
@@ -20,25 +19,20 @@ Run(items: List<int>, counts: Dictionary<string, int>)
     foreach (ref var cell in span) { }
     foreach (let n: int in items) { }
 
-    switch (total)
-    {
-        case 0:
-        case 1 when count > 0:
-            Log("small");
-            break;
-        case > 100:
-            Log("big");
-        case let x:
-            Log("any");
-        default:
-            Log("other");
+    switch (total) {
+        0 or 1 when count > 0 => Log("small"),
+        > 100 => { Log("big"); }
+        let x when x < 0 => Log("negative"),
+        _ => Log("other"),
     }
+    let size = switch (total) { 0 => "none", _ => "some" };
+    let check: (int) => bool = n => n > limit;
 
     Square(n: int): int => n * n;
     static Pick<T>(a: T, b: T): T { return a; }
     Helper() { }
 
-    [Cfg(Debug = true)]
+    @Cfg(Debug = true)
     Log("debug");
 
     ;

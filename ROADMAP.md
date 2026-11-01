@@ -159,7 +159,7 @@ Done when:
 
 Spec: [§19.4](docs/design/mora.md#194-portability), [§17.2](docs/design/mora.md#172-manifest). Crates: `mora-target`, `targets`. Blocked by: M0.2.
 
-The `mora-target` crate and `targets/*.toml` for every target of §19.1: triple, pointer width, endianness, alignments, object format, linker flavor, runtime layer, backend and platform capabilities, the `[Cfg]` values derived from them, and loading a custom description from a path. A 32-bit test description (`tests/targets/test32.toml`) for layout tests.
+The `mora-target` crate and `targets/*.toml` for every target of §19.1: triple, pointer width, endianness, alignments, object format, linker flavor, runtime layer, backend and platform capabilities, the `@Cfg` values derived from them, and loading a custom description from a path. A 32-bit test description (`tests/targets/test32.toml`) for layout tests.
 
 Done when:
 
@@ -469,7 +469,7 @@ Done when:
 
 Spec: [§10.3](docs/design/mora.md#103-parameter-modes). Crates: `mora-hir`, `mora-mir`. Blocked by: M2.1.
 
-`in`, `ref`, `out` and `move` parameters, call-site `ref`/`out`/`move`, `out var` and `out let`, `MR0311`, struct `mut` methods and `MR0141`, `move` methods, and the representations of §10.3.
+`in`, `ref` and `move` parameters, call-site `ref`/`move`, struct `mut` methods and `MR0141`, `move` methods, and the representations of §10.3.
 
 Done when:
 
@@ -626,7 +626,7 @@ Done when:
 
 Spec: [§6.6](docs/design/mora.md#66-unions), [§13.5](docs/design/mora.md#135-value-layouts). Crates: `mora-hir`, `mora-mir`, `mora-codegen`. Blocked by: M2.15.
 
-Union declarations with cases and members, construction, target-typed case names (D-16), `indirect` cases and unions, `MR0150`, `[NonExhaustive]`, copyable versus move-only unions, and the tag-plus-payload layout with the null-pointer niche of §13.5.
+Union declarations with cases and members, construction, target-typed case names (D-16), `indirect` cases and unions, `MR0150`, `@NonExhaustive`, copyable versus move-only unions, and the tag-plus-payload layout with the null-pointer niche of §13.5.
 
 Done when:
 
@@ -637,18 +637,18 @@ Done when:
 
 Spec: [§6.7](docs/design/mora.md#67-enums). Crates: `mora-hir`, `mora-mir`. Blocked by: M3.1.
 
-Closed enums with explicit backing types, checked casts that panic, `TryFrom`, `[Flags]` enums with bitwise operators, and printing by name (through `IDisplay` until M4.9).
+Closed enums with explicit backing types, checked casts that panic, `TryFrom`, `@Flags` enums with bitwise operators, and printing by name (through `IDisplay` until M4.9).
 
 Done when:
 
 - A cast of an undeclared value panics.
-- `[Flags]` combinations print and compare.
+- `@Flags` combinations print and compare.
 
 ### M3.3 Patterns and switch
 
 Spec: [§7.7](docs/design/mora.md#77-switch-expressions-and-statements), [§7.8](docs/design/mora.md#78-patterns). Crates: `mora-hir`, `mora-mir`. Blocked by: M3.2.
 
-Every pattern of §7.8, `is` expressions with definite assignment of bindings, switch expressions with guards and best-common-type, and switch statements without fall-through.
+Every pattern of §7.8, `is` expressions with definite assignment of bindings, one `switch` with arms as a statement and as an expression (D-89), guards, block arms and best-common-type.
 
 Done when:
 
@@ -681,7 +681,7 @@ Done when:
 
 Spec: [§6.9](docs/design/mora.md#69-members), [§5.10](docs/design/mora.md#510-conversions). Crates: `mora-hir`. Blocked by: M3.3.
 
-User-defined operators with the C# pairing rules, implicit and explicit conversion operators, the `implicit-panics` lint, and indexers.
+User-defined arithmetic, bitwise and unary operators, comparison operators from `IEquatable<T>` and `IComparable<T>` with `MR0238` (D-90), implicit conversions through `IFrom<S>` (D-91), and indexers.
 
 Done when:
 
@@ -692,7 +692,7 @@ Done when:
 
 Spec: [§4.6](docs/design/mora.md#46-entry-point), [§5.7](docs/design/mora.md#57-result-types), [§7.4](docs/design/mora.md#74-propagation-), [§11.1](docs/design/mora.md#111-two-kinds-of-failure), [§11.2](docs/design/mora.md#112-error-types), [§11.3](docs/design/mora.md#113-conversions-in-). Crates: `mora-hir`, `mora-mir`, `std`. Blocked by: M3.5, M3.6.
 
-`Result<T, E>`, `[MustUse]` and `MR2002`, `IError`, the `?` operator with identity and implicit conversions (`MR0201`, `MR0202`, `MR0161`), the implicit `Ok` conversion and `MR0132`, and return-type inference for top-level statements with the exit codes of §4.6.
+`Result<T, E>`, `@MustUse` and `MR2002`, `IError`, the `?` operator with identity and `IFrom` conversions (`MR0201`, `MR0202`, `MR0161`), the implicit `Ok` conversion and `MR0132`, and return-type inference for top-level statements with the exit codes of §4.6.
 
 Done when:
 
@@ -779,12 +779,12 @@ Done when:
 
 Spec: [§6.11](docs/design/mora.md#611-attributes), [§17.2](docs/design/mora.md#172-manifest). Crates: `mora-hir`, `mora-check`, `mora-driver`. Blocked by: M3.14.
 
-Built-in attributes other than macros and `Test`: `[Cfg]` with `Os`, `Arch`, `Debug`, `Test`, `Feature`; `[features]` in the manifest; `[Allow]`, `[Warn]`, `[Deny]` and `[lints]`; `[Obsolete]` with `MR2003`; `[Inline]`; `[Layout(C)]`; `[MustUse]` on functions.
+Built-in attributes other than macros and `Test`: `@Cfg` with `Os`, `Arch`, `Debug`, `Test`, `Feature`; `[features]` in the manifest; `@Allow`, `@Warn`, `@Deny` and `[lints]`; `@Obsolete` with `MR2003`; `@Inline`; `@Layout(C)`; `@MustUse` on functions.
 
 Done when:
 
-- A `[Cfg(Os = "windows")]` function compiles only on Windows CI.
-- `[Deny("MR2002")]` turns the warning into an error.
+- A `@Cfg(Os = "windows")` function compiles only on Windows CI.
+- `@Deny("MR2002")` turns the warning into an error.
 
 ### M3.16 Platform capabilities and standard library layers
 
@@ -801,7 +801,7 @@ Done when:
 
 **Goal.** Attribute and expression macros written in Mora, run at compile time on a typed model, plus the standard-library macros that replace a derive list.
 
-**Exit criteria.** Every §9 example runs; `[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` pass their `MacroTest` suites; structs get their automatic implementations from these macros.
+**Exit criteria.** Every §9 example runs; `@Equatable`, `@Hashable`, `@Comparable`, `@Display`, `@Default`, `@Clone` and `#Assert` pass their `MacroTest` suites; structs get their automatic implementations from these macros.
 
 | ID | Deliverable | Area | Blocked by |
 |---|---|---|---|
@@ -905,7 +905,7 @@ Done when:
 
 Spec: [§9.1](docs/design/mora.md#91-a-complete-example), [§9.6](docs/design/mora.md#96-what-a-macro-sees), [§9.9](docs/design/mora.md#99-standard-library-macros), [§6.2](docs/design/mora.md#62-structs). Crates: `std`, `mora-hir`. Blocked by: M4.7.
 
-`[Equatable]`, `[Hashable]`, `[Comparable]`, `[Display]`, `[Default]`, `[Clone]` and `#Assert` with the behaviour of §9.9, and their automatic application to structs, tuples, enums and unions.
+`@Equatable`, `@Hashable`, `@Comparable`, `@Display`, `@Default`, `@Clone` and `#Assert` with the behaviour of §9.9, and their automatic application to structs, tuples, enums and unions.
 
 Done when:
 
@@ -930,7 +930,7 @@ Done when:
 | [M5.8](#m58-console-environment-time-and-random) | Console, environment, time and random | `std` | M5.2 |
 | [M5.9](#m59-files-directories-and-paths) | Files, directories and paths | `std` | M5.8 |
 | [M5.10](#m510-json-values-parser-and-writer) | JSON values, parser and writer | `std` | M5.5 |
-| [M5.11](#m511-the-json-macro) | The `[Json]` macro | `std` | M5.10, M4.9 |
+| [M5.11](#m511-the-json-macro) | The `@Json` macro | `std` | M5.10, M4.9 |
 | [M5.12](#m512-testing-library-and-mora-test) | Testing library and `mora test` | `cli` | M5.7 |
 | [M5.13](#m513-signals) | Signals | `std` | M5.4, M2.10 |
 | [M5.14](#m514-standard-library-api-reference) | Standard library API reference | `docs` | M5.12 |
@@ -961,7 +961,7 @@ Done when:
 
 Spec: [§8.5](docs/design/mora.md#85-built-in-interfaces), [§15.1](docs/design/mora.md#151-prelude-std). Crates: `std`, `mora-rt`. Blocked by: M5.2.
 
-`IParse<T>`, `int.Parse` and the other primitives returning `Result<T, ParseError>`, `TryParse` with `out`, shortest round-trip float formatting and correct float parsing in the runtime.
+`IParse<T>`, `int.Parse` and the other primitives returning `Result<T, ParseError>`, shortest round-trip float formatting and correct float parsing in the runtime.
 
 Done when:
 
@@ -1016,7 +1016,7 @@ Done when:
 
 Spec: [§15.6](docs/design/mora.md#156-console-environment-and-time). Crates: `std`, `mora-rt`. Blocked by: M5.2.
 
-The members of §15.6: `Console` input and error output, `Environment`, `TimeSpan`, `Stopwatch`, UTC `DateTime` with ISO 8601, `Random`, `Math` and `MathF`, with `[RequiresCapability]` tags.
+The members of §15.6: `Console` input and error output, `Environment`, `TimeSpan`, `Stopwatch`, UTC `DateTime` with ISO 8601, `Random`, `Math` and `MathF`, with `@RequiresCapability` tags.
 
 Done when:
 
@@ -1045,11 +1045,11 @@ Done when:
 - The JSONTestSuite `y_` cases parse and `n_` cases fail.
 - `{not json` fails with `at line 1, column 2: expected string`.
 
-### M5.11 The `[Json]` macro
+### M5.11 The `@Json` macro
 
 Spec: [§16.3](docs/design/mora.md#163-json-stdjson), [§9.9](docs/design/mora.md#99-standard-library-macros). Crates: `std`. Blocked by: M5.10, M4.9.
 
-`[Json]`, `IJsonSerialize`, `IJsonDeserialize`, `Json.Serialize` and `Json.Deserialize` with every mapping row of §16.3, `[JsonName]`, `[JsonIgnore]`, `[JsonStrict]` and `[JsonTag]`.
+`@Json`, `IJsonSerialize`, `IJsonDeserialize`, `Json.Serialize` and `Json.Deserialize` with every mapping row of §16.3, `@JsonName`, `@JsonIgnore`, `@JsonStrict` and `@JsonTag`.
 
 Done when:
 
@@ -1060,7 +1060,7 @@ Done when:
 
 Spec: [§15.9](docs/design/mora.md#159-testing), [§17.5](docs/design/mora.md#175-test-runner). Crates: `std`, `mora-driver`, `mora-cli`, `mora-testkit`. Blocked by: M5.7.
 
-`[Test]`, `Std.Testing.Assert`, `Assert.Panics` in a child process, unit tests in `src/` and integration tests in `tests/`, one process per test, `--leak-check` on by default, and the output format of §17.5.
+`@Test`, `Std.Testing.Assert`, `Assert.Panics` in a child process, unit tests in `src/` and integration tests in `tests/`, one process per test, `--leak-check` on by default, and the output format of §17.5.
 
 Done when:
 
@@ -1107,7 +1107,7 @@ Done when:
 
 Spec: [§12.2](docs/design/mora.md#122-async-functions-and-futures), [§10.3](docs/design/mora.md#103-parameter-modes), [§7.4](docs/design/mora.md#74-propagation-). Crates: `mora-hir`, `std`. Blocked by: M5.7.
 
-`async` functions, methods and lambdas, `Future<T>` as a unique `[MustUse]` cold type (D-27), `await`, `MR0312`, `MR0313` and `MR0400` to `MR0403`, and the `await e?` rule.
+`async` functions, methods and lambdas, `Future<T>` as a unique `@MustUse` cold type (D-27), `await`, `MR0312`, `MR0313` and `MR0400` to `MR0403`, and the `await e?` rule.
 
 Done when:
 

@@ -1,7 +1,7 @@
 //! Compilation units, declarations and members (§4, §6, §8.2, §9.2).
 
 use super::exprs;
-use super::types::{self, name, name_ref, scan_type};
+use super::types::{self, name, name_ref, scan_type_no_fn};
 use super::{Input, Marker, Parser, stmts};
 use crate::SyntaxKind;
 
@@ -24,7 +24,6 @@ const MODIFIERS: &[SyntaxKind] = &[
     K::ExternKw,
     K::MoveKw,
     K::InKw,
-    K::OutKw,
     K::ParamsKw,
     K::ThisKw,
     K::AbstractKw,
@@ -33,7 +32,7 @@ const MODIFIERS: &[SyntaxKind] = &[
 /// Tokens a member list or the file can recover at: the start of the next
 /// declaration.
 const ITEM_RECOVERY: &[SyntaxKind] = &[
-    K::LBracket,
+    K::At,
     K::PublicKw,
     K::InternalKw,
     K::PrivateKw,
@@ -174,7 +173,7 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
     }
     let start = p.pos();
     let m = p.start();
-    while p.at(K::LBracket) {
+    while p.at(K::At) {
         attribute(p);
     }
     let attributed = p.pos() > start;
@@ -188,12 +187,11 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
         K::EnumKw => enum_decl(p, m),
         K::MacroKw => macro_decl(p, m),
         K::Tilde if member => destructor(p, m),
-        K::ImplicitKw | K::ExplicitKw => conversion(p, m),
         K::Ident if member && p.at_contextual("type") && p.nth(1) == K::Ident => assoc_type(p, m),
         K::OperatorKw => operator(p, m),
         K::ThisKw if member && p.nth(1) == K::LBracket => indexer(p, m, 0),
         _ => {
-            // `[Cfg(Debug = true)] Log(x);` at the top level (§6.11). There,
+            // `@Cfg(Debug = true) Log(x);` at the top level (§6.11). There,
             // without modifiers, only a function has a shape.
             let statement = cx == Context::TopLevel && attributed && modifiers.is_empty();
             match shape(p, cx, !modifiers.is_empty()) {
@@ -220,7 +218,7 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
 /// Whether a top-level declaration starts here rather than a statement:
 /// attributes, a modifier, a declaration keyword, or a function.
 fn at_declaration_start(p: &Parser<'_>) -> bool {
-    if at_attribute(p) || (p.at_any(MODIFIERS) && !p.at(K::ThisKw)) || at_contextual_modifier(p) {
+    if p.at(K::At) || (p.at_any(MODIFIERS) && !p.at(K::ThisKw)) || at_contextual_modifier(p) {
         return true;
     }
     if p.at_any(&[
@@ -268,47 +266,8 @@ pub(crate) fn at_function(input: &Input<'_>, at: usize) -> bool {
     }
     matches!(
         input.kind(i + 1),
-        K::LBrace | K::FatArrow | K::Colon | K::WhereKw
+        K::LBrace | K::FatArrow | K::ThinArrow | K::Colon | K::WhereKw
     )
-}
-
-/// Whether a `[` at the top level opens an attribute rather than a
-/// collection expression: an attribute names something and is followed by
-/// what it applies to, while `[1, 2].Count` and `[x];` go on as expressions.
-pub(crate) fn at_attribute(p: &Parser<'_>) -> bool {
-    if !p.at(K::LBracket) || p.nth(1) != K::Ident {
-        return false;
-    }
-    let input = p.input();
-    // Skip every bracket group in a row: `[A]\n[B]` stacks attributes,
-    // `[x][0]` indexes a collection. What follows the last one decides.
-    let mut i = p.pos();
-    while input.kind(i) == K::LBracket {
-        let mut depth = 0usize;
-        loop {
-            match input.kind(i) {
-                K::LBracket | K::LParen => depth += 1,
-                K::RBracket | K::RParen => {
-                    depth -= 1;
-                    if depth == 0 {
-                        break;
-                    }
-                }
-                _ if i >= input.len() => return false,
-                _ => {}
-            }
-            i += 1;
-        }
-        i += 1;
-    }
-    // Attributes apply to a declaration or a statement. Any operator, or
-    // `is`, `as`, `switch` or `with`, continues an expression instead.
-    let next = input.kind(i);
-    let operator = SyntaxKind::PUNCTUATION.contains(&next)
-        && !matches!(next, K::LBrace | K::At | K::Dollar | K::Hash);
-    let continues = matches!(next, K::IsKw | K::AsKw | K::SwitchKw)
-        || (input.kind(i) == K::Ident && input.text(i) == "with" && input.kind(i + 1) == K::LBrace);
-    !operator && !continues && i < input.len()
 }
 
 /// The contextual modifier `file`, when another word of the declaration
@@ -338,37 +297,29 @@ fn modifiers(p: &mut Parser<'_>, params: bool) -> Vec<SyntaxKind> {
     }
 }
 
-/// `[Json]`, `[Cfg(Os = "linux")]`, `[Allow("MR2001"), MustUse]` (§6.11).
+/// `@Json`, `@Cfg(Os = "linux")`, `@Allow("MR2001")` (§6.11).
 pub(crate) fn attribute(p: &mut Parser<'_>) {
     let m = p.start();
-    p.bump(K::LBracket);
-    while !p.at(K::RBracket) && !p.at_end() {
-        let item = p.start();
-        types::path(p, true);
-        if p.at(K::LParen) {
-            let args = p.start();
-            p.bump(K::LParen);
-            while !p.at(K::RParen) && !p.at_end() {
-                let arg = p.start();
-                if p.at(K::Ident) && p.nth(1) == K::Eq {
-                    name_ref(p);
-                    p.bump(K::Eq);
-                }
-                exprs::expr(p);
-                arg.complete(p, K::AttributeArg);
-                if !p.eat(K::Comma) {
-                    break;
-                }
+    p.bump(K::At);
+    types::path(p, true);
+    if p.at(K::LParen) {
+        let args = p.start();
+        p.bump(K::LParen);
+        while !p.at(K::RParen) && !p.at_end() {
+            let arg = p.start();
+            if p.at(K::Ident) && p.nth(1) == K::Eq {
+                name_ref(p);
+                p.bump(K::Eq);
             }
-            p.expect(K::RParen);
-            args.complete(p, K::AttributeArgList);
+            exprs::expr(p);
+            arg.complete(p, K::AttributeArg);
+            if !p.eat(K::Comma) {
+                break;
+            }
         }
-        item.complete(p, K::AttributeItem);
-        if !p.eat(K::Comma) {
-            break;
-        }
+        p.expect(K::RParen);
+        args.complete(p, K::AttributeArgList);
     }
-    p.expect(K::RBracket);
     m.complete(p, K::Attribute);
 }
 
@@ -425,7 +376,7 @@ fn union_decl(p: &mut Parser<'_>, m: Marker) {
     if p.expect(K::LBrace) {
         while !p.at_any(&[K::RBrace, K::Semicolon]) && !p.at_end() {
             let case = p.start();
-            while p.at(K::LBracket) {
+            while p.at(K::At) {
                 attribute(p);
             }
             p.eat(K::IndirectKw);
@@ -461,7 +412,7 @@ fn enum_decl(p: &mut Parser<'_>, m: Marker) {
     if p.expect(K::LBrace) {
         while !p.at(K::RBrace) && !p.at_end() {
             let member = p.start();
-            while p.at(K::LBracket) {
+            while p.at(K::At) {
                 attribute(p);
             }
             name(p);
@@ -589,8 +540,8 @@ fn shape(p: &Parser<'_>, cx: Context<'_>, modifiers: bool) -> Option<Shape> {
                 }
             }
             K::Colon => {
-                let after = scan_type(input, end + 1).map(|i| input.kind(i));
-                if member && matches!(after, Some(K::LBrace | K::FatArrow)) {
+                let after = scan_type_no_fn(input, end + 1).map(|i| input.kind(i));
+                if member && matches!(after, Some(K::LBrace | K::FatArrow | K::ThinArrow)) {
                     return shape(Kind::Property, segments);
                 }
                 if fields && segments == 1 {
@@ -644,7 +595,7 @@ fn function(p: &mut Parser<'_>, m: Marker, segments: usize) {
     }
     param_list(p);
     if p.at(K::Colon) {
-        types::annotation(p);
+        types::member_annotation(p);
     }
     while p.at(K::WhereKw) {
         where_clause(p);
@@ -656,7 +607,7 @@ fn function(p: &mut Parser<'_>, m: Marker, segments: usize) {
 /// `Count: int { get; }`, `IsEmpty: bool => Count == 0;` (§6.9).
 fn property(p: &mut Parser<'_>, m: Marker, segments: usize) {
     member_name(p, segments);
-    required_annotation(p);
+    required_annotation(p, true);
     if p.at(K::LBrace) {
         accessor_list(p);
         if p.eat(K::Eq) {
@@ -670,9 +621,12 @@ fn property(p: &mut Parser<'_>, m: Marker, segments: usize) {
     m.complete(p, K::PropertyDecl);
 }
 
-/// `: Type` where a declaration must have one.
-fn required_annotation(p: &mut Parser<'_>) {
-    if p.at(K::Colon) {
+/// `: Type` where a declaration must have one. A `member`'s type takes a
+/// function type only in parentheses (§5.8).
+fn required_annotation(p: &mut Parser<'_>, member: bool) {
+    if p.at(K::Colon) && member {
+        types::member_annotation(p);
+    } else if p.at(K::Colon) {
         types::annotation(p);
     } else {
         p.error("expected `:` and a type");
@@ -741,7 +695,7 @@ pub(crate) fn variable_declarator(p: &mut Parser<'_>, at: Declarators) {
         name(p);
     }
     if at == Declarators::Field {
-        required_annotation(p);
+        required_annotation(p, true);
     } else if p.at(K::Colon) {
         types::annotation(p);
     }
@@ -756,7 +710,7 @@ fn accessor_list(p: &mut Parser<'_>) {
     p.bump(K::LBrace);
     while !p.at(K::RBrace) && !p.at_end() {
         let accessor = p.start();
-        while p.at(K::LBracket) {
+        while p.at(K::At) {
             attribute(p);
         }
         modifiers(p, false);
@@ -793,7 +747,7 @@ fn indexer(p: &mut Parser<'_>, m: Marker, segments: usize) {
         }
     }
     p.expect(K::RBracket);
-    required_annotation(p);
+    required_annotation(p, true);
     if p.at(K::LBrace) {
         accessor_list(p);
     } else {
@@ -864,20 +818,10 @@ fn operator(p: &mut Parser<'_>, m: Marker) {
     }
     param_list(p);
     if p.at(K::Colon) {
-        types::annotation(p);
+        types::member_annotation(p);
     }
     body_or_semicolon(p);
     m.complete(p, K::OperatorDecl);
-}
-
-/// `public static implicit operator AppError(e: IoError) => Io(e);`
-fn conversion(p: &mut Parser<'_>, m: Marker) {
-    p.bump_any();
-    p.expect(K::OperatorKw);
-    types::ty(p);
-    param_list(p);
-    body_or_semicolon(p);
-    m.complete(p, K::ConversionOperatorDecl);
 }
 
 /// `type Enumerator : IEnumerator<T>;`, `type Enumerator = ListEnumerator<T>;` (§8.7).
@@ -897,7 +841,9 @@ fn assoc_type(p: &mut Parser<'_>, m: Marker) {
 pub(crate) fn param_list(p: &mut Parser<'_>) {
     let m = p.start();
     if p.expect(K::LParen) {
-        while !p.at(K::RParen) && !p.at_end() && !p.at_any(&[K::LBrace, K::Semicolon, K::FatArrow])
+        while !p.at(K::RParen)
+            && !p.at_end()
+            && !p.at_any(&[K::LBrace, K::Semicolon, K::FatArrow, K::ThinArrow])
         {
             param(p);
             if !p.eat(K::Comma) {
@@ -912,12 +858,12 @@ pub(crate) fn param_list(p: &mut Parser<'_>) {
 /// `amount: decimal`, `ref p: Point`, `port: int = 80` (§10.3).
 fn param(p: &mut Parser<'_>) {
     let m = p.start();
-    while p.at(K::LBracket) {
+    while p.at(K::At) {
         attribute(p);
     }
     modifiers(p, true);
     name(p);
-    required_annotation(p);
+    required_annotation(p, false);
     if p.eat(K::Eq) {
         exprs::expr(p);
     }
@@ -929,7 +875,7 @@ fn type_param_list(p: &mut Parser<'_>) {
     p.bump(K::Lt);
     while !p.at(K::Gt) && !p.at_end() {
         let param = p.start();
-        while p.at(K::LBracket) {
+        while p.at(K::At) {
             attribute(p);
         }
         if p.at(K::InKw) || p.at(K::OutKw) {
@@ -988,7 +934,7 @@ fn where_clause(p: &mut Parser<'_>) {
 fn body_or_semicolon(p: &mut Parser<'_>) {
     if p.at(K::LBrace) {
         stmts::block(p);
-    } else if p.at(K::FatArrow) {
+    } else if p.at(K::FatArrow) || p.at(K::ThinArrow) {
         expr_body(p);
         p.expect(K::Semicolon);
     } else {
@@ -998,7 +944,7 @@ fn body_or_semicolon(p: &mut Parser<'_>) {
 
 fn expr_body(p: &mut Parser<'_>) {
     let m = p.start();
-    p.expect(K::FatArrow);
+    types::arrow(p);
     exprs::expr(p);
     m.complete(p, K::ExprBody);
 }

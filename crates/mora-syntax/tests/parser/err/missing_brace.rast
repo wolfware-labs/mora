@@ -1,5 +1,5 @@
-SourceFile@0..85
-  ClassDecl@0..84
+SourceFile@0..81
+  ClassDecl@0..80
     Modifier@0..6
       PublicKw@0..6 "public"
     Whitespace@6..7 " "
@@ -7,12 +7,12 @@ SourceFile@0..85
     Whitespace@12..13 " "
     Name@13..14
       Ident@13..14 "B"
-    Newline@14..15 "\n"
-    MemberList@15..84
+    Whitespace@14..15 " "
+    MemberList@15..80
       LBrace@15..16 "{"
       Newline@16..17 "\n"
       Whitespace@17..21 "    "
-      FunctionDecl@21..57
+      FunctionDecl@21..53
         Modifier@21..27
           PublicKw@21..27 "public"
         Whitespace@27..28 " "
@@ -21,41 +21,40 @@ SourceFile@0..85
         ParamList@33..35
           LParen@33..34 "("
           RParen@34..35 ")"
-        Newline@35..36 "\n"
-        Whitespace@36..40 "    "
-        Block@40..57
-          LBrace@40..41 "{"
-          Newline@41..42 "\n"
-          Whitespace@42..50 "        "
-          ExprStmt@50..57
-            CallExpr@50..56
-              PathExpr@50..54
-                Path@50..54
-                  PathSegment@50..54
-                    NameRef@50..54
-                      Ident@50..54 "Work"
-              ArgList@54..56
-                LParen@54..55 "("
-                RParen@55..56 ")"
-            Semicolon@56..57 ";"
-      Newline@57..58 "\n"
-      Newline@58..59 "\n"
-      Whitespace@59..63 "    "
-      FunctionDecl@63..82
-        Modifier@63..69
-          PublicKw@63..69 "public"
-        Whitespace@69..70 " "
-        Name@70..76
-          Ident@70..76 "Second"
-        ParamList@76..78
-          LParen@76..77 "("
-          RParen@77..78 ")"
-        Whitespace@78..79 " "
-        Block@79..82
-          LBrace@79..80 "{"
-          Whitespace@80..81 " "
-          RBrace@81..82 "}"
-      Newline@82..83 "\n"
-      RBrace@83..84 "}"
-  Newline@84..85 "\n"
-error MR0110 57..57: expected `}`
+        Whitespace@35..36 " "
+        Block@36..53
+          LBrace@36..37 "{"
+          Newline@37..38 "\n"
+          Whitespace@38..46 "        "
+          ExprStmt@46..53
+            CallExpr@46..52
+              PathExpr@46..50
+                Path@46..50
+                  PathSegment@46..50
+                    NameRef@46..50
+                      Ident@46..50 "Work"
+              ArgList@50..52
+                LParen@50..51 "("
+                RParen@51..52 ")"
+            Semicolon@52..53 ";"
+      Newline@53..54 "\n"
+      Newline@54..55 "\n"
+      Whitespace@55..59 "    "
+      FunctionDecl@59..78
+        Modifier@59..65
+          PublicKw@59..65 "public"
+        Whitespace@65..66 " "
+        Name@66..72
+          Ident@66..72 "Second"
+        ParamList@72..74
+          LParen@72..73 "("
+          RParen@73..74 ")"
+        Whitespace@74..75 " "
+        Block@75..78
+          LBrace@75..76 "{"
+          Whitespace@76..77 " "
+          RBrace@77..78 "}"
+      Newline@78..79 "\n"
+      RBrace@79..80 "}"
+  Newline@80..81 "\n"
+error MR0110 53..53: expected `}`
