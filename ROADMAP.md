@@ -1040,7 +1040,7 @@ Done when:
 
 Spec: [§15.6](docs/design/mora.md#156-console-environment-and-time). Crates: `std`, `mora-rt`. Blocked by: M5.2.
 
-The members of §15.6: `Console` input and error output, `Environment`, `Random`, `Math` and `MathF`, and the time types of D-111 (`Clock`, `Instant`, `MonoTime`, `TimeSpan`, `Stopwatch`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Period`) and lint `wall-clock-duration`. `@RequiresCapability` tags go on the members that use a capability, such as `Clock.Now()` and `MonoTime.Now()` (`clock`) and `Random.Shared` (`random`); value types and their arithmetic need none.
+The members of §15.6: `Console` input and error output, `Environment`, `Random`, `Math` and `MathF`, and the time types of D-111 (`Clock`, `Instant`, `MonoTime`, `TimeSpan`, `Stopwatch`, `LocalDate`, `LocalTime`, `LocalDateTime`, `Period`, `TimeError`) and lint `wall-clock-duration`. `@RequiresCapability` tags go on the members that use a capability, such as `Clock.Now()` and `MonoTime.Now()` (`clock`) and `Random.Shared` (`random`); value types and their arithmetic need none.
 
 Done when:
 
@@ -1257,6 +1257,7 @@ Done when:
 
 - Routing table tests for literal-before-parameter order and `{*rest}`.
 - Shutdown with an in-flight request completes it within 5 s.
+- With `RequestTimeout` set to 100 ms, a handler that awaits `Task.Delay` for 1 s returns 503 at about 100 ms and its future's destructors run.
 - An internal error returns 500 with a problem+json body holding only its code and trace id, and the log has the full chain under that trace id.
 
 ### M6.8 The users API example and acceptance test

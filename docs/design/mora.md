@@ -1811,7 +1811,7 @@ Futures given to `scope.Spawn` and `Task.SpawnDetached` own everything they use 
 - When the deadline passes, the runtime drops `f` (§12.5) and the call returns `Err(TimeoutError)`. Timers and socket operations in `f` therefore end at the deadline without checking anything. A synchronous call such as `File.ReadAllText` blocks the thread (§12.1) and cannot be interrupted: `f` is dropped at its next `await` after the deadline, so the call returns late by the length of the blocking call. Lint `blocking-in-async` (§6.14) reports such calls in async code.
 - If `f` completes and the deadline passes before the executor polls `f` again, the result wins: the executor checks deadlines only before it polls a task, so a future that has returned `Ready` is never turned into `Err(TimeoutError)`.
 - `scope.Spawn` children inherit the deadline of the task that created the scope. `Task.SpawnDetached` tasks start without one.
-- The HTTP server gives each request a deadline (§16.1), so a handler and everything it calls stop at it with no deadline parameter in any signature.
+- The HTTP server gives each request a deadline (§16.1), so a handler, everything it awaits and its `scope.Spawn` children stop at it with no deadline parameter in any signature. A `Task.SpawnDetached` task started by a handler has no deadline and can outlive the request.
 
 ```mora
 app.MapGet("/dashboard/{id}", async (req: Request) => {
