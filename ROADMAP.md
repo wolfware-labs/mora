@@ -922,7 +922,7 @@ Done when:
 
 Spec: [§9.1](docs/design/mora.md#91-a-complete-example), [§9.6](docs/design/mora.md#96-what-a-macro-sees), [§9.9](docs/design/mora.md#99-standard-library-macros), [§6.2](docs/design/mora.md#62-structs). Crates: `std`, `mora-hir`. Blocked by: M4.7.
 
-`@Equatable`, `@Hashable`, `@Comparable`, `@Display`, `@Default`, `@Clone`, `@Error` with `@Code`, `@Public` and `@Status` (D-108), and `#Assert` with the behaviour of §9.9, and their automatic application to structs, tuples, enums and unions.
+`@Equatable`, `@Hashable`, `@Comparable`, `@Display`, `@Default`, `@Clone` and `#Assert` with the behaviour of §9.9, and their automatic application to structs, tuples, enums and unions. `@Error` on unions and structs, with `@Code`, `@Public` and `@Status` (D-108), and helper attributes with `MR0615`.
 
 Done when:
 
@@ -953,7 +953,7 @@ Done when:
 | [M5.14](#m514-standard-library-api-reference) | Standard library API reference | `docs` | M5.12 |
 | [M5.15](#m515-html-url-and-literal) | `Html`, `Url` and `Literal` | `std` | M5.2, M3.17 |
 | [M5.16](#m516-logging-and-tracing) | Logging and tracing | `std` | M5.8, M3.17 |
-| [M5.17](#m517-secrett) | `Secret<T>` | `std` | M5.11 |
+| [M5.17](#m517-secrett) | `Secret<T>` | `std` | M5.11, M5.16 |
 | [M5.18](#m518-report-and-context) | `Report` and `Context` | `std` | M5.2 |
 
 ### M5.1 Standard library internals
@@ -1125,7 +1125,7 @@ Done when:
 
 Spec: [§15.10](docs/design/mora.md#1510-logging-and-tracing), [§7.14](docs/design/mora.md#714-interpolation-handlers). Crates: `std`, `mora-rt`. Blocked by: M5.8, M3.17.
 
-`Log.Trace` to `Log.Error` through the log message handler (D-107), fields named after each hole's source text, `MORA_LOG` and `MORA_LOG_FORMAT=json`, `Trace.Span` with its end on drop, the current span inherited by spawned tasks, and redacted `Secret<T>` holes.
+`Log.Trace` to `Log.Error` through the log message handler (D-107), fields named after each hole's source text with `#2` for repeats, `MORA_LOG` and `MORA_LOG_FORMAT=json`, and `Trace.Span` with its end on drop. Spawned tasks inheriting the current span come with M6.3, and redacted `Secret<T>` holes with M5.17.
 
 Done when:
 
@@ -1134,14 +1134,14 @@ Done when:
 
 ### M5.17 `Secret<T>`
 
-Spec: [§15.11](docs/design/mora.md#1511-secrets), [§16.3](docs/design/mora.md#163-json-stdjson), [§6.14](docs/design/mora.md#614-effects). Crates: `std`, `mora-hir`. Blocked by: M5.11.
+Spec: [§15.11](docs/design/mora.md#1511-secrets), [§16.3](docs/design/mora.md#163-json-stdjson), [§6.14](docs/design/mora.md#614-effects). Crates: `std`, `mora-hir`. Blocked by: M5.11, M5.16.
 
 `Secret<T>` for `string` and `byte[]` (D-106): redacted `IDisplay`, `Use` through a span view, zeroing in the destructor, `Clone`, the `secret` fact in `mora explain-effects`, lint `secret-copied`, and `@Json` reading secrets and writing them only with `@JsonSecret`.
 
 Done when:
 
 - Interpolating, logging and printing a secret show `Secret<string>(***)`.
-- A test with the debug runtime reads the freed buffer's bytes as zero after the secret is dropped.
+- With the debug runtime, a free hook sees the secret's bytes already zero when its buffer is released.
 - UI test: `Json.Serialize` of a type with a `Secret<T>` field and no `@JsonSecret` is an error whose note names the field.
 
 ### M5.18 `Report` and `Context`
@@ -1165,7 +1165,7 @@ Done when:
 |---|---|---|---|
 | [M6.1](#m61-async-functions-and-futures-language-rules) | Async functions and futures: language rules | `async` | M5.7 |
 | [M6.2](#m62-async-lowering) | Async lowering | `async` | M6.1 |
-| [M6.3](#m63-executor-tasks-and-cancellation) | Executor, tasks and cancellation | `async` | M6.2 |
+| [M6.3](#m63-executor-tasks-and-cancellation) | Executor, tasks and cancellation | `async` | M6.2, M5.16 |
 | [M6.4](#m64-async-entry-points) | Async entry points | `async` | M6.3 |
 | [M6.5](#m65-reactor-tcp-and-timers) | Reactor, TCP and timers | `rt` | M6.3 |
 | [M6.6](#m66-http11-connections) | HTTP/1.1 connections | `http` | M6.5 |
@@ -1196,14 +1196,15 @@ Done when:
 
 ### M6.3 Executor, tasks and cancellation
 
-Spec: [§12.4](docs/design/mora.md#124-tasks), [§12.5](docs/design/mora.md#125-cancellation). Crates: `mora-rt`, `std`. Blocked by: M6.2.
+Spec: [§12.4](docs/design/mora.md#124-tasks), [§12.5](docs/design/mora.md#125-cancellation), [§15.10](docs/design/mora.md#1510-logging-and-tracing). Crates: `mora-rt`, `std`. Blocked by: M6.2, M5.16.
 
-The single-threaded executor and wakers, `Task.WhenAll`, `WhenAny`, `Scope`, `Spawn`, `TaskHandle<T>`, `Delay`, `Yield` and `Timeout`, cancellation by drop, and cancellation of detached tasks when `Main` returns.
+The single-threaded executor and wakers, `Task.WhenAll`, `WhenAny`, `Scope`, `Spawn`, `TaskHandle<T>`, `Delay`, `Yield` and `Timeout`, cancellation by drop, cancellation of detached tasks when `Main` returns, and spawned tasks inheriting the current log span (§15.10).
 
 Done when:
 
 - `WhenAll` of two 100 ms delays completes in under 150 ms.
 - `Timeout` cancels its future and the future's destructors run.
+- An event logged inside a spawned task belongs to the span that was current where it was spawned.
 
 ### M6.4 Async entry points
 
