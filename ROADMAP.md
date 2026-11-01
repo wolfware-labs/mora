@@ -951,7 +951,7 @@ Done when:
 | [M5.11](#m511-the-json-macro) | The `@Json` macro | `std` | M5.10, M4.9 |
 | [M5.12](#m512-testing-library-and-mora-test) | Testing library and `mora test` | `cli` | M5.7 |
 | [M5.13](#m513-signals-and-observable) | Signals and `@Observable` | `std` | M5.4, M2.10, M4.9 |
-| [M5.14](#m514-standard-library-api-reference) | Standard library API reference | `docs` | M5.12 |
+| [M5.14](#m514-standard-library-api-reference) | Standard library API reference | `docs` | M5.12, M5.15, M5.16, M5.17, M5.18 |
 | [M5.15](#m515-html-url-and-literal) | `Html`, `Url` and `Literal` | `std` | M5.2, M3.17 |
 | [M5.16](#m516-logging-and-tracing) | Logging and tracing | `std` | M5.8, M3.17 |
 | [M5.17](#m517-secrett) | `Secret<T>` | `std` | M5.11, M5.16 |
@@ -1103,7 +1103,7 @@ Done when:
 
 ### M5.14 Standard library API reference
 
-Spec: [§15](docs/design/mora.md#15-standard-library-mvp-surface). Crates: `xtask`, `std`. Blocked by: M5.12.
+Spec: [§15](docs/design/mora.md#15-standard-library-mvp-surface). Crates: `xtask`, `std`. Blocked by: M5.12, M5.15, M5.16, M5.17, M5.18.
 
 `cargo xtask std-docs` generates HTML reference pages from `std/` doc comments, linking backtick symbol names, and checks that every member §15 lists exists.
 
