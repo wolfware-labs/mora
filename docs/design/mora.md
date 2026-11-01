@@ -975,13 +975,13 @@ public class PriceService {
 
     // No annotation: hover shows `uses (net.outbound, clock)`
     public async PriceCents(order: Order): Result<int, PricingError> {
-        let rate = await _rates.Get(order.Currency, DateTime.UtcNow)?;
+        let rate = await _rates.Get(order.Currency, Clock.Now())?;
         return Pricing.Apply(order.TotalCents, rate);
     }
 }
 
 public static class Pricing {
-    // A checked bound: reading DateTime.UtcNow here is error MR0250
+    // A checked bound: reading Clock.Now() here is error MR0250
     public static Apply(cents: int, rate: Rate): int uses none {
         return cents * rate.Numerator / rate.Denominator;
     }
@@ -1002,7 +1002,7 @@ public Sort<T>(items: List<T>, compare: (T, T) => int uses none) { ... }
 - **Attribution.** An effect is charged to the function, and so to the package, whose code performs it. A lambda written in an app and passed into a library carries the app's effects, not the library's. Authority travels with values and closures, never with the call stack, which lets §18.6 check grants per package without effect parameters.
 - **Bounds.** `uses` follows the return type, or the parameter list when there is none, and comes before `where` and the body. It names one capability, several in parentheses (`uses (fs.read, clock)`), or `none`. An inferred capability outside the bound, or a `dyn` call, is error `MR0250`, which prints the call path that brings it in. A bound on an interface method is checked against every implementation, and a bound on a function type against every lambda or method converted to it. `blocking` and `secret` are not capabilities and are never bounded.
 - **`uses none` means no capability.** It does not mean that the function allocates nothing, mutates nothing or never panics; those are separate facts (§6.9).
-- **Seeing effects.** Hover shows a function's set, and an optional inlay hint shows it after the signature. `mora explain-effects <function>` prints each effect with the call path that introduces it: `clock <- DateTime.UtcNow at src/Price.mr:12`.
+- **Seeing effects.** Hover shows a function's set, and an optional inlay hint shows it after the signature. `mora explain-effects <function>` prints each effect with the call path that introduces it: `clock <- Clock.Now at src/Price.mr:12`.
 - **`blocking-in-async`** (lint, warn by default) reports an `async` function whose set contains `blocking`, with the path, however many calls down the blocking call is.
 - The same analysis gives the macro sandbox (§9.7), the getter rules (§6.9) and the capability set of each package (§18.6).
 
@@ -1612,7 +1612,7 @@ Debug builds keep these guarantees too.
 Allocation and layout guarantees hold in every build profile, so a test that counts allocations (§15.9) gives the same answer in `dev` and `release`. The test suite checks each with MIR snapshots or allocation counts:
 
 1. **Stack promotion.** A class or unique object of at most 1 KiB, or an array of constant length within that size, never touches the heap when its reference is used only in locals of the creating function, as an `in` argument to a parameter that does not escape, as the receiver of a method whose `this` does not escape, or by a non-escaping closure, when no weak reference to it is taken, and when it does not outlive its loop iteration. A unique object qualifies when it is never moved out of its local. A function's promoted objects total at most 16 KiB (§14.18, OQ-23).
-2. **Futures.** `await` on a call that is not part of a cycle in the async call graph, direct or mutual (§12.3), allocates nothing for the future's state; allocations the function's body makes count separately. `Task.Spawn` allocates once, `Future.Box` allocates once, and an `await` in such a cycle allocates once per call (§12.3).
+2. **Futures.** `await` on a call that is not part of a cycle in the async call graph, direct or mutual (§12.3), allocates nothing for the future's state; allocations the function's body makes count separately. `Task.SpawnDetached` and `scope.Spawn` allocate once, `Future.Box` allocates once, and an `await` in such a cycle allocates once per call (§12.3).
 3. **LINQ and loops.** A chain of the standard streaming operators (all except `OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending`, `GroupBy`, `Reverse` and `Distinct`, which buffer, §15.5) over an array, span or `List<T>` compiles to one loop with no allocation and no calls into the operators' iterator types. `foreach` over an array or span, and `for (var i = 0; i < a.Length; i++)` over an array or span local or parameter that the loop does not assign, have no per-element bounds check (§14.17).
 4. **Strings.** Creating, copying or slicing to a string of at most 15 bytes never allocates; `AsMemory()` on one does (§13.4). `a + b + ...` allocates at most once, and so does `$"..."` when every hole is a primitive, a `string` or a type whose `IDisplay` implementation does not allocate. Allocations made inside a user's `Format` or `ToString` are counted separately (§13.4).
 5. **In-place updates.** `with` on a struct stored in a heap cell, at its last use, with one strong reference and no weak reference, updates it in place. `+=` on a local string at its last use appends in place when its allocation has room and no borrow or view of it is live. A loop of `+=` on an unaliased local string runs in amortized linear time (§14.19).
@@ -1658,7 +1658,7 @@ public interface IError : IDisplay {
 
 One error serves three readers (D-108). `Code` is for programs: alerting, dashboards and clients branch on it, never on message text, so it stays the same when the message changes. `PublicMessage` is the only text that may reach an end user, and an error without one is internal. `ToString()` and the chain of `Source()` are for developers and go to the log (§15.10). `Source()` is a method rather than a getter because boxing an error allocates, which a getter may not do (§6.9).
 
-The MVP standard library defines `IoError`, `ParseError`, `FormatError`, `JsonError` and `HttpError` (§15, §16), whose codes start with `io.`, `parse.`, `format.`, `json.` and `http.`. An application usually declares one union per layer, with the standard-library macro `@Error` (§9.9):
+The MVP standard library defines `IoError`, `ParseError`, `FormatError`, `JsonError`, `HttpError`, `TimeoutError` and `TimeError` (§12.4, §15, §16), whose codes start with `io.`, `parse.`, `format.`, `json.`, `http.`, `task.` and `time.`. An application usually declares one union per layer, with the standard-library macro `@Error` (§9.9):
 
 ```mora
 @Error
@@ -1745,6 +1745,13 @@ The runtime and the standard library are **thread-ready, not threaded** (D-60), 
 - The executor's state (task queue, wakers, timers, reactor registration) lives in a per-thread context, never in globals, so a second thread can run its own executor.
 - `Std` keeps no global mutable state: caches, buffers and counters live in values the program owns or in that per-thread context.
 
+**The World** (D-109). Everything a program can observe from outside goes through one runtime seam, the *World*: the wall clock, monotonic time, timers, random numbers, sockets, files, environment variables, the console, and the executor's choice of which ready task to poll next. The World lives in the per-thread context above. A `release` build calls the real World directly, so the seam costs nothing there; `dev` builds and `mora test` call it through a pointer in that context, one load and an indirect call next to a system call. In the MVP the World is internal to the runtime and `Std`: no public type names it, and a program cannot install its own.
+
+- **Scheduling.** Outside tests the executor polls ready tasks first in, first out. Under `mora test` it picks among the ready tasks with a seeded generator, so one seed gives one interleaving (§17.5).
+- **Randomness.** `Random.Shared` draws from the World, and `mora test` seeds it from the same test seed.
+- **Determinism.** With the seed fixed, a single-threaded test sees the same task order, random numbers, identity numbers (D-61), dictionary order (D-29) and hash keys (§15.3) on every run, as long as its I/O completes in the same order and its clock readings do not change what it does. Real I/O, the clock and `ffi` calls are outside the seed: foreign code reaches the operating system without passing through the World. Effect inference (§6.14) reports which tests use them.
+- **Post-MVP.** A public `World` and a simulated one in `Std.Testing.Sim` (a virtual clock that jumps to the next timer, an in-memory network and file system with injected faults, several simulated hosts in one process) build on this seam. Static state (§4.7) is shared between simulated hosts in one process, so that design must give each host its own statics.
+
 ### 12.2 Async functions and futures
 
 - `async F(...): T` declares an async function returning `T`. Calling it returns a future whose result is `T` (D-27, described below). Inside it, `return v;` returns a `T`, and `await` may be used.
@@ -1766,7 +1773,11 @@ The compiler turns each async function into a state machine struct (§14.9):
 - `await` on a child future stores it in the parent's state and polls it in place, so calling and awaiting allocates nothing for the child's state. The exceptions are a recursive await (next item), and allocations that the child's body makes count separately.
 - An `await` on a call that can reach the awaiting function again (a cycle in the async call graph) would give the state an infinite size. The compiler boxes the future at that call, one allocation per recursive call, and an inlay hint says so.
 - Locals live at disjoint suspension points may share storage in the state. This is best-effort, and `mora explain-cost` reports state sizes.
-- `Task.Spawn(f)` allocates one block that holds the task's bookkeeping, the future's state, built directly in it, and a slot for the result. The block has two owners: the executor while the task runs, and the returned `TaskHandle<T>` until it is awaited or dropped. `TaskHandle<T>` is a unique value that points into the block, not an allocation of its own. Dropping the handle detaches the task, which keeps running, and the block is freed when the last owner lets go. The executor keeps free lists of task blocks by size class, and a waker is a task index, not a counted object.
+- `Task.SpawnDetached(f)` and `scope.Spawn(f)` allocate one block that holds the task's bookkeeping, the future's state, built directly in it, and a slot for the result. `TaskHandle<T>` is a unique value that points into the block, not an allocation of its own.
+  - A detached task's block has two owners: the executor while the task runs, and the returned handle until it is awaited or dropped. Dropping the handle leaves the task running, and the block is freed when the last owner lets go.
+  - A scope child's block has a third owner, the scope, which keeps it until the scope completes. Dropping the child's handle therefore neither cancels the child nor hides its result: the scope still waits for it and still sees an `Err` it returns.
+
+  The executor keeps free lists of task blocks by size class, and a waker is a task index, not a counted object.
 - An object that §10.13 promotes inside an async function lives in its state.
 
 ### 12.4 Tasks
@@ -1775,17 +1786,49 @@ The compiler turns each async function into a state machine struct (§14.9):
 |---|---|
 | `await Task.WhenAll(f1, f2, ...)` | Runs the futures concurrently on the current thread and returns a tuple of their results. Up to 8 futures, plus an overload taking `List<Future<T>>` that returns `List<T>` |
 | `await Task.WhenAny(f1, f2)` | Returns the first result as a union `First(T1)` / `Second(T2)` and drops (cancels) the other |
-| `await Task.Scope(async scope => { scope.Spawn(f); ... })` | Structured concurrency. Children run concurrently; the scope completes when every child has completed. Dropping the scope's future cancels every child |
-| `Task.Spawn(f)` | Starts `f` as a detached task on the executor and returns a `TaskHandle<T>`. Awaiting the handle gives `T`; dropping it leaves the task running. Detached tasks still running when `Main` returns are cancelled |
+| `await Task.Scope(async scope => { scope.Spawn(f); ... })` | Structured concurrency, below. Children run concurrently; the scope completes when its body and every child have completed. Returns the body's result; dropping the scope's future cancels the body and every child |
+| `Task.SpawnDetached(f)` | Starts `f` as a detached task on the executor and returns a `TaskHandle<T>`. Awaiting the handle gives `T`; dropping it leaves the task running. Detached tasks still running when `Main` returns are cancelled. Lint `detached-task` (warn by default) reports a call outside `Main` |
 | `await Task.Delay(TimeSpan.FromMilliseconds(100))` | Timer |
 | `await Task.Yield()` | Lets other tasks run |
-| `await Task.Timeout(f, duration)` | `Result<T, TimeoutError>`; cancels `f` on timeout |
+| `await Task.WithTimeout(duration, f)` | Runs `f` with a deadline `duration` from now; `Result<T, TimeoutError>`, with `Err` when the deadline passes first |
+| `await Task.WithDeadline(at, f)` | The same with an absolute deadline `at: MonoTime` (§15.6) |
+| `Task.Remaining` | `TimeSpan?`: the time left before the current task's deadline, or `none` when it has none |
 
-Futures given to `Spawn` own everything they use (§12.3), so a spawned task can never refer to a local of its spawner.
+`TimeoutError` is a struct with no fields that implements `IError`; its message is `deadline exceeded` and its code `task.timeout`. It is internal, with no `PublicMessage` or `HttpStatus` (§11.2), so a handler that returns it gets a 500 problem response; the 503 of an expired request deadline (§16.1) comes from the server, not from this error.
+
+Futures given to `scope.Spawn` and `Task.SpawnDetached` own everything they use (§12.3), so a spawned task can never refer to a local of its spawner.
+
+**Scopes fail fast** (D-110). A scope's error type `E` comes from its body: a body that returns `Result<T, E>` makes `Task.Scope` return `Result<T, E>`.
+
+- A child whose result is `Result<U, E>` and that returns `Err` cancels the scope at once: the body and every other child are dropped (§12.5), and the scope returns that `Err`. This happens whether or not the body has awaited the child, so a failure is never lost in a child nobody awaits.
+- A child whose result is not a `Result` cannot fail the scope. A child that should not stop its siblings handles its own error and returns a plain value, for example `none`.
+- A child whose result is `Result<U, F>`, with `F` not the scope's error type, is error `MR0404`, with a fix that adds `.MapError(...)` to the child. A scope whose body does not return a `Result` has no error type, so every `Result` child is `MR0404` there, and the fix handles the error inside the child instead.
+- When the body returns `Err` itself, the scope cancels the children that are still running and returns it. When everything succeeds, the scope waits for the remaining children and returns the body's `Ok`.
+
+**Deadlines** (D-110). A deadline belongs to the running task and covers everything it awaits; it is one field in the executor's task record.
+
+- `Task.WithTimeout` and `Task.WithDeadline` lower it while `f` runs and restore it afterwards. A nested call keeps the earlier of its own deadline and the inherited one, so an inner call can shorten a deadline but never extend it.
+- When the deadline passes, the runtime drops `f` (§12.5) and the call returns `Err(TimeoutError)`. Timers and socket operations in `f` therefore end at the deadline without checking anything. A synchronous call such as `File.ReadAllText` blocks the thread (§12.1) and cannot be interrupted: `f` is dropped at its next `await` after the deadline, so the call returns late by the length of the blocking call. Lint `blocking-in-async` (§6.14) reports such calls in async code.
+- If `f` completes and the deadline passes before the executor polls `f` again, the result wins: the executor checks deadlines only before it polls a task, so a future that has returned `Ready` is never turned into `Err(TimeoutError)`.
+- `scope.Spawn` children inherit the deadline of the task that created the scope. `Task.SpawnDetached` tasks start without one.
+- The HTTP server gives each request a deadline (§16.1), so a handler, everything it awaits and its `scope.Spawn` children stop at it with no deadline parameter in any signature. A `Task.SpawnDetached` task started by a handler has no deadline and can outlive the request.
+
+```mora
+app.MapGet("/dashboard/{id}", async (req: Request) => {
+    let id = req.RouteValue<UserId>("id")?;
+    return await Task.Scope(async scope => {
+        // Load and Recent return Result<_, HttpError>, the scope's error type
+        let profile = scope.Spawn(_profiles.Load(id));
+        let orders = scope.Spawn(_orders.Recent(id));     // an Err here cancels the profile load
+        let dashboard = new Dashboard { Profile = await profile?, Orders = await orders? };
+        return Ok(Results.Json(dashboard));
+    });
+});
+```
 
 ### 12.5 Cancellation
 
-Dropping a future cancels it: the next time it would have resumed, it does not, and its state is dropped, which runs the destructors of the locals it held at that `await`. Cancellation is therefore deterministic and needs no token. `CancellationToken` does not exist; `Task.Timeout`, `WhenAny` and scope cancellation all work by dropping futures.
+Dropping a future cancels it: the next time it would have resumed, it does not, and its state is dropped, which runs the destructors of the locals it held at that `await`. Cancellation is therefore deterministic and needs no token. `CancellationToken` does not exist; deadlines, `WhenAny` and scope cancellation all work by dropping futures.
 
 ### 12.6 Threads [post-MVP]
 
@@ -2118,7 +2161,7 @@ The standard library takes its names from .NET where they fit, and drops what de
 
 ### 15.1 Prelude (`Std`)
 
-Visible in every file: primitives and their static members (`int.Parse`, `int.MaxValue`, `double.IsNaN`, ...), `string`, `Option<T>`, `Result<T, E>`, `Ok`, `Err`, `List<T>`, `Dictionary<TKey, TValue>`, `HashSet<T>`, `Span<T>`, `ReadOnlySpan<T>`, `Func`, `Action`, `Console`, `Math`, `MathF`, `Environment`, `Task`, `Future<T>`, `TimeSpan`, `Drop`, `ReferenceEquals`, `panic`, `Debug`, `Unreachable`, `Todo`, the interfaces of §8.5, `IError`, `Report`, `Literal`, `Html`, `Url`, `Log`, `Trace`, `Secret<T>`, and the LINQ operators of §15.5.
+Visible in every file: primitives and their static members (`int.Parse`, `int.MaxValue`, `double.IsNaN`, ...), `string`, `Option<T>`, `Result<T, E>`, `Ok`, `Err`, `List<T>`, `Dictionary<TKey, TValue>`, `HashSet<T>`, `Span<T>`, `ReadOnlySpan<T>`, `Func`, `Action`, `Console`, `Math`, `MathF`, `Environment`, `Task`, `Future<T>`, `TimeSpan`, `Clock`, `Instant`, `MonoTime`, `Drop`, `ReferenceEquals`, `panic`, `Debug`, `Unreachable`, `Todo`, the interfaces of §8.5, `IError`, `Report`, `Literal`, `Html`, `Url`, `Log`, `Trace`, `Secret<T>`, and the LINQ operators of §15.5.
 
 Numeric parsing returns results: `int.Parse(s)` is `Result<int, ParseError>`, so `if (int.Parse(text) is Ok(let n)) { ... }` parses and tests in one step.
 
@@ -2192,11 +2235,24 @@ Operators that need the whole sequence (`OrderBy`, `GroupBy`, `Reverse`, `Distin
 |---|---|
 | `Console` | `Write`, `WriteLine` (any `IDisplay`, or a format string with holes), `ReadLine()` returning `string?`, `Error.Write`, `Error.WriteLine`, `Out.Flush()` |
 | `Environment` | `GetEnvironmentVariable(name)` returning `string?`, `GetCommandLineArgs()`, `Exit(code)`, `NewLine`, `ProcessId`, `CurrentDirectory` |
-| `TimeSpan` | `FromMilliseconds`, `FromSeconds`, `FromMinutes`, `TotalMilliseconds`, arithmetic, comparison |
-| `Stopwatch` | `StartNew()`, `Elapsed`, `ElapsedMilliseconds`, `Restart()` |
-| `DateTime` | `UtcNow`, `ToString("O")` (ISO 8601), `Year` ... `Millisecond`, arithmetic with `TimeSpan`. Time zones other than UTC are post-MVP |
-| `Random` | `Shared.Next(min, max)`, `NextDouble()`, `Fill(Span<byte>)`, seeded `new Random(seed)` |
+| `Random` | `Shared.Next(min, max)`, `NextDouble()`, `Fill(Span<byte>)`, seeded `new Random(seed)`. `Shared` draws from the World and is seeded under `mora test` (§12.1) |
 | `Math`, `MathF` | The .NET members: `Abs`, `Min`, `Max`, `Clamp`, `Sqrt`, `Pow`, `Floor`, `Ceiling`, `Round`, trigonometry, `PI`, `E` |
+
+**Time** (D-111). There is one type per concept, so an instant, a duration and a calendar date can never be confused. `Clock`, `Instant`, `MonoTime` and `TimeSpan` are in the prelude (§15.1); the other types below, and `TimeError`, are in `Std.Time` and need `using Std.Time;`.
+
+| Type | Meaning and MVP members |
+|---|---|
+| `Instant` | A point on the UTC timeline, in nanoseconds. `Clock.Now()` returns one (`uses clock`). `Instant + TimeSpan` gives an `Instant` and `Instant - Instant` a `TimeSpan`; comparison, `ToString()` in RFC 3339 (`2026-10-26T20:15:03.120Z`), `Instant.Parse` returning `Result<Instant, TimeError>` |
+| `MonoTime` | A monotonic reading for measuring durations and setting deadlines. `MonoTime.Now()` (`uses clock`), `MonoTime - MonoTime` gives a `TimeSpan` and `MonoTime + TimeSpan` a `MonoTime`. It never serializes |
+| `TimeSpan` | An exact duration: `FromMilliseconds`, `FromSeconds`, `FromMinutes`, `FromHours`, `TotalMilliseconds`, arithmetic, comparison |
+| `Stopwatch` | `StartNew()`, `Elapsed`, `ElapsedMilliseconds`, `Restart()`, built on `MonoTime`. Each of them reads `MonoTime.Now()`, so each uses `clock` (§6.14); `Elapsed` and `ElapsedMilliseconds` are plain getters, which may use a capability (§6.9) |
+| `LocalDate`, `LocalTime`, `LocalDateTime` | Calendar values with no time zone: a birthday, "09:00 every day". `LocalDate.Of(year, month, day)` and the matching `Of` on the others return `Result<_, TimeError>`, so an invalid date is an error value. Components: `Year`, `Month`, `Day` and `DayOfWeek` on dates, `Hour`, `Minute`, `Second` and `Nanosecond` on times, all of them on `LocalDateTime`. Comparison, ISO 8601 `ToString()`, and `Parse` returning `Result<_, TimeError>` |
+| `Period` | Calendar arithmetic: `Period.Days(n)`, `Months(n)`, `Years(n)`. `LocalDate + Period.Months(1)` moves by calendar months and clamps the day (January 31 plus one month is February 28 or 29); a `TimeSpan` is always exact |
+| `Clock` | `Now()`, the one wall-clock reading in `Std`, routed through the World. `MonoTime.Now()` also goes through the World. Behind the real World, the wall clock is a hosted service of `mora-rt` (§13.1) and monotonic time comes from `mora_pal_now` (§19.4) |
+| `TimeError` | A union implementing `IError`: `OutOfRange(Field: string, Value: long)` for a component outside its calendar range (code `time.out_of_range`), and `Format(Input: string)` for text `Parse` rejects (code `time.format`). Both cases are internal, with no `PublicMessage` or `HttpStatus` (§11.2) |
+
+- **Durations use `MonoTime`.** The wall clock can jump (NTP, manual changes), so lint `wall-clock-duration` (warn by default) reports `Instant - Instant` where both readings come from `Clock.Now()` in the same function, with a fix to `Stopwatch` or `MonoTime`.
+- **Post-MVP:** `TimeZone` from the IANA time-zone database, `ZonedDateTime` (a `LocalDateTime` with a zone and an offset), explicit resolution of times in a daylight-saving gap or overlap, and RFC 9557 zone suffixes in JSON.
 
 ### 15.7 Files and networking
 
@@ -2332,11 +2388,11 @@ await app.RunAsync("127.0.0.1:8080")?;            // address argument overrides 
 
 **Protocol.** HTTP/1.1 with persistent connections, `Content-Length` request bodies and chunked request bodies, `Content-Length` responses, `Date` and `Server: mora` headers, `Connection: close` handling, and `Expect: 100-continue`. HTTP/2, TLS and WebSockets are post-MVP; production deployments are expected to sit behind a reverse proxy that terminates TLS, which the documentation shows.
 
-**Limits**, configurable through `WebAppOptions`: request head 16 KiB, body 1 MiB (413 beyond), 100 headers, header read timeout 10 s, idle keep-alive timeout 60 s, 10,000 concurrent connections. Exceeding the head limit returns 431.
+**Limits**, configurable through `WebAppOptions`: request head 16 KiB, body 1 MiB (413 beyond), 100 headers, header read timeout 10 s, idle keep-alive timeout 60 s, 10,000 concurrent connections, and a request deadline (`WebAppOptions.RequestTimeout`, a `TimeSpan?` field, 30 s by default, `none` for no deadline, §12.4): when it passes, the handler's future is dropped and the client gets 503. Exceeding the head limit returns 431.
 
 **Body memory budget.** Buffered request bodies across all connections share one budget, 64 MiB by default (`WebAppOptions.MaxBufferedBodyBytes`). A request reserves its `Content-Length` before the server reads the body; a chunked body reserves in 64 KiB steps as it arrives. While the budget is exhausted the server stops reading request bodies, which applies TCP backpressure to clients. A request that waits more than 5 s for a reservation gets 503 with `Retry-After: 1` and its connection is closed. A reservation is released when the handler's future completes. The worst case for buffered bodies is therefore the budget, not connections times body limit, and head buffers add at most 16 KiB per connection.
 
-**Concurrency.** Each accepted connection runs as a task in the app's task scope on the single executor thread (§12.1). Requests on one connection are handled in order. `RunAsync` completes on SIGINT or SIGTERM (Ctrl+C or Ctrl+Break on Windows): it stops accepting, waits up to 5 s for in-flight requests and then cancels them.
+**Concurrency.** Each accepted connection runs as a task in the app's task scope on the single executor thread (§12.1). A connection task handles its own errors and returns no `Result`, so one failed connection never cancels the others (§12.4). Requests on one connection are handled in order. `RunAsync` completes on SIGINT or SIGTERM (Ctrl+C or Ctrl+Break on Windows): it stops accepting, waits up to 5 s for in-flight requests and then cancels them.
 
 **Allocation** (D-80). Each connection task takes a read buffer and a write buffer from a pool. A `Request` keeps offsets into the request-head buffer, and `Headers.Get(name)` builds its `string` only when called, usually inline (§13.4). `Request` and `Response` live in the connection task's state (§12.3). `Results.Json(value)` keeps the value and serializes it straight into the write buffer when the response is written, with no intermediate `string`. A warm `GET /users/1` in §2.2 makes at most 3 heap allocations (§20.6).
 
@@ -2388,7 +2444,9 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
 | `List<T>`, `T[]`, `HashSet<T>` | arrays |
 | `Dictionary<string, T>` | objects |
 | Unions | `{"type": "circle", "radius": 1.5}`: a `type` discriminator with the camelCase case name, then the case fields. `@JsonTag("kind")` renames the discriminator |
-| `DateTime` | ISO 8601 string |
+| `Instant` | RFC 3339 string in UTC (`"2026-10-26T20:15:03.120Z"`) |
+| `LocalDate`, `LocalTime`, `LocalDateTime` | ISO 8601 strings (`"2026-10-26"`, `"09:00:00"`, `"2026-10-26T09:00:00"`) |
+| `TimeSpan` | number of milliseconds |
 | `Secret<T>` | read as its value; left out of the output unless the field has `@JsonSecret` (§15.11) |
 | `@JsonSecret` on a `Secret<T>` field | written as its plaintext; on any other field it is a compile error from `@Json` |
 
@@ -2406,7 +2464,7 @@ public union HttpError : IError, IFrom<JsonError>, IFrom<ParseError> {
 | `mora build [--release] [--target T] [--emit obj\|mir\|clif]` | Builds the project into `target/<profile>/<name>[.exe]` |
 | `mora run [--release] [-- args]` | Builds and runs |
 | `mora check` | Runs every analysis and check, no code generation |
-| `mora test [filter]` | Builds and runs `@Test` functions (§17.5) |
+| `mora test [filter] [--seed <hex>]` | Builds and runs `@Test` functions (§17.5); `--seed` replays a printed seed |
 | `mora fmt [--check]` | Formats every `.mr` file in the project |
 | `mora repl` | Interactive loop (§14.16) |
 | `mora explain MR0310` | Prints the long explanation of an error code, with examples of the error and its fix |
@@ -2472,6 +2530,8 @@ users-api/
 ### 17.5 Test runner
 
 `mora test` compiles the project with `Test = true`, collects `@Test` functions from the `test` sections and `.tests.mr` files in `src/` (unit tests, which can see `internal` items, §15.9) and from every file in `tests/` (integration tests, which see only `public` items), builds one test executable, and runs each test. Because a panic aborts (§11.4), the runner forks a child process per test on Unix and spawns one per test on Windows; a panicking test fails without stopping the others. Output follows `dotnet test` conventions: one line per failing test with the assertion message, and a summary `Passed: 41, Failed: 1, Ignored: 2`. `--leak-check` (on by default under `mora test`) fails a test that leaves objects alive (§10.11).
+
+**Seeds** (D-109). Each run of `mora test` draws one seed, which drives `Random.Shared` and the executor's choice among ready tasks in every test (§12.1). A failing test prints it, `seed: 0x9e3779b97f4a7c15`, and `mora test <filter> --seed 0x9e3779b97f4a7c15` runs the test again with the same random numbers and the same task interleaving.
 
 `mora bench` collects `@Benchmark` functions from the same places: `test` sections, `.tests.mr` files and `tests/`. Tests and benchmarks are named by their qualified name, `Namespace.Type.Function`, and `[filter]` on either command keeps those whose qualified name contains it. `mora bench` runs benchmarks in one process, one after another, and prints one line per benchmark with the counts of §15.9.
 
@@ -2852,7 +2912,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-70 | Ownership and modification summaries drive reference-count elision, and a value whose drop runs no user code is released at its last use in every build | user | 10.8, 14.12 |
 | D-71 | `with` and string `+=` reuse a unique value's storage in place; general reuse is post-MVP | user | 14.19 |
 | D-72 | Shared objects have an 8-byte header with no type pointer in release builds; the debug runtime keeps type metadata in a prefix word | user | 13.3 |
-| D-73 | A future is an inline move-only state value; `await` allocates nothing for the awaited future's state, `Task.Spawn` allocates one block, and an await in a cycle of the async call graph is the only implicit box; `Future.Box(f)`, always explicit, allocates once. Amends D-18 | user | 12.2, 12.3 |
+| D-73 | A future is an inline move-only state value; `await` allocates nothing for the awaited future's state, `Task.SpawnDetached` and `scope.Spawn` allocate one block (renamed by D-110), and an await in a cycle of the async call graph is the only implicit box; `Future.Box(f)`, always explicit, allocates once. Amends D-18 | user | 12.2, 12.3 |
 | D-74 | The MIR optimizer inlines and scalar-replaces before ARC optimization, with budgets counted in MIR statements, so LINQ chains and the listed loops have published guarantees | user | 14.1, 14.17 |
 | D-75 | `string` is a 16-byte value that stores up to 15 bytes inline; a concatenation allocates at most once, and so does an interpolation whose holes do not allocate | user | 5.3, 13.4 |
 | D-76 | Costs are visible and testable: `mora explain-cost`, the LSP cost lens, allocation counters in every build, `MaxAllocations` tests and deterministic benchmark counts | user | 10.13, 17.1 |
@@ -2888,6 +2948,9 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-106 | `Secret<T>` prints redacted, is read only through a view in `Use`, keeps one copy of its plaintext behind a counted reference and erases it in its destructor, and is left out of JSON output without `@JsonSecret` | user | 6.14, 15.11, 16.3 |
 | D-107 | Logging takes interpolated strings and records each hole as a field named after its source text; a disabled level skips the holes; spans end when their value is dropped; logging needs no capability | user | 15.10, 16.1 |
 | D-108 | `IError` carries `Code`, `PublicMessage` and `HttpStatus`; HTTP handlers return any copyable `E : IError` and the server maps it without boxing, showing only public messages; `Report` collects context and is reached explicitly with `.Context(...)` or `.Report()`, never by a bare `?` | user | 11.2, 11.5, 16.1, 16.2 |
+| D-109 | Clock, timers, randomness, I/O and task scheduling go through one runtime seam, the World, internal in the MVP; `mora test` seeds randomness and the scheduler, prints the seed on failure and replays it with `--seed`; a public and simulated World are post-MVP | user | 12.1, 17.5 |
+| D-110 | `Task.Scope` fails fast: a child's `Err` of the scope's error type cancels the body and its siblings and becomes the result (`MR0404` for another error type); deadlines are inherited per task, set by `Task.WithTimeout` and `Task.WithDeadline`, which replace `Task.Timeout`; `Task.Spawn` becomes `Task.SpawnDetached` with lint `detached-task` | user | 12.4, 16.1 |
+| D-111 | Time has one type per concept: `Instant`, `MonoTime`, `TimeSpan`, `LocalDate`, `LocalTime`, `LocalDateTime` and `Period` replace `DateTime`; lint `wall-clock-duration`; time zones are post-MVP | user | 15.6 |
 
 ## 24. Open questions
 

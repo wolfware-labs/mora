@@ -163,6 +163,7 @@ registry! {
     MR0401 = 401: "an async function declared as returning `Future<T>` or `Task<T>`",
     MR0402 = 402: "`async void`",
     MR0403 = 403: "`ConfigureAwait`",
+    MR0404 = 404: "a scope child whose error type is not the scope's",
     MR0410 = 410: "a `shared` class with a field that is not read-only and sendable",
     MR0411 = 411: "a value that is not sendable passed to another thread",
     MR0450 = 450: "an `extern` function with a parameter or return type that is not plain",
