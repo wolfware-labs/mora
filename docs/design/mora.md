@@ -651,7 +651,7 @@ public class Counter
 - A class is a shared reference type with identity: heap-allocated with a reference count (§10.4, §13.3).
 - **Fields are read-only unless marked `mut`** (D-15). A read-only field is assigned only in its initializer, a constructor or a memberwise `new` (§6.9). `readonly` is accepted as a redundant modifier. `{ get; set; }` and `{ get; private set; }` auto-properties have a mutable backing field; `{ get; }` does not.
 - A class gets no generated equality, hashing, printing or `with`: two objects with the same fields are still two objects. `==` on a class is error `MR0233` unless the class implements `IEquatable<T>`, by hand or with `[Equatable]` (§9.9). `ReferenceEquals(a, b)` compares identity.
-- An object's address is never observable. A value derived from identity, such as an identity hash or an object number in debug output, comes from a per-process counter and is assigned the first time it is asked for, so the same program with the same inputs produces the same values on every run (D-61).
+- An object's address is never observable. A value derived from identity, such as an identity hash or an object number in debug output, comes from a per-process counter and is assigned the first time it is asked for, so two runs that receive the same inputs in the same order, I/O completions and task scheduling included, produce the same values (D-61).
 - Mutating a `mut` field through any reference is allowed, as in C#. A `let` local of class type means the local cannot be reassigned; it does not freeze the object.
 - A class marked `shared` may be referenced from several threads (post-MVP, §12.6). In the MVP the modifier is parsed, checked for its field rules and otherwise has no effect.
 
@@ -1531,8 +1531,8 @@ Every shared class object, array, string, box and escaping closure environment s
 - `mora_rt_drop` runs the destructor, drops the fields (pushing shared children whose count falls to zero onto a thread-local work list instead of recursing), then decrements `weak` and frees the memory if it reaches zero.
 - **Weak load** returns a null pointer (`none`) if `strong == 0`, otherwise retains and returns the object.
 - String literals, `static readonly` objects and the empty array are immortal objects in read-only data.
-- In `shared` classes (post-MVP), `strong` and `weak` are updated with atomic operations: relaxed increments, release decrements and an acquire fence before the drop, as `Arc` does in Rust.
-- The compiler emits retain and release from one lowering that has both forms, and `mora_rt_drop` and the weak-count paths exist in both forms. The MVP runtime test suite covers the atomic form, though only the plain form is emitted (D-60).
+- In `shared` classes (post-MVP), `strong` and `weak` are updated with atomic operations: relaxed increments, release decrements and an acquire fence before the drop, as `Arc` does in Rust. A weak load increments `strong` with a compare-and-swap loop that succeeds only while the count is nonzero, with acquire ordering, as `Weak::upgrade` does, so it never revives an object that a concurrent release is dropping.
+- The compiler emits retain and release from one lowering that has both forms, and `mora_rt_drop` and the weak-count paths exist in both forms. The MVP runtime test suite covers the atomic form, including a weak load racing the last release, though only the plain form is emitted (D-60).
 
 **Unique objects** have no header: a unique class reference points straight at its fields, because its type is always known statically and nothing counts it.
 
