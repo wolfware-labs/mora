@@ -272,8 +272,6 @@ pub enum SyntaxKind {
     StringKw,
     /// The keyword `struct`.
     StructKw,
-    /// The keyword `switch`.
-    SwitchKw,
     /// The keyword `this`.
     ThisKw,
     /// The keyword `true`.
@@ -314,6 +312,8 @@ pub enum SyntaxKind {
     NsKw,
     /// The contextual keyword `uses`: an identifier the parser marks in position.
     UsesKw,
+    /// The contextual keyword `match`: an identifier the parser marks in position.
+    MatchKw,
     /// The contextual keyword `when`: an identifier the parser marks in position.
     WhenKw,
     /// The contextual keyword `and`: an identifier the parser marks in position.
@@ -546,8 +546,8 @@ pub enum SyntaxKind {
     ContinueStmt,
     /// A `ReturnStmt` node.
     ReturnStmt,
-    /// A `SwitchStmt` node.
-    SwitchStmt,
+    /// A `MatchStmt` node.
+    MatchStmt,
     /// A `AttributedStmt` node.
     AttributedStmt,
     /// A `UnsafeStmt` node.
@@ -566,8 +566,8 @@ pub enum SyntaxKind {
     ForUpdate,
     /// A `ForInitExprs` node.
     ForInitExprs,
-    /// A `SwitchArmList` node.
-    SwitchArmList,
+    /// A `MatchArmList` node.
+    MatchArmList,
     /// A `WhenClause` node.
     WhenClause,
     /// A `LiteralExpr` node.
@@ -604,8 +604,8 @@ pub enum SyntaxKind {
     AwaitExpr,
     /// A `RangeExpr` node.
     RangeExpr,
-    /// A `SwitchExpr` node.
-    SwitchExpr,
+    /// A `MatchExpr` node.
+    MatchExpr,
     /// A `WithExpr` node.
     WithExpr,
     /// A `BinExpr` node.
@@ -648,10 +648,10 @@ pub enum SyntaxKind {
     CollectionElem,
     /// A `Arg` node.
     Arg,
-    /// A `SwitchArm` node.
-    SwitchArm,
-    /// A `SwitchBlockArm` node.
-    SwitchBlockArm,
+    /// A `MatchArm` node.
+    MatchArm,
+    /// A `MatchBlockArm` node.
+    MatchBlockArm,
     /// A `ObjectInitializer` node.
     ObjectInitializer,
     /// A `CaptureList` node.
@@ -835,7 +835,6 @@ impl SyntaxKind {
         StaticKw,
         StringKw,
         StructKw,
-        SwitchKw,
         ThisKw,
         TrueKw,
         UintKw,
@@ -856,6 +855,7 @@ impl SyntaxKind {
         StoredKw,
         NsKw,
         UsesKw,
+        MatchKw,
         WhenKw,
         AndKw,
         OrKw,
@@ -972,7 +972,7 @@ impl SyntaxKind {
         BreakStmt,
         ContinueStmt,
         ReturnStmt,
-        SwitchStmt,
+        MatchStmt,
         AttributedStmt,
         UnsafeStmt,
         LocalDecl,
@@ -982,7 +982,7 @@ impl SyntaxKind {
         ElseClause,
         ForUpdate,
         ForInitExprs,
-        SwitchArmList,
+        MatchArmList,
         WhenClause,
         LiteralExpr,
         InterpString,
@@ -1001,7 +1001,7 @@ impl SyntaxKind {
         CastExpr,
         AwaitExpr,
         RangeExpr,
-        SwitchExpr,
+        MatchExpr,
         WithExpr,
         BinExpr,
         IsExpr,
@@ -1023,8 +1023,8 @@ impl SyntaxKind {
         TupleElem,
         CollectionElem,
         Arg,
-        SwitchArm,
-        SwitchBlockArm,
+        MatchArm,
+        MatchBlockArm,
         ObjectInitializer,
         CaptureList,
         LambdaParam,
@@ -1164,7 +1164,6 @@ impl SyntaxKind {
         StaticKw,
         StringKw,
         StructKw,
-        SwitchKw,
         ThisKw,
         TrueKw,
         UintKw,
@@ -1188,6 +1187,7 @@ impl SyntaxKind {
         StoredKw,
         NsKw,
         UsesKw,
+        MatchKw,
         WhenKw,
         AndKw,
         OrKw,
@@ -1349,7 +1349,6 @@ impl SyntaxKind {
             StaticKw => "static",
             StringKw => "string",
             StructKw => "struct",
-            SwitchKw => "switch",
             ThisKw => "this",
             TrueKw => "true",
             UintKw => "uint",
@@ -1370,6 +1369,7 @@ impl SyntaxKind {
             StoredKw => "stored",
             NsKw => "ns",
             UsesKw => "uses",
+            MatchKw => "match",
             WhenKw => "when",
             AndKw => "and",
             OrKw => "or",
@@ -1466,7 +1466,6 @@ impl SyntaxKind {
             "static" => StaticKw,
             "string" => StringKw,
             "struct" => StructKw,
-            "switch" => SwitchKw,
             "this" => ThisKw,
             "true" => TrueKw,
             "uint" => UintKw,
@@ -1494,6 +1493,7 @@ impl SyntaxKind {
             "stored" => StoredKw,
             "ns" => NsKw,
             "uses" => UsesKw,
+            "match" => MatchKw,
             "when" => WhenKw,
             "and" => AndKw,
             "or" => OrKw,

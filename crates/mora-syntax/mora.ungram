@@ -423,7 +423,7 @@ Stmt =
 | BreakStmt
 | ContinueStmt
 | ReturnStmt
-| SwitchStmt
+| MatchStmt
 | AttributedStmt
 | UnsafeStmt
 
@@ -513,10 +513,10 @@ ContinueStmt =
 ReturnStmt =
   'return' Expr? ';'
 
-// §7.7. A `switch` that starts a statement; its arms' values are
+// §7.7. A `match` that starts a statement; its arms' values are
 // discarded.
-SwitchStmt =
-  'switch' '(' scrutinee:Expr ')' SwitchArmList
+MatchStmt =
+  'match' '(' scrutinee:Expr ')' MatchArmList
 
 WhenClause =
   'when' Expr
@@ -554,7 +554,7 @@ Expr =
 | CastExpr
 | AwaitExpr
 | RangeExpr
-| SwitchExpr
+| MatchExpr
 | WithExpr
 | BinExpr
 | IsExpr
@@ -664,19 +664,19 @@ AwaitExpr =
 RangeExpr =
   start:Expr? '..' end:Expr?
 
-// §7.7. `switch (x) { p => e, ... }` as an expression.
-SwitchExpr =
-  'switch' '(' scrutinee:Expr ')' SwitchArmList
+// §7.7. `match (x) { p => e, ... }` as an expression.
+MatchExpr =
+  'match' '(' scrutinee:Expr ')' MatchArmList
 
 // A comma follows every expression arm but the last; after a block arm
 // it may be left out.
-SwitchArmList =
-  '{' (SwitchArm ',' | SwitchBlockArm ','?)* SwitchArm? '}'
+MatchArmList =
+  '{' (MatchArm ',' | MatchBlockArm ','?)* MatchArm? '}'
 
-SwitchArm =
+MatchArm =
   Pattern WhenClause? '=>' Expr
 
-SwitchBlockArm =
+MatchBlockArm =
   Pattern WhenClause? '=>' Block
 
 // §6.5. `user with { Name = "Ada" }`.

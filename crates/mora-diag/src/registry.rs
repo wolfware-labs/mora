@@ -117,7 +117,7 @@ registry! {
     MR0151 = 151: "`@From` on a field of an `indirect` case or of a case of an `indirect union`",
     MR0161 = 161: "`r?.Name` on a `Result`: member access after propagation needs parentheses",
     MR0162 = 162: "member access on an optional value",
-    MR0170 = 170: "a switch that is not exhaustive",
+    MR0170 = 170: "a match that is not exhaustive",
     MR0171 = 171: "a collection expression without a target type",
     MR0180 = 180: "a local shadows a local or parameter of an enclosing scope",
     MR0181 = 181: "a local used before it is definitely assigned",
@@ -200,7 +200,7 @@ registry! {
     MR2001 = 2001: "`T??` in source",
     MR2002 = 2002: "a discarded `Result`",
     MR2003 = 2003: "use of an `[Obsolete]` declaration",
-    MR2010 = 2010: "a switch arm that can never match",
+    MR2010 = 2010: "a match arm that can never match",
     MR2020 = 2020: "lint `strong-cycle`: shared classes that can form a strong cycle",
     MR2030 = 2030: "lint `format`: a file that `mora fmt` would change",
 }
