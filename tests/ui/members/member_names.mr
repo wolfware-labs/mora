@@ -1,0 +1,34 @@
+// The members of a type share one set of names; only methods may share a
+// name, as overloads.
+internal struct User {
+    public Name: string;
+    Address: string;
+    public Name: string; //~ ERROR MR0146
+
+    struct Address { //~ ERROR MR0146
+        public Line: string;
+    }
+
+    public Count(): int {
+        return 0;
+    }
+
+    public Count: int; //~ ERROR MR0146
+
+    public Find(id: int): int {
+        return id;
+    }
+
+    public Find(name: string): int {
+        return 0;
+    }
+}
+
+internal class Store {
+    public Load(): int {
+        return 1;
+    }
+
+    class Load { //~ ERROR MR0146
+    }
+}

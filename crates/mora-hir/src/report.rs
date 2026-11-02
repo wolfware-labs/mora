@@ -2,7 +2,9 @@ use mora_diag::{Diagnostic, Fix, Label, TextEdit, codes};
 use mora_span::{Db, Project, ProjectKind, SourceFile, Span, TextRange, TextSize};
 
 use crate::defs::{DefMap, FolderProblem, ItemId, def_map};
-use crate::items::{ItemKind, Visibility, item_source_map, item_tree, signature_sources};
+use crate::items::{
+    ItemKind, Visibility, item_source_map, item_tree, signature_refs, signature_sources,
+};
 use crate::resolve::{
     ResolveErrorKind, Resolved, STD, Scope, effective_visibility, enclosing_types, resolve_using,
     visible_names,
@@ -10,7 +12,7 @@ use crate::resolve::{
 use crate::signature::{SignatureErrorKind, signature, signature_errors};
 use crate::suggest::closest;
 use crate::ty::Signature;
-use crate::type_ref::TYPE_KEYWORDS;
+use crate::type_ref::{SignatureRefKind, TYPE_KEYWORDS};
 
 /// The diagnostics of a project's folders (`MR0121`), `using` directives
 /// and signatures (`MR0127`, `MR0128`, `MR0129`, `MR0123`) and entry point
@@ -26,6 +28,7 @@ pub fn diagnostics(db: &dyn Db, project: Project) -> Vec<Diagnostic> {
     for file in map.files() {
         usings(db, project, file, &mut out);
         signatures(db, project, file, &mut out);
+        member_names(db, file, &mut out);
     }
     entry_point(db, project, map, &mut out);
     out
@@ -118,6 +121,59 @@ fn signatures(db: &dyn Db, project: Project, file: SourceFile, out: &mut Vec<Dia
                     less_visible(db, name, span, *ty, &member_name, *member)
                 }
             });
+        }
+    }
+}
+
+/// `MR0146`: two members of one type with one name, unless both are
+/// methods. The members are the nested types, methods and struct fields;
+/// the others are not lowered yet.
+fn member_names(db: &dyn Db, file: SourceFile, out: &mut Vec<Diagnostic>) {
+    let tree = item_tree(db, file);
+    let map = item_source_map(db, file);
+    let refs = signature_refs(db, file);
+    let sources = signature_sources(db, file);
+    let id = file.id(db);
+    for (idx, item) in tree.items() {
+        // Each member's name, where it is, and whether it is a method.
+        let mut members: Vec<(&str, TextRange, bool)> = item
+            .members
+            .iter()
+            .map(|&member| {
+                let data = tree.item(member);
+                let range = map.item(member).name;
+                (data.name.as_str(), range, data.kind == ItemKind::Function)
+            })
+            .collect();
+        let at = u32::from(idx.into_raw()) as usize;
+        if let SignatureRefKind::Struct(fields) = &refs[at].kind {
+            let ranges = &sources[at].fields;
+            members.extend(
+                fields
+                    .iter()
+                    .zip(ranges)
+                    .map(|(field, &range)| (field.name.as_str(), range, false)),
+            );
+        }
+        members.sort_by_key(|&(_, range, _)| range.start());
+        for (index, &(name, range, method)) in members.iter().enumerate() {
+            let first = members[..index]
+                .iter()
+                .find(|&&(other, _, other_method)| other == name && !(method && other_method));
+            let Some(&(_, first, _)) = first else {
+                continue;
+            };
+            out.push(
+                Diagnostic::error(
+                    codes::MR0146,
+                    format!("`{name}` is already declared in `{}`", item.name),
+                    Label::new(Span::new(id, range), "declared again here"),
+                )
+                .with_secondary(Label::new(Span::new(id, first), "first declared here"))
+                .with_note(
+                    "the members of a type share one set of names; only methods may share a name, as overloads",
+                ),
+            );
         }
     }
 }
@@ -906,5 +962,52 @@ mod tests {
                 "cannot find `Usr`",
             ]
         );
+    }
+
+    #[test]
+    fn a_member_name_is_declared_once_unless_methods_overload_it() {
+        let text = "struct User {\n    Name: string;\n    Address: string;\n    Name: int;\n    \
+                    struct Address {}\n    Count() {}\n    Count: int;\n    Find(a: int) {}\n    \
+                    Find(b: string) {}\n}\nclass Store {\n    Load() {}\n    class Load {}\n}\n";
+        let db = TestDb::new();
+        let project = app(&db, &[("src/Program.mr", text)]);
+        let at = |pattern: &str, offset: usize| text.find(pattern).unwrap() + offset;
+        let reported: Vec<_> = diagnostics(&db, project)
+            .iter()
+            .map(|d| {
+                (
+                    d.message.clone(),
+                    usize::from(d.primary.span.range.start()),
+                    usize::from(d.secondary[0].span.range.start()),
+                )
+            })
+            .collect();
+        let expected = [
+            (
+                "`Name` is already declared in `User`",
+                at("Name: int", 0),
+                at("Name: string", 0),
+            ),
+            (
+                "`Address` is already declared in `User`",
+                at("struct Address", 7),
+                at("Address: string", 0),
+            ),
+            (
+                "`Count` is already declared in `User`",
+                at("Count: int", 0),
+                at("Count()", 0),
+            ),
+            (
+                "`Load` is already declared in `Store`",
+                at("class Load", 6),
+                at("Load()", 0),
+            ),
+        ];
+        let expected: Vec<_> = expected
+            .iter()
+            .map(|&(message, primary, first)| (message.to_owned(), primary, first))
+            .collect();
+        assert_eq!(reported, expected);
     }
 }

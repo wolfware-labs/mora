@@ -113,6 +113,7 @@ registry! {
     MR0143 = 143: "memberwise `new T { ... }` does not assign a field that has no initializer",
     MR0144 = 144: "memberwise `new T { ... }` where a field without an initializer is not visible",
     MR0145 = 145: "`[Test]` outside a `test` section",
+    MR0146 = 146: "two members of one type with the same name, other than overloaded methods",
     MR0150 = 150: "a union contains itself without `indirect`",
     MR0151 = 151: "`@From` on a field of an `indirect` case or of a case of an `indirect union`",
     MR0161 = 161: "`r?.Name` on a `Result`: member access after propagation needs parentheses",
