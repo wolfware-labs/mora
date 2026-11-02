@@ -293,7 +293,8 @@ fn name_text(name: Option<ast::Name>) -> String {
         .unwrap_or_default()
 }
 
-/// The type a predefined keyword names.
+/// The type a predefined keyword names, [`TypeRef::Missing`] for any other
+/// kind.
 fn predefined(kind: SyntaxKind) -> TypeRef {
     let primitive = match kind {
         SyntaxKind::BoolKw => Primitive::Bool,
@@ -310,7 +311,9 @@ fn predefined(kind: SyntaxKind) -> TypeRef {
         SyntaxKind::FloatKw => Primitive::Float,
         SyntaxKind::DoubleKw => Primitive::Double,
         SyntaxKind::CharKw => Primitive::Char,
-        _ => return TypeRef::String,
+        SyntaxKind::StringKw => return TypeRef::String,
+        // A keyword this function does not know yet names no type.
+        _ => return TypeRef::Missing,
     };
     TypeRef::Primitive(primitive)
 }
@@ -320,3 +323,19 @@ pub(crate) const TYPE_KEYWORDS: &[&str] = &[
     "bool", "byte", "char", "double", "float", "int", "long", "nint", "nuint", "sbyte", "short",
     "string", "uint", "ulong", "ushort",
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_type_keywords_name_predefined_types() {
+        assert_eq!(predefined(SyntaxKind::StringKw), TypeRef::String);
+        assert_eq!(
+            predefined(SyntaxKind::IntKw),
+            TypeRef::Primitive(Primitive::Int)
+        );
+        assert_eq!(predefined(SyntaxKind::Ident), TypeRef::Missing);
+        assert_eq!(predefined(SyntaxKind::ClassKw), TypeRef::Missing);
+    }
+}
