@@ -2553,7 +2553,7 @@ await app.RunAsync("127.0.0.1:8080")?;
 
 ```ebnf
 ServicesDecl = Attribute* Modifier* "services" Identifier ( ":" Path ( "," Path )* )? "{" Binding* "}" ;
-Binding      = Attribute* "override"? Lifetime TypeParams? Type ( "per" Type )? ( ( "=" | "+=" ) ( Type | Lambda ) )? ";"
+Binding      = Attribute* "override"? Lifetime TypeParams? Type ( "per" Type )? ( "=" ( Type | Lambda | "[" ( Type ( "," Type )* )? "]" ) | "+=" ( Type | Lambda ) )? ";"
              | Attribute* "override"? "decorate" TypeParams? Type "with" Type ";" ;
 Lifetime     = "singleton" | "scoped" | "transient" ;
 ```
@@ -2573,12 +2573,12 @@ Lifetime     = "singleton" | "scoped" | "transient" ;
 - Two bases that bind one service to different implementations or with different lifetimes are `MR0712`, which names both blocks and both bindings; the fix is an `override` in the combining block. Base order never settles it.
 - `override singleton ILogger = FastLog.ILogger;` reuses the binding of the base `FastLog`, its implementation and its factory or configuration, by naming the base's associated type.
 - **Collections and decorators combine.** The `+=` elements and the `decorate` lines of several bases are combined, never in conflict: the bases' come first, in base-list order, then the block's own, so the block's own decorator is outermost. These are the only places where the order of bases matters.
-- **Replacing a collection or the decorators.** `override singleton I += X;` drops every element of `I` the block inherits; the block's own `+=` lines for `I`, with or without `override`, then form the list, in the order written, and an inherited element is kept by listing it again. `override decorate I with D;` drops the inherited decorators of `I` the same way. Either form on a service that no base gives elements or decorators is `MR0702`.
+- **Replacing a collection or the decorators.** A collection expression assigns a whole list: `override singleton I = [X, Y];` drops every element of `I` the block inherits and puts `X` and `Y`, with that lifetime, in their place; the block's `+=` lines for `I` then add to it, in the order written. An inherited element is kept by listing it again, and `= []` empties the list. Without `override`, assigning a list to a service whose elements a base gives is `MR0700`, as for any inherited binding; in a block with no inherited elements, `= [X, Y]` is the same as two `+=` lines. `override decorate I with D;` drops the inherited decorators of `I` the same way. Either form on a service that no base gives elements or decorators is `MR0702`.
 
 ```mora
 services App : LibBase {
-    override singleton IHealthCheck += MyDbCheck;   // drops LibBase's checks
-    singleton IHealthCheck += QueueCheck;           // App's list: MyDbCheck, QueueCheck
+    override singleton IHealthCheck = [MyDbCheck, QueueCheck];   // replaces LibBase's checks
+    scoped IHealthCheck += RequestCheck;   // App's list: MyDbCheck, QueueCheck, RequestCheck
 }
 ```
 - `@Cfg` applies to whole blocks and to single bindings (§6.11, §17.2). An inactive block or binding does not exist. Two active blocks with one name are `MR0128` wherever the name is used.
@@ -3279,7 +3279,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-121 | Rejected: stackful green threads to remove async colouring; async stays stackless (D-27, D-28), and `async?`, `blocking-in-async` and structured concurrency reduce the cost | user | 12.1 |
 | D-122 | Dependency injection is resolved at compile time from `services` blocks: a block is a composition type whose bindings give each service an implementation and a lifetime; constructor injection needs no attribute and one constructor; no registration exists in ordinary code, and there is no container, service lookup or property injection at run time | user | 3.4, 16.4 |
 | D-123 | Each binding defines an associated type of its composition; in a class that a block of its project binds, a bare interface type in a field or constructor parameter names that binding; the class is checked once and instantiated per composition, and each final composition is compiled as its own world, so calls stay direct; `any I` implements `I`. Extends D-67 | user | 8.3, 8.4, 16.4 |
-| D-124 | Blocks inherit bases: redefining a binding needs `override`, conflicting bases need an `override` in the combining block, the same binding reached twice merges, a binding without `=` is a requirement every final composition must bind, `Base.IService` reuses a base's binding, elements and decorators combine in base-list order unless `override each` or `override decorate` replaces them, and `@Cfg` selects blocks and bindings | user | 16.4 |
+| D-124 | Blocks inherit bases: redefining a binding needs `override`, conflicting bases need an `override` in the combining block, the same binding reached twice merges, a binding without `=` is a requirement every final composition must bind, `Base.IService` reuses a base's binding, elements and decorators combine in base-list order unless an `override` list assignment or `override decorate` replaces them, and `@Cfg` selects blocks and bindings | user | 16.4 |
 | D-125 | Implementations are chosen at build time with `@Cfg`, at startup or per scope with a choice lambda that compiles to a closed union, open-endedly with a factory returning `any I`, and optionally with a factory returning `none` | user | 16.4 |
 | D-126 | Services are singleton, scoped or transient; singletons are built at host startup and immortal; singleton and scoped implementations are classes; a captive dependency is a compile error that prints the chain; collections are `+=` elements consumed as `ReadOnlySpan<any I>` or `ReadOnlyMemory<any I>` | user | 16.4 |
 | D-127 | `RunScoped(f)` opens a scope and every function that reaches it is a root with its own generated wiring; HTTP handlers and other runners are wrappers over it; nested scopes use `Scope<K>` and `per K`; scoped services, scopes and their lazy functions cannot escape the root | user | 16.1, 16.4 |

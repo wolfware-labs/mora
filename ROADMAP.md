@@ -1330,7 +1330,7 @@ Done when:
 - UI tests for every code from `MR0700` to `MR0715`, reported by `mora check` and by the language server as well as by `mora build`, with `MR0703` and `MR0705` printing the whole chain from the root and `MR0712` naming both blocks.
 - One binding reached through two bases compiles; two bases with different implementations or lifetimes for one service are `MR0712` until the combining block overrides it, also with `Base.IService`, whatever the base order.
 - Elements and decorators from two bases come in base-list order, then the block's own, so the block's own decorator is outermost (run test).
-- `override` on a `+=` element and `override decorate` drop the inherited elements or decorators of a service, and the block's own lines form the new list (run test).
+- `override singleton I = [X, Y];` and `override decorate` replace the inherited elements or decorators of a service, `+=` lines add after them, and `= []` empties a collection (run test).
 - The MIR of a handler that takes a singleton and a scoped service shows direct constructor and method calls, and a choice binding compiles to a `switch` with a direct call per arm; `Assert.AllocatesAtMost` shows that running the handler with `RunScoped` allocates only the scoped service.
 - A singleton that depends on a scoped service through a transient is `MR0705`, a root outside every `Connection` scope that needs a service per `Connection` is `MR0706`, and a root that returns its scoped service or hands it to a detached task is `MR0714`.
 - In a run test, two child scopes inside one `Connection` scope share its service per `Connection`, each gets its own innermost scoped service, and destructors run in reverse construction order when each scope ends.
