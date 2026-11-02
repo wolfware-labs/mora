@@ -389,3 +389,122 @@ fn modifiers_start(node: &SyntaxNode) -> TextSize {
             element.text_range().start()
         })
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::test_db::{TestDb, path};
+    use crate::*;
+
+    #[test]
+    fn item_trees_have_no_positions() {
+        let db = TestDb::new();
+        let a = db.file("src/A.mr", "class A {\n    F() {}\n}\n");
+        let b = db.file("src/B.mr", "\n\n  class A {   F() { let x = 1; }\n}");
+        assert_eq!(item_tree(&db, a), item_tree(&db, b));
+        assert_ne!(item_source_map(&db, a), item_source_map(&db, b));
+    }
+
+    #[test]
+    fn item_trees_keep_names_kinds_visibility_and_nesting() {
+        let db = TestDb::new();
+        let file = db.file(
+            "src/A.mr",
+            "global using static Std.Math;\nusing Json = Std.Json.JsonValue;\n\
+         public struct Point {\n    private class Cache {}\n    static Main() {}\n    X: int;\n}\n\
+         file enum Color { Red }\nconst Max: int = 5;\nArea(): int => 1;\nlet y = 2;\n",
+        );
+        let tree = item_tree(&db, file);
+        let summary: Vec<_> = tree
+            .items()
+            .map(|(_, item)| {
+                let parent = item.parent.map(|p| tree.item(p).name.as_str());
+                (
+                    item.name.as_str(),
+                    item.kind,
+                    item.visibility,
+                    item.is_static,
+                    parent,
+                )
+            })
+            .collect();
+        assert_eq!(
+            summary,
+            [
+                ("Point", ItemKind::Struct, Visibility::Public, false, None),
+                (
+                    "Cache",
+                    ItemKind::Class,
+                    Visibility::Private,
+                    false,
+                    Some("Point")
+                ),
+                (
+                    "Main",
+                    ItemKind::Function,
+                    Visibility::Folder,
+                    true,
+                    Some("Point")
+                ),
+                ("Color", ItemKind::Enum, Visibility::File, false, None),
+                ("Max", ItemKind::Field, Visibility::Folder, false, None),
+                ("Area", ItemKind::Function, Visibility::Folder, false, None),
+            ]
+        );
+        assert_eq!(tree.top_level().len(), 4);
+        assert!(tree.has_statements());
+        let usings = tree.usings();
+        assert_eq!(
+            usings[0],
+            Using {
+                global: true,
+                is_static: true,
+                alias: None,
+                path: path("Std.Math"),
+            }
+        );
+        assert_eq!(usings[1].alias.as_deref(), Some("Json"));
+        assert_eq!(usings[1].path, path("Std.Json.JsonValue"));
+    }
+
+    #[test]
+    fn item_trees_keep_every_kind_of_declaration() {
+        let db = TestDb::new();
+        let file = db.file(
+        "src/A.mr",
+        "union Shape { Circle(r: float), Square(side: float); static Unit(): Shape => Circle(1.0); }\n\
+         interface IShape {\n    Area(): float;\n}\n\
+         macro Log(x: Expr) {\n}\n\
+         extension (s: Shape) {\n}\n\
+         class Square {\n    IShape.Area(): float => 1.0;\n    X: int;\n}\n",
+    );
+        let tree = item_tree(&db, file);
+        let summary: Vec<_> = tree
+            .items()
+            .map(|(_, item)| (item.name.as_str(), item.kind))
+            .collect();
+        assert_eq!(
+            summary,
+            [
+                ("Shape", ItemKind::Union),
+                ("Unit", ItemKind::Function),
+                ("IShape", ItemKind::Interface),
+                ("Area", ItemKind::Function),
+                ("Log", ItemKind::Macro),
+                ("Square", ItemKind::Class),
+            ]
+        );
+    }
+
+    #[test]
+    fn broken_usings_keep_what_they_name() {
+        let db = TestDb::new();
+        let file = db.file("src/A.mr", "using;\nusing A.;\nusing B.1;\nusing C;\n");
+        let paths: Vec<_> = item_tree(&db, file)
+            .usings()
+            .iter()
+            .map(|using| using.path.join("."))
+            .collect();
+        assert_eq!(paths, ["A", "B", "C"]);
+    }
+}

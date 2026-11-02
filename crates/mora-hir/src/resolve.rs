@@ -645,3 +645,563 @@ pub(crate) fn visible_names(
     names.dedup();
     names
 }
+
+#[cfg(test)]
+mod tests {
+    use mora_span::{Dependency, ProjectKind};
+
+    use crate::test_db::{
+        TestDb, app, codes, file_named, function, item_named, messages, resolve, signature_of,
+        unsupported,
+    };
+    use crate::*;
+
+    #[test]
+    fn visibility_follows_the_folder_by_default() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                (
+                    "src/Store/UserStore.mr",
+                    "class UserStore {}\ninternal class Shared {}\nfile class Local {}\n",
+                ),
+                ("src/Store/Other.mr", ""),
+                ("src/Program.mr", ""),
+            ],
+        );
+        let scope = |path: &str| Scope::file(project, file_named(&db, project, path));
+        let program = scope("src/Program.mr");
+        let other = scope("src/Store/Other.mr");
+        let store = scope("src/Store/UserStore.mr");
+        let item = |name: &str| item_named(&db, project, store.file, name);
+        assert!(is_visible(&db, item("UserStore"), other));
+        assert!(!is_visible(&db, item("UserStore"), program));
+        assert!(is_visible(&db, item("Shared"), program));
+        assert!(is_visible(&db, item("Local"), store));
+        assert!(!is_visible(&db, item("Local"), other));
+    }
+
+    #[test]
+    fn a_nested_item_is_no_more_visible_than_its_type() {
+        let db = TestDb::new();
+        let project = db.project(
+            "a",
+            ProjectKind::Lib,
+            &[(
+                "src/A.mr",
+                "class Outer {\n    public class Inner {}\n    private class Secret {}\n}\n\
+             public class Open {\n    public class Inner {}\n}\nprivate class Top {}\n",
+            )],
+            Vec::new(),
+        );
+        let file = project.files(&db)[0];
+        let tree = item_tree(&db, file);
+        let inner: Vec<_> = tree
+            .items()
+            .filter(|(_, item)| item.name == "Inner")
+            .map(|(idx, _)| ItemId {
+                project,
+                file,
+                item: idx,
+            })
+            .collect();
+        let item = |name: &str| item_named(&db, project, file, name);
+        assert_eq!(effective_visibility(&db, inner[0]), Visibility::Folder);
+        assert_eq!(effective_visibility(&db, inner[1]), Visibility::Public);
+        assert_eq!(
+            effective_visibility(&db, item("Secret")),
+            Visibility::Private
+        );
+        // `private` at namespace level, where no type encloses it, means the file.
+        assert_eq!(effective_visibility(&db, item("Top")), Visibility::File);
+    }
+
+    #[test]
+    fn lookup_goes_from_the_innermost_namespace_out() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                (
+                    "src/Program.mr",
+                    "internal class Config {}\ninternal class Root {}\n",
+                ),
+                ("src/Store/Config.mr", "class Config {}\n"),
+                ("src/Store/Cache/Entry.mr", "class Entry {}\n"),
+            ],
+        );
+        let program = "src/Program.mr";
+        let ok = |text: &str| Ok::<String, String>(text.into());
+        // The innermost namespace wins over the root namespace.
+        assert_eq!(
+            resolve(&db, project, "src/Store/Config.mr", "Config"),
+            ok("UsersApi.Store.Config")
+        );
+        assert_eq!(
+            resolve(&db, project, program, "Config"),
+            ok("UsersApi.Config")
+        );
+        // Enclosing namespaces are searched outward.
+        assert_eq!(
+            resolve(&db, project, "src/Store/Cache/Entry.mr", "Root"),
+            ok("UsersApi.Root")
+        );
+        // A subfolder is reached through its name, and the root through its own.
+        assert_eq!(
+            resolve(&db, project, program, "Store.Cache"),
+            ok("UsersApi.Store.Cache")
+        );
+        assert_eq!(
+            resolve(&db, project, program, "UsersApi.Store"),
+            ok("UsersApi.Store")
+        );
+        // An unmarked item of another folder is found but not visible.
+        assert_eq!(
+            resolve(&db, project, program, "Store.Config"),
+            Err("hidden: UsersApi.Store.Config".into())
+        );
+        assert_eq!(
+            resolve(&db, project, program, "Store.Nothing"),
+            Err("unresolved at 1".into())
+        );
+        assert_eq!(
+            resolve(&db, project, program, "Nothing"),
+            Err("unresolved at 0".into())
+        );
+    }
+
+    #[test]
+    fn a_hidden_item_does_not_shadow_a_visible_one_further_out() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                ("src/Program.mr", "internal class Config {}\n"),
+                ("src/Store/Config.mr", "file class Config {}\n"),
+                ("src/Store/Use.mr", ""),
+            ],
+        );
+        assert_eq!(
+            resolve(&db, project, "src/Store/Use.mr", "Config"),
+            Ok("UsersApi.Config".into())
+        );
+    }
+
+    #[test]
+    fn usings_come_after_namespaces_and_globals_and_before_the_prelude() {
+        let db = TestDb::new();
+        let std = db.project(
+            "std",
+            ProjectKind::Lib,
+            &[
+                (
+                    "src/Console.mr",
+                    "public class Console {}\npublic class Store {}\n",
+                ),
+                (
+                    "src/Collections/List.mr",
+                    "public class List {}\npublic class Console {}\n",
+                ),
+            ],
+            Vec::new(),
+        );
+        let project = db.project(
+            "users-api",
+            ProjectKind::App,
+            &[
+                ("src/Program.mr", "using Std.Collections;\n"),
+                ("src/Store/Thing.mr", "internal class Thing {}\n"),
+                ("src/Other.mr", ""),
+            ],
+            vec![Dependency {
+                name: "Std".into(),
+                project: std,
+            }],
+        );
+        let ok = |text: &str| Ok::<String, String>(text.into());
+        // A `using` opens the namespace's items for its own file.
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "List"),
+            ok("Std.Collections.List")
+        );
+        assert_eq!(
+            resolve(&db, project, "src/Other.mr", "List"),
+            Err("unresolved at 0".into())
+        );
+        // The `using` level comes before the prelude: two `Console`s, no ambiguity.
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "Console"),
+            ok("Std.Collections.Console")
+        );
+        assert_eq!(
+            resolve(&db, project, "src/Other.mr", "Console"),
+            ok("Std.Console")
+        );
+        // Enclosing namespaces come before the prelude: the folder `Store` wins.
+        assert_eq!(
+            resolve(&db, project, "src/Other.mr", "Store"),
+            ok("UsersApi.Store")
+        );
+        // The dependency's name is global.
+        assert_eq!(
+            resolve(&db, project, "src/Other.mr", "Std.Collections"),
+            ok("Std.Collections")
+        );
+    }
+
+    #[test]
+    fn two_usings_that_open_one_name_are_ambiguous() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                ("src/Program.mr", "using UsersApi.A;\nusing UsersApi.B;\n"),
+                (
+                    "src/A/Item.mr",
+                    "internal class Item {}\ninternal Run() {}\n",
+                ),
+                (
+                    "src/B/Item.mr",
+                    "internal class Item {}\ninternal Run(x: int) {}\n",
+                ),
+            ],
+        );
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "Item"),
+            Err("ambiguous: 2".into())
+        );
+        // Functions with one name are overloads.
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "Run"),
+            Ok("2 functions".into())
+        );
+    }
+
+    #[test]
+    fn global_usings_and_aliases_apply_to_every_file() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                (
+                    "src/Program.mr",
+                    "global using UsersApi.Store;\nglobal using Users = UsersApi.Store.UserStore;\n",
+                ),
+                ("src/Store/UserStore.mr", "internal class UserStore {}\n"),
+                ("src/Api/Handler.mr", ""),
+            ],
+        );
+        let handler = "src/Api/Handler.mr";
+        assert_eq!(
+            resolve(&db, project, handler, "UserStore"),
+            Ok("UsersApi.Store.UserStore".into())
+        );
+        assert_eq!(
+            resolve(&db, project, handler, "Users"),
+            Ok("UsersApi.Store.UserStore".into())
+        );
+    }
+
+    #[test]
+    fn std_is_unchecked_without_a_standard_library() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[(
+                "src/Program.mr",
+                "using Std.Collections;\nusing static Std.Math;\n",
+            )],
+        );
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "Std.Anything.At.All"),
+            Ok("external".into())
+        );
+        assert_eq!(diagnostics(&db, project), &[]);
+    }
+
+    #[test]
+    fn only_public_items_of_a_dependency_are_visible() {
+        let db = TestDb::new();
+        let core = db.project(
+            "core",
+            ProjectKind::Lib,
+            &[(
+                "src/Text/Parser.mr",
+                "public class Parser {}\ninternal class Lexer {}\n",
+            )],
+            Vec::new(),
+        );
+        let project = db.project(
+            "users-api",
+            ProjectKind::App,
+            &[("src/Program.mr", "")],
+            vec![Dependency {
+                name: "Core".into(),
+                project: core,
+            }],
+        );
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "Core.Text.Parser"),
+            Ok("Core.Text.Parser".into())
+        );
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "Core.Text.Lexer"),
+            Err("hidden: Core.Text.Lexer".into())
+        );
+    }
+
+    #[test]
+    fn using_static_opens_the_nested_types() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                ("src/Program.mr", "using static UsersApi.Store.UserStore;\n"),
+                (
+                    "src/Store/UserStore.mr",
+                    "internal class UserStore {\n    internal class Entry {}\n}\n",
+                ),
+            ],
+        );
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "Entry"),
+            Ok("UsersApi.Store.Entry".into())
+        );
+    }
+
+    #[test]
+    fn using_static_opens_static_functions_but_not_instance_methods() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                ("src/Program.mr", "using static UsersApi.Store.UserStore;\n"),
+                (
+                    "src/Store/UserStore.mr",
+                    "internal class UserStore {\n    internal static Create() {}\n    internal Add() {}\n}\n",
+                ),
+            ],
+        );
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "Create"),
+            Ok("1 functions".into())
+        );
+        assert!(resolve(&db, project, "src/Program.mr", "Add").is_err());
+    }
+
+    #[test]
+    fn an_alias_to_overloads_keeps_only_the_visible_ones() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                ("src/Program.mr", ""),
+                ("src/A/Run.mr", "internal Run() {}\n"),
+                (
+                    "src/A/Other.mr",
+                    "global using R = UsersApi.A.Run;\nglobal using H = UsersApi.A.Hide;\n\
+                 file Run(x: int) {}\nfile Hide() {}\n",
+                ),
+            ],
+        );
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "R"),
+            Ok("1 functions".into())
+        );
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "H"),
+            Err("hidden: UsersApi.A.Hide".into())
+        );
+    }
+
+    #[test]
+    fn the_standard_library_names_itself() {
+        let db = TestDb::new();
+        let std = db.project(
+            "std",
+            ProjectKind::Lib,
+            &[("src/Text/Builder.mr", "public class Builder {}\n")],
+            Vec::new(),
+        );
+        assert_eq!(
+            resolve(&db, std, "src/Text/Builder.mr", "Std.Text.Builder"),
+            Ok("Std.Text.Builder".into())
+        );
+    }
+
+    #[test]
+    fn an_empty_path_does_not_resolve() {
+        let db = TestDb::new();
+        let project = app(&db, &[("src/Program.mr", "")]);
+        let scope = Scope::file(project, file_named(&db, project, "src/Program.mr"));
+        let error = resolve_path(&db, scope, &[]).unwrap_err();
+        assert_eq!(error.segment, 0);
+        assert_eq!(error.kind, ResolveErrorKind::Unresolved { within: None });
+    }
+
+    #[test]
+    fn duplicates_in_the_own_namespace_are_ambiguous() {
+        let db = TestDb::new();
+        let project = app(&db, &[("src/Program.mr", "class A {}\nstruct A {}\n")]);
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "A"),
+            Err("ambiguous: 2".into())
+        );
+    }
+
+    #[test]
+    fn usings_that_fail_or_name_the_wrong_kind_open_nothing() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                (
+                    "src/Program.mr",
+                    "using UsersApi.Missing;\nusing UsersApi.Store.Box;\nusing static UsersApi.Store;\n",
+                ),
+                ("src/Store/Box.mr", "internal class Box {}\n"),
+            ],
+        );
+        assert_eq!(codes(diagnostics(&db, project)), ["MR0127"]);
+        assert_eq!(
+            resolve(&db, project, "src/Program.mr", "Box"),
+            Err("unresolved at 0".into())
+        );
+    }
+
+    #[test]
+    fn a_private_member_is_visible_inside_the_type_of_its_innermost_private_parent() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[(
+                "src/Program.mr",
+                "class A {\n    private class B {\n        class C {}\n    }\n    class D {}\n}\nclass E {}\n",
+            )],
+        );
+        let file = file_named(&db, project, "src/Program.mr");
+        let item = |name| item_named(&db, project, file, name);
+        let inside = |name| Scope {
+            project,
+            file,
+            within: Some(item(name).item),
+        };
+        let c = item("C");
+        assert!(is_visible(&db, c, inside("A")));
+        assert!(is_visible(&db, c, inside("B")));
+        assert!(is_visible(&db, c, inside("D")));
+        assert!(!is_visible(&db, c, inside("E")));
+        assert!(!is_visible(&db, c, Scope::file(project, file)));
+        let other = app(&db, &[("src/Program.mr", "")]);
+        let elsewhere = Scope {
+            project: other,
+            file,
+            within: Some(item("A").item),
+        };
+        assert!(!is_visible(&db, c, elsewhere));
+    }
+
+    #[test]
+    fn file_items_are_not_visible_from_another_project() {
+        let db = TestDb::new();
+        let project = app(&db, &[("src/Program.mr", "file class A {}\n")]);
+        let file = file_named(&db, project, "src/Program.mr");
+        let a = item_named(&db, project, file, "A");
+        assert!(is_visible(&db, a, Scope::file(project, file)));
+        let other = app(&db, &[]);
+        assert!(!is_visible(&db, a, Scope::file(other, file)));
+    }
+
+    #[test]
+    fn without_the_standard_library_prelude_names_and_usings_of_std_are_external() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                (
+                    "src/Program.mr",
+                    "using Std.Json;\nF(a: JsonValue, b: Console, c: Missing) {}\n",
+                ),
+                (
+                    "src/Other.mr",
+                    "G(a: JsonValue, b: Console, c: Option<int>, d: Hidden) {}\n",
+                ),
+                (
+                    "src/Store/Hidden.mr",
+                    "file class Hidden {}\nclass Console {}\n",
+                ),
+            ],
+        );
+        let f = function(signature_of(&db, project, "src/Program.mr", "F"));
+        assert_eq!(unsupported(&f.params[0].ty), (Construct::External, 0));
+        assert_eq!(unsupported(&f.params[1].ty), (Construct::External, 0));
+        assert_eq!(unsupported(&f.params[2].ty), (Construct::External, 0));
+        let g = function(signature_of(&db, project, "src/Other.mr", "G"));
+        assert_eq!(g.params[0].ty, Ty::Error);
+        assert_eq!(unsupported(&g.params[1].ty), (Construct::External, 0));
+        assert_eq!(unsupported(&g.params[2].ty), (Construct::External, 1));
+        assert_eq!(g.params[3].ty, Ty::Error);
+        assert_eq!(
+            messages(diagnostics(&db, project)),
+            ["cannot find `JsonValue`", "cannot find `Hidden`"]
+        );
+    }
+
+    #[test]
+    fn with_the_standard_library_the_prelude_is_its_root_namespace() {
+        let db = TestDb::new();
+        let std = db.project(
+            "std",
+            ProjectKind::Lib,
+            &[
+                ("src/Console.mr", "public class Console {}\n"),
+                ("src/Json/JsonValue.mr", "public struct JsonValue {}\n"),
+                (
+                    "src/Statics.mr",
+                    "public class Math {\n    public static struct Pi {}\n    Hidden() {}\n}\n",
+                ),
+            ],
+            Vec::new(),
+        );
+        // The standard library itself has no `Std` to stand in for.
+        let own = std.files(&db)[0];
+        assert!(resolve_path(&db, Scope::file(std, own), &["Option".to_owned()]).is_err());
+        let project = db.project(
+            "users-api",
+            ProjectKind::App,
+            &[(
+                "src/Program.mr",
+                "using Std.Json;\nusing J = Std.Json;\nusing static Std.Math;\n\
+             F(a: Consol, b: Option, c: JsonValu, d: J.JsonValue, e: Pie) {}\n",
+            )],
+            vec![Dependency {
+                name: "Std".into(),
+                project: std,
+            }],
+        );
+        let reported = diagnostics(&db, project);
+        assert_eq!(
+            messages(reported),
+            [
+                "cannot find `Consol`",
+                "cannot find `Option`",
+                "cannot find `JsonValu`",
+                "cannot find `Pie`",
+            ]
+        );
+        let fixes: Vec<_> = reported
+            .iter()
+            .map(|d| d.fixes.first().map(|fix| fix.message.clone()))
+            .collect();
+        assert_eq!(
+            fixes,
+            [
+                Some("did you mean `Console`?".to_owned()),
+                None,
+                Some("did you mean `JsonValue`?".to_owned()),
+                Some("did you mean `Pi`?".to_owned()),
+            ]
+        );
+    }
+}

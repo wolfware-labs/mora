@@ -27,7 +27,7 @@ mod ty;
 mod type_ref;
 
 #[cfg(test)]
-mod tests;
+mod test_db;
 
 pub use defs::{
     DefMap, EntryPoint, FolderProblem, ItemId, Namespace, NamespaceId, NamespaceRef, def_map,
