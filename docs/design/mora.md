@@ -3034,8 +3034,8 @@ Embedded targets need two more things, both planned: a backend for 32-bit instru
 
 | Channel | Command |
 |---|---|
-| Shell (Linux, macOS) | `curl -fsSL https://mora-lang.dev/install.sh \| sh` |
-| PowerShell (Windows) | `irm https://mora-lang.dev/install.ps1 \| iex` |
+| Shell (Linux, macOS) | `curl -fsSL https://moralang.org/install.sh \| sh` |
+| PowerShell (Windows) | `irm https://moralang.org/install.ps1 \| iex` |
 | Homebrew | `brew install wolfware-labs/tap/mora` |
 | winget | `winget install Wolfware.Mora` |
 | Manual | Archives on GitHub Releases |
@@ -3288,6 +3288,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-127 | `RunScoped(f)` opens a scope and every function that reaches it is a root with its own generated wiring; HTTP handlers and other runners are wrappers over it; nested scopes use `Scope<K>` and `per K`; scoped services, scopes and their lazy functions cannot escape the root | user | 16.1, 16.4 |
 | D-128 | Wiring costs nothing beyond the services: a generated scope struct in the root's frame or future, eager construction, direct calls and destructors for teardown; laziness is an explicit `() => T`; factories may be async and fail; decorators, generic bindings with declared parameters, tests by overriding blocks with `uses none`, and plugins [post-MVP] complete the model; the checks run in `mora check` and the language server | user | 16.4 |
 | D-129 | The pattern-matching construct is spelled `match`, a contextual keyword that starts a `match` only before a parenthesized scrutinee and `{`; `switch` is not a keyword | user | 3.4, 7.7, 14.4 |
+| D-130 | The project domain is `moralang.org`; installers and project links use it | user | 19.3 |
 
 ## 24. Open questions
 
@@ -3309,7 +3310,6 @@ Source: **user** means decided by the project owner in the design discussion; **
 | OQ-15 | Encoding and versioning of `mora.ir` | | M8 |
 | OQ-16 | Registry hosting, governance and name policy | | M12 |
 | OQ-17 | Does user code need an on-disk incremental cache in the MVP? | No, unless §20.6 budgets fail | M7 |
-| OQ-18 | Project domain (`mora-lang.dev` or `moralang.dev`, both unregistered at the time of writing) | `mora-lang.dev` in this document | before M7 |
 | OQ-19 | Which big-endian target, if any, gets a CI guard (s390x under QEMU is the candidate)? | None | M13 |
 | OQ-20 | Do structs also get generated ordering (`IComparable<T>`, by field order)? | No; `@Comparable` adds it (§9.9) | M4 |
 | OQ-21 | The rules by which the compiler stores a value inline, on the stack or in a heap cell (§6.1, §10.13) | A struct lives inline in its owner and is boxed only as §8.4 says; a class lives on the heap | M2 |
