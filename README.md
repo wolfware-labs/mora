@@ -2,7 +2,7 @@
 
 [![Coverage](https://img.shields.io/codecov/c/github/wolfware-labs/mora-lang?logo=codecov&label=coverage)](https://codecov.io/gh/wolfware-labs/mora-lang)
 
-Mora is a programming language with the syntax and feel of modern C#, memory managed by reference counting and single ownership instead of a garbage collector, and compilation to one native executable. It borrows C#'s look and idioms without copying the language: no exceptions, no inheritance, no `null` references. The compiler, runtime, language server and package tool are written in Rust.
+Mora is a programming language with familiar curly-brace syntax, memory managed by reference counting and single ownership instead of a garbage collector, and compilation to one native executable. Anyone who knows a mainstream curly-brace language can read it, but it keeps only what fits its own model: no exceptions, no inheritance, no `null` references. The compiler, runtime, language server and package tool are written in Rust.
 
 ```mora
 Console.WriteLine("Hello, world!");

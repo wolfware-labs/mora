@@ -738,7 +738,7 @@ Done when:
 
 Spec: [§8.1](docs/design/mora.md#81-generic-declarations), [§8.2](docs/design/mora.md#82-constraints). Crates: `mora-hir`. Blocked by: M3.1.
 
-Generic types, methods and local functions, the constraints of §8.2 including copyable-by-default and `where T : move` (D-23), C# method type inference, and `MR0234` for variance annotations.
+Generic types, methods and local functions, the constraints of §8.2 including copyable-by-default and `where T : move` (D-23), method type inference (§8.1), and `MR0234` for variance annotations.
 
 Done when:
 
@@ -977,9 +977,9 @@ Done when:
 
 ## M5: Standard library core
 
-**Goal.** Text, collections, LINQ, console, environment, time, files, JSON, logging, secrets and testing: enough standard library for real programs.
+**Goal.** Text, collections, sequence operators, console, environment, time, files, JSON, logging, secrets and testing: enough standard library for real programs.
 
-**Exit criteria.** The std API reference builds from doc comments; JSONTestSuite parsing cases pass; LINQ chains meet §15.5 with no allocation.
+**Exit criteria.** The std API reference builds from doc comments; JSONTestSuite parsing cases pass; sequence operator chains meet §15.5 with no allocation.
 
 | ID | Deliverable | Area | Blocked by |
 |---|---|---|---|
@@ -989,7 +989,7 @@ Done when:
 | [M5.4](#m54-list-arrays-spans-and-memory) | List, arrays, spans and memory | `std` | M5.1, M2.9 |
 | [M5.5](#m55-dictionary-hashset-queue-and-stack) | Dictionary, HashSet, Queue and Stack | `std` | M5.4, M3.18 |
 | [M5.6](#m56-enumeration-protocol-and-foreach) | Enumeration protocol and foreach | `std` | M5.4 |
-| [M5.7](#m57-linq) | LINQ | `std` | M5.6, M2.11 |
+| [M5.7](#m57-sequence-operators) | Sequence operators | `std` | M5.6, M2.11 |
 | [M5.8](#m58-console-environment-time-and-random) | Console, environment, time and random | `std` | M5.2 |
 | [M5.9](#m59-files-directories-and-paths) | Files, directories and paths | `std` | M5.8 |
 | [M5.10](#m510-json-values-parser-and-writer) | JSON values, parser and writer | `std` | M5.5 |
@@ -1022,7 +1022,7 @@ The `string`, `StringBuilder`, `Formatter` and `char` members of §15.2, byte-of
 Done when:
 
 - Run tests for every member, including non-ASCII and astral-plane text.
-- Format specifier tests match .NET invariant-culture output for a table of values.
+- Format specifier tests match the culture-independent output of §15.2 for a table of values.
 
 ### M5.3 Number parsing and formatting
 
@@ -1067,11 +1067,11 @@ Spec: [§7.11](docs/design/mora.md#711-statements), [§8.5](docs/design/mora.md#
 Done when:
 
 - Modifying a list inside `foreach` panics with `collection was modified during enumeration`.
-- A method returning `IEnumerable<User>` works with `foreach` and LINQ.
+- A method returning `IEnumerable<User>` works with `foreach` and the sequence operators.
 
-### M5.7 LINQ
+### M5.7 Sequence operators
 
-Spec: [§15.5](docs/design/mora.md#155-linq), [§10.9](docs/design/mora.md#109-closures). Crates: `std`. Blocked by: M5.6, M2.11.
+Spec: [§15.5](docs/design/mora.md#155-sequence-operators), [§10.9](docs/design/mora.md#109-closures). Crates: `std`. Blocked by: M5.6, M2.11.
 
 The operators of §15.5 as iterator structs taking closure structs, buffering operators, and the `OrNull` variants.
 
