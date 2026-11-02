@@ -11,7 +11,7 @@
 //   - Composite tokens the parser glues from adjacent pieces: '>=' '>>' '>>=' '>>>' '>>>=' '?['.
 //   - Contextual keywords are remapped by the parser in position (§3.4); extra ones used
 //     here: 'extension' (declarations), 'type' (associated types), 'allows' (constraint), 'any' (types),
-//     '_' (discard).
+//     '_' (discard), and 'services' with the words of its block (§16.4).
 
 //*************************//
 //      Names and paths    //
@@ -68,6 +68,7 @@ Item =
 | InterfaceDecl
 | MacroDecl
 | ExtensionDecl
+| ServicesDecl
 | FunctionDecl
 | FieldDecl
 
@@ -178,6 +179,37 @@ ExtensionDecl =
   Attribute* Modifier*
   'extension' TypeParamList? '(' Param ')' WhereClause*
   MemberList
+
+// §16.4. `services App : AppBase { ... }`: a composition, whose bases are other blocks.
+ServicesDecl =
+  Attribute* Modifier*
+  'services' Name BaseList?
+  '{' ServiceMember* '}'
+
+ServiceMember =
+  ServiceBinding
+| DecorateBinding
+
+// `scoped IUserStore = SqlUserStore;`, `transient WelcomeMail;`, `singleton IMailer;`,
+// `override singleton ILogger = FastLog.ILogger;`, `scoped ChatSession per Connection;`,
+// `each scoped IHealthCheck = DbCheck;`, `scoped<T> IRepository<T> = SqlRepository<T>;`.
+ServiceBinding =
+  Attribute* 'override'?
+  ('each' Lifetime? | Lifetime)
+  TypeParamList? service:Type ('per' kind:Type)? ('=' value:BindingValue)? ';'
+
+Lifetime =
+  kind:('singleton' | 'scoped' | 'transient')
+
+// A path names an implementation type, a base's binding or a factory; a lambda is a
+// factory or a choice among implementation types (§16.4).
+BindingValue =
+  Type
+| LambdaExpr
+
+// `decorate IUserStore with CachingUserStore;`
+DecorateBinding =
+  Attribute* 'decorate' TypeParamList? service:Type 'with' decorator:Type ';'
 
 //*************************//
 //      Members            //

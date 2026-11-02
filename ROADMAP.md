@@ -760,14 +760,12 @@ Done when:
 
 Spec: [§6.8](docs/design/mora.md#68-interfaces), [§8.3](docs/design/mora.md#83-static-dispatch), [§8.5](docs/design/mora.md#85-built-in-interfaces), [§8.7](docs/design/mora.md#87-associated-types). Crates: `mora-hir`, `std`. Blocked by: M3.9.
 
-Interface declarations with default members, static abstract members, interface inheritance, implementation by name and explicit implementation, associated types, `MR0232` and `MR0233`, the built-in interfaces of §8.5 declared in `std/`, and implicit type parameters for bare interface fields of classes, which spread to the classes that hold them, with `MR0239` (D-123).
+Interface declarations with default members, static abstract members, interface inheritance, implementation by name and explicit implementation, associated types, `MR0232` and `MR0233`, and the built-in interfaces of §8.5 declared in `std/`.
 
 Done when:
 
 - Run tests for default methods and static abstract members in generic code.
 - A generic `Max<T>` over `IComparable<T>` compiles to a direct call (MIR snapshot).
-- A class with an `IUserStore` field, built with two different stores, compiles to two instantiations whose calls through the field are direct (MIR snapshot), and a diagnostic about one of them names it `OrderService<SqlUserStore>`.
-- UI test for `MR0239` with its `any I` fix.
 
 ### M3.11 Dynamic interface values
 
@@ -1301,7 +1299,7 @@ Done when:
 
 Spec: [§16.1](docs/design/mora.md#161-http-server-stdnethttp), [§16.2](docs/design/mora.md#162-httperror). Crates: `std`. Blocked by: M6.6, M5.11, M5.15.
 
-`WebApp`, `WebAppOptions`, `--urls` and `MORA_URLS`, `Map*` with `move` handlers generic over any copyable `E : IError` (D-108), the routing rules of §16.1 (404, 405 with `Allow`, duplicate panics), `Request`, `RouteValue<T>`, `ReadTextAsync`, `ReadJsonAsync<T>`, `Response`, `Results`, `HttpError` with its conversions and `IError` members, error responses from `PublicMessage` and `HttpStatus` with `application/problem+json` for internal errors, request deadlines from `WebAppOptions.RequestTimeout` (503 when one passes), the request log as `Info` events in a span per request, and graceful shutdown on SIGINT, SIGTERM and Ctrl+Break.
+`WebApp`, `WebAppOptions`, `--urls` and `MORA_URLS`, `Map*` with `move` handlers generic over any copyable `E : IError` (D-108), the routing rules of §16.1 (404, 405 with `Allow`, duplicate panics), `Request`, `RouteValue<T>`, `ReadTextAsync`, `ReadJsonAsync<T>`, `Response`, `Results`, `HttpError` with its conversions and `IError` members, error responses from `PublicMessage` and `HttpStatus` with `application/problem+json` for internal errors, request deadlines from `WebAppOptions.RequestTimeout` (503 when one passes), the request log as `Info` events in a span per request, and graceful shutdown on SIGINT, SIGTERM and Ctrl+Break. Handlers here take only the `Request`; M6.9 widens the map functions to take roots of the app's composition (§16.4).
 
 Done when:
 
@@ -1323,17 +1321,20 @@ Done when:
 
 ### M6.9 Dependency injection
 
-Spec: [§16.4](docs/design/mora.md#164-dependency-injection-stdinject), [§8.3](docs/design/mora.md#83-static-dispatch), [§16.1](docs/design/mora.md#161-http-server-stdnethttp). Crates: `mora-hir`, `mora-check`, `mora-mir`, `std`. Blocked by: M6.7, M3.15.
+Spec: [§16.4](docs/design/mora.md#164-dependency-injection-stdinject), [§3.4](docs/design/mora.md#34-keywords), [§8.3](docs/design/mora.md#83-static-dispatch), [§16.1](docs/design/mora.md#161-http-server-stdnethttp). Crates: `mora-syntax`, `mora-hir`, `mora-check`, `mora-mir`, `std`. Blocked by: M6.7, M3.15.
 
-`Std.Inject`: `Services` with `AddSingleton`, `AddScoped`, `AddTransient`, `AddEach`, `Replace`, `Decorate` and `.Per<K>()`, factories that may be `async` and return `Result`, library defaults, `@Cfg` on registrations, `BuildAsync` with `StartupError` and immortal singletons, `IServiceHost`, `RunScoped` with provided values and kinds, `IRoot<R>`, `Scope<K>`, lazy `() => T` parameters, generic registrations, one generated wiring function per root, `WebApp.CreateBuilder` and injected handler parameters, `MR0700` to `MR0711`, and lint `unused-service` (D-122 to D-127).
+Parsing `services` blocks and their bindings (`ServicesDecl` in the grammar), bases with `override`, merged and conflicting bindings, `Base.IService` reuse, requirements, `each` elements and `decorate` combined in base-list order, `@Cfg` on blocks and bindings, choice lambdas compiled to closed unions, factories that may be `async`, fail or return `none`, service classes checked once and instantiated per final composition, `IServices`, `NoServices`, `WebApp.Create<App>`, `ServiceHost.StartAsync` with `StartupError` and immortal singletons built at startup, `RunScoped` with provided values and kinds, `IRoot<S, R>`, `Scope<K>` and `per K`, lazy `() => T` parameters, generic bindings with declared parameters, the escape check, one generated wiring function per root, map functions that take roots, `MR0700` to `MR0715`, and lint `unused-service` (D-122 to D-128).
 
 Done when:
 
-- UI tests for every code from `MR0700` to `MR0711`, with `MR0703` and `MR0705` printing the whole chain from the root.
-- The MIR of a handler that takes a singleton and a scoped service shows direct constructor and method calls, and `Assert.AllocatesAtMost` shows that running it with `RunScoped` allocates only the scoped service.
-- A singleton that depends on a scoped service through a transient is `MR0705`, and a root outside every `Connection` scope that needs a service per `Connection` is `MR0706`.
+- UI tests for every code from `MR0700` to `MR0715`, reported by `mora check` and by the language server as well as by `mora build`, with `MR0703` and `MR0705` printing the whole chain from the root and `MR0712` naming both blocks.
+- One binding reached through two bases compiles; two bases with different implementations or lifetimes for one service are `MR0712` until the combining block overrides it, also with `Base.IService`, whatever the base order.
+- Elements and decorators from two bases come in base-list order, then the block's own, so the block's own decorator is outermost (run test).
+- The MIR of a handler that takes a singleton and a scoped service shows direct constructor and method calls, and a choice binding compiles to a `switch` with a direct call per arm; `Assert.AllocatesAtMost` shows that running the handler with `RunScoped` allocates only the scoped service.
+- A singleton that depends on a scoped service through a transient is `MR0705`, a root outside every `Connection` scope that needs a service per `Connection` is `MR0706`, and a root that returns its scoped service or hands it to a detached task is `MR0714`.
 - In a run test, two child scopes inside one `Connection` scope share its service per `Connection`, each gets its own innermost scoped service, and destructors run in reverse construction order when each scope ends.
-- A test that calls the app's registration function, replaces a file-backed service and carries `uses none` passes; without the `Replace` the build fails with `MR0250` and the call path.
+- A test composition that inherits the app's, overrides a file-backed service and carries `uses none` passes; without the override the build fails with `MR0250` and the call path.
+- The acceptance test of §20.2 still passes with the map functions taking roots, and a warm `GET /users/1` still meets the allocation budget of §20.6.
 
 ## M7: Developer experience and v0.1
 

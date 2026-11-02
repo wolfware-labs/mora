@@ -368,6 +368,22 @@ pub enum SyntaxKind {
     OldKw,
     /// The contextual keyword `result`: an identifier the parser marks in position.
     ResultKw,
+    /// The contextual keyword `services`: an identifier the parser marks in position.
+    ServicesKw,
+    /// The contextual keyword `singleton`: an identifier the parser marks in position.
+    SingletonKw,
+    /// The contextual keyword `scoped`: an identifier the parser marks in position.
+    ScopedKw,
+    /// The contextual keyword `transient`: an identifier the parser marks in position.
+    TransientKw,
+    /// The contextual keyword `each`: an identifier the parser marks in position.
+    EachKw,
+    /// The contextual keyword `per`: an identifier the parser marks in position.
+    PerKw,
+    /// The contextual keyword `override`: an identifier the parser marks in position.
+    OverrideKw,
+    /// The contextual keyword `decorate`: an identifier the parser marks in position.
+    DecorateKw,
     /// The contextual keyword `_`: an identifier the parser marks in position.
     Underscore,
     /// Text the parser could not fit into the grammar.
@@ -402,6 +418,8 @@ pub enum SyntaxKind {
     MacroDecl,
     /// A `ExtensionDecl` node.
     ExtensionDecl,
+    /// A `ServicesDecl` node.
+    ServicesDecl,
     /// A `FunctionDecl` node.
     FunctionDecl,
     /// A `FieldDecl` node.
@@ -442,6 +460,14 @@ pub enum SyntaxKind {
     Block,
     /// A `Param` node.
     Param,
+    /// A `ServiceBinding` node.
+    ServiceBinding,
+    /// A `DecorateBinding` node.
+    DecorateBinding,
+    /// A `Lifetime` node.
+    Lifetime,
+    /// A `LambdaExpr` node.
+    LambdaExpr,
     /// A `GetterDecl` node.
     GetterDecl,
     /// A `IndexerDecl` node.
@@ -604,8 +630,6 @@ pub enum SyntaxKind {
     ConditionalExpr,
     /// A `AssignExpr` node.
     AssignExpr,
-    /// A `LambdaExpr` node.
-    LambdaExpr,
     /// A `NewExpr` node.
     NewExpr,
     /// A `NewArrayExpr` node.
@@ -869,6 +893,14 @@ impl SyntaxKind {
         AlsoKw,
         OldKw,
         ResultKw,
+        ServicesKw,
+        SingletonKw,
+        ScopedKw,
+        TransientKw,
+        EachKw,
+        PerKw,
+        OverrideKw,
+        DecorateKw,
         Underscore,
         Error,
         Name,
@@ -886,6 +918,7 @@ impl SyntaxKind {
         InterfaceDecl,
         MacroDecl,
         ExtensionDecl,
+        ServicesDecl,
         FunctionDecl,
         FieldDecl,
         Modifier,
@@ -906,6 +939,10 @@ impl SyntaxKind {
         AddsClause,
         Block,
         Param,
+        ServiceBinding,
+        DecorateBinding,
+        Lifetime,
+        LambdaExpr,
         GetterDecl,
         IndexerDecl,
         ConstructorDecl,
@@ -987,7 +1024,6 @@ impl SyntaxKind {
         AsExpr,
         ConditionalExpr,
         AssignExpr,
-        LambdaExpr,
         NewExpr,
         NewArrayExpr,
         StackallocExpr,
@@ -1194,6 +1230,14 @@ impl SyntaxKind {
         AlsoKw,
         OldKw,
         ResultKw,
+        ServicesKw,
+        SingletonKw,
+        ScopedKw,
+        TransientKw,
+        EachKw,
+        PerKw,
+        OverrideKw,
+        DecorateKw,
         Underscore,
     ];
 
@@ -1369,6 +1413,14 @@ impl SyntaxKind {
             AlsoKw => "also",
             OldKw => "old",
             ResultKw => "result",
+            ServicesKw => "services",
+            SingletonKw => "singleton",
+            ScopedKw => "scoped",
+            TransientKw => "transient",
+            EachKw => "each",
+            PerKw => "per",
+            OverrideKw => "override",
+            DecorateKw => "decorate",
             Underscore => "_",
             _ => return None,
         })
@@ -1486,6 +1538,14 @@ impl SyntaxKind {
             "also" => AlsoKw,
             "old" => OldKw,
             "result" => ResultKw,
+            "services" => ServicesKw,
+            "singleton" => SingletonKw,
+            "scoped" => ScopedKw,
+            "transient" => TransientKw,
+            "each" => EachKw,
+            "per" => PerKw,
+            "override" => OverrideKw,
+            "decorate" => DecorateKw,
             "_" => Underscore,
             _ => return None,
         })
