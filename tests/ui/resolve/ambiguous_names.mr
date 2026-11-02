@@ -1,0 +1,27 @@
+// Two declarations that one name reaches at the same level of the lookup.
+//@ project name=users-api
+//@ file src/Program.mr
+using UsersApi.Billing; //~ ERROR MR0128
+using UsersApi.Shipping;
+using static UsersApi.Store.Item; //~ ERROR MR0128
+
+Run();
+//@ file src/Store/Item.mr
+internal class Item {
+}
+//@ file src/Store/Duplicate.mr
+internal struct Item {
+}
+//@ file src/Billing.mr
+// A class with the name of a folder beside it.
+internal class Billing {
+}
+//@ file src/Billing/Address.mr
+internal class Address {
+}
+//@ file src/Shipping/Address.mr
+internal class Address {
+}
+//@ file src/Shipping/Label.mr
+using UsersApi.Shipping.Address;
+using Duplicate = Store.Item; //~ ERROR MR0128

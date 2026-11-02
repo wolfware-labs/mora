@@ -1,0 +1,23 @@
+error[MR0127]: cannot find `Stores` in `UsersApi`
+ --> src/Program.mr:1:16
+  |
+1 | using UsersApi.Stores; //~ ERROR MR0127
+  |                ^^^^^^ not found
+
+error[MR0127]: cannot find `Missing` in `UsersApi.Store`
+ --> src/Program.mr:2:22
+  |
+2 | using UsersApi.Store.Missing; //~ ERROR MR0127
+  |                      ^^^^^^^ not found
+
+error[MR0127]: cannot find `Nested` in `UsersApi.Store.UserStore`
+ --> src/Program.mr:3:39
+  |
+3 | using static UsersApi.Store.UserStore.Nested; //~ ERROR MR0127
+  |                                       ^^^^^^ not found
+
+error[MR0127]: cannot find `Caching`
+ --> src/Program.mr:4:15
+  |
+4 | using Cache = Caching.Memory; //~ ERROR MR0127
+  |               ^^^^^^^ not found

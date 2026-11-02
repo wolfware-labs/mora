@@ -1,0 +1,3 @@
+// A library has no entry point.
+//@ project kind=lib
+let x = 1; //~ ERROR MR0125

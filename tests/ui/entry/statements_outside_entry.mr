@@ -1,0 +1,9 @@
+// Top-level statements belong in the entry file only.
+//@ file src/Program.mr
+Console.WriteLine("hello");
+//@ file src/Setup.mr
+internal Setup() {
+    return;
+}
+
+Setup(); //~ ERROR MR0125

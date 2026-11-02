@@ -20,10 +20,43 @@ pub struct SourceFile {
 /// A project and the source files it compiles as one unit (§4.1).
 #[salsa::input(debug)]
 pub struct Project {
+    /// The `[project] name` of the manifest.
     #[returns(ref)]
     pub name: String,
+    /// The `.mr` files under `src/`.
     #[returns(ref)]
     pub files: Vec<SourceFile>,
+    /// The root namespace: `[project] namespace`, or the name in PascalCase (§4.2).
+    #[returns(ref)]
+    pub root_namespace: String,
+    /// Whether the project builds an executable or a library.
+    #[returns(copy)]
+    pub kind: ProjectKind,
+    /// The path of the entry file, relative to the project root (§4.6).
+    #[returns(ref)]
+    pub entry: String,
+    /// The projects this one depends on, the standard library among them
+    /// when it is loaded (§4.4).
+    #[returns(ref)]
+    pub dependencies: Vec<Dependency>,
+}
+
+/// What a project builds (§4.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ProjectKind {
+    /// `kind = "app"`: an executable with one entry point.
+    App,
+    /// `kind = "lib"`: a library.
+    Lib,
+}
+
+/// A dependency of a project and the name it is bound to in every file (§4.4).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Dependency {
+    /// The name the project's code uses: the manifest key in PascalCase, or `Std`.
+    pub name: String,
+    /// The dependency itself.
+    pub project: Project,
 }
 
 /// The line index of a file, recomputed only when the file's text changes.
@@ -76,7 +109,15 @@ mod tests {
         let mut db = TestDb::new();
         let a = SourceFile::new(&db, FileId::new(0), "src/A.mr".into(), "one\ntwo\n".into());
         let b = SourceFile::new(&db, FileId::new(1), "src/B.mr".into(), "one\n".into());
-        let project = Project::new(&db, "demo".into(), vec![a, b]);
+        let project = Project::new(
+            &db,
+            "demo".into(),
+            vec![a, b],
+            "Demo".into(),
+            ProjectKind::App,
+            "src/Program.mr".into(),
+            Vec::new(),
+        );
 
         assert_eq!(line_index(&db, a).line_count(), 3);
         assert_eq!(line_index(&db, b).line_count(), 2);

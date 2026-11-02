@@ -64,7 +64,7 @@ impl Compiler for Fake {
         }
         Checked {
             files,
-            file,
+            sources: vec![file],
             diagnostics,
         }
     }

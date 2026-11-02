@@ -1,0 +1,48 @@
+error[MR0128]: `Billing` is ambiguous
+ --> src/Program.mr:1:16
+  |
+1 | using UsersApi.Billing; //~ ERROR MR0128
+  |                ^^^^^^^ `Billing` names 2 declarations
+  |
+ ::: src/Billing.mr:2:16
+  |
+2 | internal class Billing {
+  |                ------- declared here
+  |
+  = note: it could be the namespace `UsersApi.Billing` or the class `UsersApi.Billing`; rename one of them
+
+error[MR0128]: `Item` is ambiguous
+ --> src/Program.mr:3:29
+  |
+3 | using static UsersApi.Store.Item; //~ ERROR MR0128
+  |                             ^^^^ `Item` names 2 declarations
+  |
+ ::: src/Store/Duplicate.mr:1:17
+  |
+1 | internal struct Item {
+  |                 ---- declared here
+  |
+ ::: src/Store/Item.mr:1:16
+  |
+1 | internal class Item {
+  |                ---- declared here
+  |
+  = note: it could be the struct `UsersApi.Store.Item` or the class `UsersApi.Store.Item`; rename one of them
+
+error[MR0128]: `Item` is ambiguous
+ --> src/Shipping/Label.mr:2:25
+  |
+2 | using Duplicate = Store.Item; //~ ERROR MR0128
+  |                         ^^^^ `Item` names 2 declarations
+  |
+ ::: src/Store/Duplicate.mr:1:17
+  |
+1 | internal struct Item {
+  |                 ---- declared here
+  |
+ ::: src/Store/Item.mr:1:16
+  |
+1 | internal class Item {
+  |                ---- declared here
+  |
+  = note: it could be the struct `UsersApi.Store.Item` or the class `UsersApi.Store.Item`; rename one of them
