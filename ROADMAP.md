@@ -1449,7 +1449,7 @@ Done when:
 
 Spec: [§1.4](docs/design/mora.md#14-anti-goals), [§17.10](docs/design/mora.md#1710-tools-for-programs-and-agents), [§19.3](docs/design/mora.md#193-installation). Crates: `docs/site`, `mora-cli`, `xtask`. Blocked by: M7.8, M5.18.
 
-The site at the project domain (OQ-18): install guide, language tour following §2, the standard library reference, the error pages, the macro guide and the ungrammar. `mora docs --llm`, served as `llms.txt`, and `mora-errors.jsonl` (D-112).
+The site at `moralang.org` (D-130): install guide, language tour following §2, the standard library reference, the error pages, the macro guide and the ungrammar. `mora docs --llm`, served as `llms.txt`, and `mora-errors.jsonl` (D-112).
 
 Done when:
 
