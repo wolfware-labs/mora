@@ -132,7 +132,6 @@ pub(crate) fn at_expr_start(p: &Parser<'_>) -> bool {
                 | K::DotDot
                 | K::AsyncKw
                 | K::StaticKw
-                | K::SwitchKw
         )
 }
 
@@ -490,6 +489,10 @@ fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
             p.expect(K::RParen);
             m.complete(p, K::NameofExpr)
         }
+        K::Ident if at_match(p) => {
+            match_head(p);
+            m.complete(p, K::MatchExpr)
+        }
         K::Ident if p.at_contextual("code") && matches!(p.nth(1), K::LBrace | K::LParen) => {
             quote(p);
             m.complete(p, K::QuoteExpr)
@@ -525,10 +528,6 @@ fn primary(p: &mut Parser<'_>) -> Option<CompletedMarker> {
                 p.expect(K::RParen);
             }
             m.complete(p, K::DefaultExpr)
-        }
-        K::SwitchKw => {
-            switch_head(p);
-            m.complete(p, K::SwitchExpr)
         }
         K::SizeofKw => {
             p.bump(K::SizeofKw);
@@ -670,11 +669,37 @@ fn propagation(p: &mut Parser<'_>, mut lhs: CompletedMarker) -> CompletedMarker 
     lhs
 }
 
-/// `switch (x) { arms }`, the same in a statement and in an expression
+/// Whether `match (x) {` starts here (§14.4): the word `match`, a
+/// parenthesized scrutinee with balanced parentheses, and `{` after it. A
+/// call `match(x)` is never followed by `{`, so anything else leaves
+/// `match` an identifier.
+pub(crate) fn at_match(p: &Parser<'_>) -> bool {
+    if !p.at_contextual("match") || p.nth(1) != K::LParen {
+        return false;
+    }
+    // The tokens after `match (`, with that `(` open.
+    let mut depth = 1usize;
+    let mut rest = p.input().kinds[p.pos() + 2..].iter();
+    while let Some(&kind) = rest.next() {
+        match kind {
+            K::LParen => depth += 1,
+            K::RParen => {
+                depth -= 1;
+                if depth == 0 {
+                    return rest.next() == Some(&K::LBrace);
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+/// `match (x) { arms }`, the same in a statement and in an expression
 /// (§7.7). An arm's value is an expression or a block; a comma separates
 /// arms, and after a block it may be left out.
-pub(crate) fn switch_head(p: &mut Parser<'_>) {
-    p.bump(K::SwitchKw);
+pub(crate) fn match_head(p: &mut Parser<'_>) {
+    p.bump_remap(K::MatchKw);
     stmts::parenthesized(p);
     let list = p.start();
     if p.expect(K::LBrace) {
@@ -688,10 +713,10 @@ pub(crate) fn switch_head(p: &mut Parser<'_>) {
             let block = p.at(K::LBrace);
             if block {
                 stmts::block(p);
-                arm.complete(p, K::SwitchBlockArm);
+                arm.complete(p, K::MatchBlockArm);
             } else {
                 expr(p);
-                arm.complete(p, K::SwitchArm);
+                arm.complete(p, K::MatchArm);
             }
             if !p.eat(K::Comma) && !block {
                 break;
@@ -699,7 +724,7 @@ pub(crate) fn switch_head(p: &mut Parser<'_>) {
         }
         p.expect(K::RBrace);
     }
-    list.complete(p, K::SwitchArmList);
+    list.complete(p, K::MatchArmList);
 }
 
 pub(crate) fn arg_list(p: &mut Parser<'_>) {

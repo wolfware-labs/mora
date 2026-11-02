@@ -215,7 +215,7 @@ impl<'t> Parser<'t> {
     }
 
     /// Runs `parse` with `x => ...` read as something else than a lambda,
-    /// or, with `allowed`, as a lambda again. In a switch arm `None => 0`
+    /// or, with `allowed`, as a lambda again. In a match arm `None => 0`
     /// and in a guard `when ok => 1`, the `=>` ends the pattern or the
     /// guard; inside parentheses, brackets and arguments lambdas come back.
     pub(crate) fn lambdas<T>(&mut self, allowed: bool, parse: impl FnOnce(&mut Self) -> T) -> T {

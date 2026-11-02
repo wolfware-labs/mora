@@ -179,6 +179,10 @@ fn at_declaration_start(p: &Parser<'_>) -> bool {
     ]) {
         return true;
     }
+    // `match (x) { ... }` is a statement, not a function `match` (§14.4).
+    if exprs::at_match(p) {
+        return false;
+    }
     // `Add(a: int, b: int): int => a + b;`, `extension<T>(xs: List<T>) { }`
     let input = p.input();
     at_function(input, p.pos()) || at_extension(input, p.pos())

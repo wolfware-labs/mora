@@ -259,7 +259,7 @@ Done when:
 
 Spec: [§7](docs/design/mora.md#7-expressions-and-statements), [§14.4](docs/design/mora.md#144-lexer-and-parser). Crates: `mora-syntax`, `fuzz`. Blocked by: M1.3.
 
-Statements of §7.11, Pratt parsing with the precedence table of §7.1, the postfix `?` disambiguation and `await e?` rule of §7.4, generic argument disambiguation and cast rules of §14.4, lambdas with capture lists, patterns of §7.8, switch expressions and statements, collection expressions, interpolation holes, `with`, `code { }` quotes and `#Name(...)` macro calls. A `cargo fuzz` target checks that parsing never panics and is lossless.
+Statements of §7.11, Pratt parsing with the precedence table of §7.1, the postfix `?` disambiguation and `await e?` rule of §7.4, generic argument disambiguation and cast rules of §14.4, lambdas with capture lists, patterns of §7.8, `match` expressions and statements, collection expressions, interpolation holes, `with`, `code { }` quotes and `#Name(...)` macro calls. A `cargo fuzz` target checks that parsing never panics and is lossless.
 
 Done when:
 
@@ -640,7 +640,7 @@ Done when:
 |---|---|---|---|
 | [M3.1](#m31-unions) | Unions | `hir` | M2.15 |
 | [M3.2](#m32-enums) | Enums | `hir` | M3.1 |
-| [M3.3](#m33-patterns-and-switch) | Patterns and switch | `hir` | M3.2 |
+| [M3.3](#m33-patterns-and-match) | Patterns and match | `hir` | M3.2 |
 | [M3.4](#m34-exhaustiveness-and-reachability) | Exhaustiveness and reachability | `check` | M3.3 |
 | [M3.5](#m35-options-none-and-flow-narrowing) | Options, `none` and flow narrowing | `hir` | M3.4 |
 | [M3.6](#m36-operators-conversions-and-indexers) | Operators, conversions and indexers | `hir` | M3.3 |
@@ -679,11 +679,11 @@ Done when:
 - A cast of an undeclared value panics.
 - `@Flags` combinations print and compare.
 
-### M3.3 Patterns and switch
+### M3.3 Patterns and match
 
-Spec: [§7.7](docs/design/mora.md#77-switch-expressions-and-statements), [§7.8](docs/design/mora.md#78-patterns). Crates: `mora-hir`, `mora-mir`. Blocked by: M3.2.
+Spec: [§7.7](docs/design/mora.md#77-match-expressions-and-statements), [§7.8](docs/design/mora.md#78-patterns). Crates: `mora-hir`, `mora-mir`. Blocked by: M3.2.
 
-Every pattern of §7.8, `is` expressions with definite assignment of bindings, one `switch` with arms as a statement and as an expression (D-89), guards, block arms and best-common-type.
+Every pattern of §7.8, `is` expressions with definite assignment of bindings, one `match` with arms as a statement and as an expression (D-89), guards, block arms and best-common-type.
 
 Done when:
 
@@ -1331,7 +1331,7 @@ Done when:
 - One binding reached through two bases compiles; two bases with different implementations or lifetimes for one service are `MR0712` until the combining block overrides it, also with `Base.IService`, whatever the base order.
 - Elements and decorators from two bases come in base-list order, then the block's own, so the block's own decorator is outermost (run test).
 - `override singleton I = [X, Y];` and `override decorate` replace the inherited elements or decorators of a service, `+=` lines add after them, and `= []` empties a collection (run test).
-- The MIR of a handler that takes a singleton and a scoped service shows direct constructor and method calls, and a choice binding compiles to a `switch` with a direct call per arm; `Assert.AllocatesAtMost` shows that running the handler with `RunScoped` allocates only the scoped service.
+- The MIR of a handler that takes a singleton and a scoped service shows direct constructor and method calls, and a choice binding compiles to a `match` with a direct call per arm; `Assert.AllocatesAtMost` shows that running the handler with `RunScoped` allocates only the scoped service.
 - A singleton that depends on a scoped service through a transient is `MR0705`, a root outside every `Connection` scope that needs a service per `Connection` is `MR0706`, and a root that returns its scoped service or hands it to a detached task is `MR0714`.
 - In a run test, two child scopes inside one `Connection` scope share its service per `Connection`, each gets its own innermost scoped service, and destructors run in reverse construction order when each scope ends.
 - A test composition that inherits the app's, overrides a file-backed service and carries `uses none` passes; without the override the build fails with `MR0250` and the call path.

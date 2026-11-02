@@ -1,14 +1,14 @@
 let constant = x is 0 || x is "GET" || x is Color.Red;
 let nulls = x is none || x is not none;
 let typed = shape is Circle c;
-let binding = switch (shape) { let s => s };
-let discard = switch (shape) { _ => 0 };
+let binding = match (shape) { let s => s };
+let discard = match (shape) { _ => 0 };
 let relational = n is < 0 or >= 100;
 let logical = n is > 0 and < 10 || s is none or "";
-let cases = switch (shape) { Circle(let r) => r, Shape.Rect(_, > 0) => 1, None => 0 };
+let cases = match (shape) { Circle(let r) => r, Shape.Rect(_, > 0) => 1, None => 0 };
 let positional = point is (0, let y) or (X: 0, Y: _);
 let property = user is { Name: "Ada", Age: > 18 } || user is { } u || user is User { Name: "Ada" } v;
 let list = xs is [1, 2, .. let rest] || xs is [_, _] || xs is [.., 0];
 let parens = x is (> 0 and < 5) or 10;
 let types = x is int[] || x is (int, string) || x is List<int>;
-let guarded = switch (n) { > 0 when n % 2 == 0 => "even", _ => "other" };
+let guarded = match (n) { > 0 when n % 2 == 0 => "even", _ => "other" };

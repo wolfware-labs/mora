@@ -58,10 +58,11 @@ fn statement_inner(p: &mut Parser<'_>) {
         K::BreakKw => keyword_stmt(p, K::BreakKw, K::BreakStmt),
         K::ContinueKw => keyword_stmt(p, K::ContinueKw, K::ContinueStmt),
         K::ReturnKw => return_stmt(p),
-        K::SwitchKw => {
+        // Before local functions: `match (x) { ... }` is a statement (§14.4).
+        K::Ident if exprs::at_match(p) => {
             let m = p.start();
-            exprs::switch_head(p);
-            m.complete(p, K::SwitchStmt);
+            exprs::match_head(p);
+            m.complete(p, K::MatchStmt);
         }
         K::UnsafeKw if p.nth(1) == K::LBrace => {
             let m = p.start();
@@ -149,7 +150,7 @@ fn return_stmt(p: &mut Parser<'_>) {
     m.complete(p, K::ReturnStmt);
 }
 
-/// `( condition )` after `if`, `while` and `switch`.
+/// `( condition )` after `if`, `while` and `match`.
 pub(crate) fn parenthesized(p: &mut Parser<'_>) {
     p.expect(K::LParen);
     p.lambdas(true, exprs::expr);
