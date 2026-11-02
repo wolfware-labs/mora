@@ -376,8 +376,6 @@ pub enum SyntaxKind {
     ScopedKw,
     /// The contextual keyword `transient`: an identifier the parser marks in position.
     TransientKw,
-    /// The contextual keyword `each`: an identifier the parser marks in position.
-    EachKw,
     /// The contextual keyword `per`: an identifier the parser marks in position.
     PerKw,
     /// The contextual keyword `override`: an identifier the parser marks in position.
@@ -889,7 +887,6 @@ impl SyntaxKind {
         SingletonKw,
         ScopedKw,
         TransientKw,
-        EachKw,
         PerKw,
         OverrideKw,
         DecorateKw,
@@ -1222,7 +1219,6 @@ impl SyntaxKind {
         SingletonKw,
         ScopedKw,
         TransientKw,
-        EachKw,
         PerKw,
         OverrideKw,
         DecorateKw,
@@ -1405,7 +1401,6 @@ impl SyntaxKind {
             SingletonKw => "singleton",
             ScopedKw => "scoped",
             TransientKw => "transient",
-            EachKw => "each",
             PerKw => "per",
             OverrideKw => "override",
             DecorateKw => "decorate",
@@ -1530,7 +1525,6 @@ impl SyntaxKind {
             "singleton" => SingletonKw,
             "scoped" => ScopedKw,
             "transient" => TransientKw,
-            "each" => EachKw,
             "per" => PerKw,
             "override" => OverrideKw,
             "decorate" => DecorateKw,

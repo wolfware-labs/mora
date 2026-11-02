@@ -1223,7 +1223,7 @@ Done when:
 | [M6.6](#m66-http11-connections) | HTTP/1.1 connections | `http` | M6.5 |
 | [M6.7](#m67-webapp-routing-and-results) | WebApp, routing and results | `http` | M6.6, M5.11, M5.15 |
 | [M6.8](#m68-the-users-api-example-and-acceptance-test) | The users API example and acceptance test | `testkit` | M6.7 |
-| [M6.9](#m69-dependency-injection) | Dependency injection | `check` | M6.7, M3.15 |
+| [M6.9](#m69-dependency-injection) | Dependency injection | `check` | M6.7, M3.11, M3.15, M3.18 |
 
 ### M6.1 Async functions and futures: language rules
 
@@ -1321,16 +1321,16 @@ Done when:
 
 ### M6.9 Dependency injection
 
-Spec: [§16.4](docs/design/mora.md#164-dependency-injection-stdinject), [§3.4](docs/design/mora.md#34-keywords), [§8.3](docs/design/mora.md#83-static-dispatch), [§16.1](docs/design/mora.md#161-http-server-stdnethttp). Crates: `mora-syntax`, `mora-hir`, `mora-check`, `mora-mir`, `std`. Blocked by: M6.7, M3.15.
+Spec: [§16.4](docs/design/mora.md#164-dependency-injection-stdinject), [§3.4](docs/design/mora.md#34-keywords), [§8.3](docs/design/mora.md#83-static-dispatch), [§16.1](docs/design/mora.md#161-http-server-stdnethttp). Crates: `mora-syntax`, `mora-hir`, `mora-check`, `mora-mir`, `std`. Blocked by: M6.7, M3.11, M3.15, M3.18.
 
-Adding `services` blocks and their bindings to `mora.ungram` (`ServicesDecl`) together with their parser, so the grammar fuzz target of M1.19 keeps passing, bases with `override`, merged and conflicting bindings, `Base.IService` reuse, requirements, `each` elements and `decorate` combined in base-list order, `@Cfg` on blocks and bindings, choice lambdas compiled to closed unions, factories that may be `async`, fail or return `none`, service classes checked once and instantiated per final composition, `IServices`, `NoServices`, `WebApp.Create<App>`, `ServiceHost.StartAsync` with `StartupError` and immortal singletons built at startup, `RunScoped` with provided values and kinds, `IRoot<S, R>`, `Scope<K>` and `per K`, lazy `() => T` parameters, generic bindings with declared parameters, the escape check, one generated wiring function per root, map functions that take roots, `MR0700` to `MR0715`, and lint `unused-service` (D-122 to D-128).
+Adding `services` blocks and their bindings to `mora.ungram` (`ServicesDecl`) together with their parser, so the grammar fuzz target of M1.19 keeps passing, bases with `override`, merged and conflicting bindings, `Base.IService` reuse, requirements, `+=` elements and `decorate` combined in base-list order, `@Cfg` on blocks and bindings, choice lambdas compiled to closed unions, factories that may be `async`, fail or return `none`, service classes checked once and instantiated per final composition, `IServices`, `NoServices`, `WebApp.Create<App>`, `ServiceHost.StartAsync` with `StartupError` and immortal singletons built at startup, `RunScoped` with provided values and kinds, `IRoot<S, R>`, `Scope<K>` and `per K`, lazy `() => T` parameters, generic bindings with declared parameters, the escape check, one generated wiring function per root, map functions that take roots, `MR0700` to `MR0715`, and lint `unused-service` (D-122 to D-128).
 
 Done when:
 
 - UI tests for every code from `MR0700` to `MR0715`, reported by `mora check` and by the language server as well as by `mora build`, with `MR0703` and `MR0705` printing the whole chain from the root and `MR0712` naming both blocks.
 - One binding reached through two bases compiles; two bases with different implementations or lifetimes for one service are `MR0712` until the combining block overrides it, also with `Base.IService`, whatever the base order.
 - Elements and decorators from two bases come in base-list order, then the block's own, so the block's own decorator is outermost (run test).
-- `override each` and `override decorate` drop the inherited elements or decorators of a service, and the block's own lines form the new list (run test).
+- `override` on a `+=` element and `override decorate` drop the inherited elements or decorators of a service, and the block's own lines form the new list (run test).
 - The MIR of a handler that takes a singleton and a scoped service shows direct constructor and method calls, and a choice binding compiles to a `switch` with a direct call per arm; `Assert.AllocatesAtMost` shows that running the handler with `RunScoped` allocates only the scoped service.
 - A singleton that depends on a scoped service through a transient is `MR0705`, a root outside every `Connection` scope that needs a service per `Connection` is `MR0706`, and a root that returns its scoped service or hands it to a detached task is `MR0714`.
 - In a run test, two child scopes inside one `Connection` scope share its service per `Connection`, each gets its own innermost scoped service, and destructors run in reverse construction order when each scope ends.

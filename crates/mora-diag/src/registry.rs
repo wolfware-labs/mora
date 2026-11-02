@@ -183,7 +183,7 @@ registry! {
     MR0615 = 615: "a macro's helper attribute outside a declaration that macro processes",
     MR0700 = 700: "a binding redefines an inherited binding without `override`",
     MR0701 = 701: "a service bound twice in one block, two bindings that match equally well, or a provided value of a bound or repeated type",
-    MR0702 = 702: "an `override`, `override each` or `decorate` with nothing inherited to match",
+    MR0702 = 702: "an `override` or `decorate` with nothing inherited to match",
     MR0703 = 703: "a service that a root or another service needs has no usable binding",
     MR0704 = 704: "services whose dependencies form a cycle",
     MR0705 = 705: "a service depends on one that dies before it (a captive dependency)",

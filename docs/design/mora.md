@@ -313,7 +313,7 @@ weak where while yield
 
 `out` has no meaning in the MVP; it stays reserved for variance annotations (§8.8). `import` has no meaning in the MVP either; it stays reserved for inline imports in scripts (§18.5).
 
-Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (indexer accessors, §6.9); `stored` (modifier, §6.9); `ns` (inside `mut(...)`, §6.9); `uses` (after a signature or a function type, §6.14); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, post-MVP, §18.5); `type` (associated types, §8.7); `allows` (`allows move`, `allows ref struct`, §8.2); `any` (`any IShape`, §8.4); `newtype` (declaration start, §6.12); `extension` (declaration start, §6.9); `test` (section position, §15.9); `contract` (section position, §6.13), and inside a contract section `invariant`, `requires`, `fails`, `ensures`, `also`, `old` and `result`; `services` (declaration start, §16.4), and inside a `services` block `singleton`, `scoped`, `transient`, `each`, `per`, `override` and `decorate`; `_` (discards in patterns and deconstruction, §7.8).
+Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (indexer accessors, §6.9); `stored` (modifier, §6.9); `ns` (inside `mut(...)`, §6.9); `uses` (after a signature or a function type, §6.14); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, post-MVP, §18.5); `type` (associated types, §8.7); `allows` (`allows move`, `allows ref struct`, §8.2); `any` (`any IShape`, §8.4); `newtype` (declaration start, §6.12); `extension` (declaration start, §6.9); `test` (section position, §15.9); `contract` (section position, §6.13), and inside a contract section `invariant`, `requires`, `fails`, `ensures`, `also`, `old` and `result`; `services` (declaration start, §16.4), and inside a `services` block `singleton`, `scoped`, `transient`, `per`, `override` and `decorate`; `_` (discards in patterns and deconstruction, §7.8).
 
 The compiler knows only Mora's syntax (D-59). A word that is not a keyword is an identifier, and code written in another language's syntax gets the ordinary syntax error, `MR0110`.
 
@@ -2516,8 +2516,8 @@ services AppBase : Storage {
     scoped IAuditLog = FileAuditLog;
     transient WelcomeMail;                      // a class bound to itself
     singleton IMailer;                          // a requirement: every final block binds it
-    each IHealthCheck = DbCheck;
-    each IHealthCheck = DiskCheck;
+    singleton IHealthCheck += DbCheck;
+    singleton IHealthCheck += DiskCheck;
 }
 
 @Cfg(Debug = true)
@@ -2553,16 +2553,16 @@ await app.RunAsync("127.0.0.1:8080")?;
 
 ```ebnf
 ServicesDecl = Attribute* Modifier* "services" Identifier ( ":" Path ( "," Path )* )? "{" Binding* "}" ;
-Binding      = Attribute* "override"? ( "each" Lifetime? | Lifetime ) TypeParams? Type ( "per" Type )? ( "=" ( Type | Lambda ) )? ";"
+Binding      = Attribute* "override"? Lifetime TypeParams? Type ( "per" Type )? ( ( "=" | "+=" ) ( Type | Lambda ) )? ";"
              | Attribute* "override"? "decorate" TypeParams? Type "with" Type ";" ;
 Lifetime     = "singleton" | "scoped" | "transient" ;
 ```
 
-- A `services` block is declared at namespace level, may be `public`, and holds only bindings. `services`, `singleton`, `scoped`, `transient`, `each`, `per`, `override` and `decorate` are keywords only in these positions (§3.4).
+- A `services` block is declared at namespace level, may be `public`, and holds only bindings. `services`, `singleton`, `scoped`, `transient`, `per`, `override` and `decorate` are keywords only in these positions (§3.4).
 - `scoped IUserStore = SqlUserStore;` binds a service type, an interface or a class, to an implementation, which MUST implement the interface or be the class.
 - `transient WelcomeMail;` binds a class to itself. A binding of an interface without `=`, `singleton IMailer;`, is a **requirement**: it fixes the lifetime and leaves the implementation to a block that inherits it.
 - `= Settings.Load` or `= (db: Db) => new Cache(db, 64)` binds a service to a **factory**: a method group or a lambda whose parameters are injected and which returns the implementation, `Result<TImpl, E>`, an option of the implementation, or, when it is `async`, a future of one of these. A factory lambda is `static` (§7.6) whether or not it says so, so a capture is `MR0332`.
-- A block binds a service at most once (`MR0701`).
+- A block binds a service with `=` at most once (`MR0701`); `+=` lines for one service may repeat, each adding an element.
 - **Associated types.** Each binding defines an associated type of the composition, named after the service: `App.IUserStore` is the type that consumers of `IUserStore` receive in `App`, here `CachingUserStore` around `SqlUserStore`. Hover shows it on every injected parameter.
 - **Constructor injection.** Without a factory, the implementation is built by its constructor, whose parameters are its dependencies; nothing marks them. The implementation MUST declare exactly one constructor visible to the block, or none and an initializer on every field. Otherwise it is `MR0708`, whose fix binds a factory that calls the constructor meant.
 
@@ -2572,13 +2572,13 @@ Lifetime     = "singleton" | "scoped" | "transient" ;
 - Redefining an inherited binding MUST be marked `override` (`MR0700`). Binding a requirement is an override too. An `override` MUST match an inherited binding of the same service with the same lifetime (`MR0702`).
 - Two bases that bind one service to different implementations or with different lifetimes are `MR0712`, which names both blocks and both bindings; the fix is an `override` in the combining block. Base order never settles it.
 - `override singleton ILogger = FastLog.ILogger;` reuses the binding of the base `FastLog`, its implementation and its factory or configuration, by naming the base's associated type.
-- **Collections and decorators combine.** The `each` elements and the `decorate` lines of several bases are combined, never in conflict: the bases' come first, in base-list order, then the block's own, so the block's own decorator is outermost. These are the only places where the order of bases matters.
-- **Replacing a collection or the decorators.** `override each I = X;` drops every element of `I` the block inherits; the block's own `each` and `override each` lines for `I` then form the list, in the order written, and an inherited element is kept by listing it again. `override decorate I with D;` drops the inherited decorators of `I` the same way. Either form on a service that no base gives elements or decorators is `MR0702`.
+- **Collections and decorators combine.** The `+=` elements and the `decorate` lines of several bases are combined, never in conflict: the bases' come first, in base-list order, then the block's own, so the block's own decorator is outermost. These are the only places where the order of bases matters.
+- **Replacing a collection or the decorators.** `override singleton I += X;` drops every element of `I` the block inherits; the block's own `+=` lines for `I`, with or without `override`, then form the list, in the order written, and an inherited element is kept by listing it again. `override decorate I with D;` drops the inherited decorators of `I` the same way. Either form on a service that no base gives elements or decorators is `MR0702`.
 
 ```mora
 services App : LibBase {
-    override each IHealthCheck = MyDbCheck;   // drops LibBase's checks
-    each IHealthCheck = QueueCheck;           // App's list: MyDbCheck, QueueCheck
+    override singleton IHealthCheck += MyDbCheck;   // drops LibBase's checks
+    singleton IHealthCheck += QueueCheck;           // App's list: MyDbCheck, QueueCheck
 }
 ```
 - `@Cfg` applies to whole blocks and to single bindings (§6.11, §17.2). An inactive block or binding does not exist. Two active blocks with one name are `MR0128` wherever the name is used.
@@ -2609,9 +2609,9 @@ services App : LibBase {
 
 **Collections.**
 
-- `each IHealthCheck = DbCheck;` adds an element to the collection for `IHealthCheck`. Elements are singletons unless a lifetime follows `each`: `each scoped IHealthCheck = DbCheck;`.
+- `singleton IHealthCheck += DbCheck;` adds an element to the collection for `IHealthCheck`, where `=` would bind the one implementation. Each element states its own lifetime like any binding: `scoped IHealthCheck += RequestCheck;`. A collection lives as long as its shortest-lived element: with a scoped element it is built per scope, sharing its singleton elements.
 - A consumer takes the collection as `ReadOnlySpan<any IHealthCheck>`, a view for use during the call (§10.6), or as `ReadOnlyMemory<any IHealthCheck>`, which a service can keep in a field and an async root can hold across `await` (§5.9). The elements have different types, so each one is an `any` value (§8.4), in the order given above. When every element is a singleton, the array behind the collection is built with the singletons and is immortal; otherwise each scope that uses the collection builds one.
-- A service with both `each` elements and a single binding is `MR0707`.
+- A service with both `+=` elements and an `=` binding is `MR0707`.
 
 **Service classes** (D-123).
 
@@ -2717,7 +2717,7 @@ test {
 }
 ```
 
-**Plugins** [post-MVP]. `each IExporter from "plugins/exporters";` adds the implementations that the plugin libraries in that folder provide through the plugin ABI (M8), loaded when the host starts, as `any IExporter` elements after the collection's other elements. The `uses` bounds of `IExporter`'s methods stand for the effects of calls into a plugin, and a call through a method without one is `dyn` (§6.14). Plugins, factories that return `any I` and collections are the only places where injection adds dynamic dispatch.
+**Plugins** [post-MVP]. `singleton IExporter += from "plugins/exporters";` adds the implementations that the plugin libraries in that folder provide through the plugin ABI (M8), loaded when the host starts, as `any IExporter` elements after the collection's other elements. The `uses` bounds of `IExporter`'s methods stand for the effects of calls into a plugin, and a call through a method without one is `dyn` (§6.14). Plugins, factories that return `any I` and collections are the only places where injection adds dynamic dispatch.
 
 **Compilation.** `mora-syntax` parses blocks. `mora-check` resolves each block's bases and bindings, checks every final composition's graph and checks each root where it is written, against the composition `S` of its `IRoot<S, R>`, before monomorphization, so `mora check` and the language server report every error of this section. `mora-mir` generates the wiring and instantiates each world during monomorphization. `mora expand` shows each root's wiring as Mora code (§9.8).
 
@@ -3281,7 +3281,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-123 | Each binding defines an associated type of its composition; in a class that a block of its project binds, a bare interface type in a field or constructor parameter names that binding; the class is checked once and instantiated per composition, and each final composition is compiled as its own world, so calls stay direct; `any I` implements `I`. Extends D-67 | user | 8.3, 8.4, 16.4 |
 | D-124 | Blocks inherit bases: redefining a binding needs `override`, conflicting bases need an `override` in the combining block, the same binding reached twice merges, a binding without `=` is a requirement every final composition must bind, `Base.IService` reuses a base's binding, elements and decorators combine in base-list order unless `override each` or `override decorate` replaces them, and `@Cfg` selects blocks and bindings | user | 16.4 |
 | D-125 | Implementations are chosen at build time with `@Cfg`, at startup or per scope with a choice lambda that compiles to a closed union, open-endedly with a factory returning `any I`, and optionally with a factory returning `none` | user | 16.4 |
-| D-126 | Services are singleton, scoped or transient; singletons are built at host startup and immortal; singleton and scoped implementations are classes; a captive dependency is a compile error that prints the chain; collections are `each` bindings consumed as `ReadOnlySpan<any I>` or `ReadOnlyMemory<any I>` | user | 16.4 |
+| D-126 | Services are singleton, scoped or transient; singletons are built at host startup and immortal; singleton and scoped implementations are classes; a captive dependency is a compile error that prints the chain; collections are `+=` elements consumed as `ReadOnlySpan<any I>` or `ReadOnlyMemory<any I>` | user | 16.4 |
 | D-127 | `RunScoped(f)` opens a scope and every function that reaches it is a root with its own generated wiring; HTTP handlers and other runners are wrappers over it; nested scopes use `Scope<K>` and `per K`; scoped services, scopes and their lazy functions cannot escape the root | user | 16.1, 16.4 |
 | D-128 | Wiring costs nothing beyond the services: a generated scope struct in the root's frame or future, eager construction, direct calls and destructors for teardown; laziness is an explicit `() => T`; factories may be async and fail; decorators, generic bindings with declared parameters, tests by overriding blocks with `uses none`, and plugins [post-MVP] complete the model; the checks run in `mora check` and the language server | user | 16.4 |
 
