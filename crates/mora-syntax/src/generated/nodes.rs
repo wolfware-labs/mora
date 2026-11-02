@@ -345,7 +345,7 @@ impl AstNode for TopLevelItem {
 }
 
 /// ```text
-/// Item = StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl | MacroDecl | ExtensionDecl | ServicesDecl | FunctionDecl | FieldDecl
+/// Item = StructDecl | ClassDecl | UnionDecl | EnumDecl | InterfaceDecl | MacroDecl | ExtensionDecl | FunctionDecl | FieldDecl
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Item {
@@ -356,7 +356,6 @@ pub enum Item {
     InterfaceDecl(InterfaceDecl),
     MacroDecl(MacroDecl),
     ExtensionDecl(ExtensionDecl),
-    ServicesDecl(ServicesDecl),
     FunctionDecl(FunctionDecl),
     FieldDecl(FieldDecl),
 }
@@ -370,7 +369,6 @@ impl AstNode for Item {
             || InterfaceDecl::can_cast(kind)
             || MacroDecl::can_cast(kind)
             || ExtensionDecl::can_cast(kind)
-            || ServicesDecl::can_cast(kind)
             || FunctionDecl::can_cast(kind)
             || FieldDecl::can_cast(kind)
     }
@@ -398,9 +396,6 @@ impl AstNode for Item {
         if ExtensionDecl::can_cast(kind) {
             return ExtensionDecl::cast(node).map(Self::ExtensionDecl);
         }
-        if ServicesDecl::can_cast(kind) {
-            return ServicesDecl::cast(node).map(Self::ServicesDecl);
-        }
         if FunctionDecl::can_cast(kind) {
             return FunctionDecl::cast(node).map(Self::FunctionDecl);
         }
@@ -419,7 +414,6 @@ impl AstNode for Item {
             Self::InterfaceDecl(it) => it.syntax(),
             Self::MacroDecl(it) => it.syntax(),
             Self::ExtensionDecl(it) => it.syntax(),
-            Self::ServicesDecl(it) => it.syntax(),
             Self::FunctionDecl(it) => it.syntax(),
             Self::FieldDecl(it) => it.syntax(),
         }
@@ -916,55 +910,6 @@ impl ExtensionDecl {
 impl AstNode for ExtensionDecl {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ExtensionDecl
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// ServicesDecl = Attribute* Modifier* 'services' Name BaseList? '{' ServiceMember* '}'
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ServicesDecl {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl ServicesDecl {
-    pub fn attributes(&self) -> AstChildren<Attribute> {
-        support::children(&self.syntax)
-    }
-    pub fn modifiers(&self) -> AstChildren<Modifier> {
-        support::children(&self.syntax)
-    }
-    pub fn services_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::ServicesKw])
-    }
-    pub fn name(&self) -> Option<Name> {
-        support::child(&self.syntax)
-    }
-    pub fn base_list(&self) -> Option<BaseList> {
-        support::child(&self.syntax)
-    }
-    pub fn l_brace_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::LBrace])
-    }
-    pub fn service_members(&self) -> AstChildren<ServiceMember> {
-        support::children(&self.syntax)
-    }
-    pub fn r_brace_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::RBrace])
-    }
-}
-
-impl AstNode for ServicesDecl {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::ServicesDecl
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -2149,257 +2094,6 @@ impl Param {
 impl AstNode for Param {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::Param
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// ServiceMember = ServiceBinding | DecorateBinding
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ServiceMember {
-    ServiceBinding(ServiceBinding),
-    DecorateBinding(DecorateBinding),
-}
-
-impl AstNode for ServiceMember {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        ServiceBinding::can_cast(kind) || DecorateBinding::can_cast(kind)
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        let kind = node.kind();
-        if ServiceBinding::can_cast(kind) {
-            return ServiceBinding::cast(node).map(Self::ServiceBinding);
-        }
-        if DecorateBinding::can_cast(kind) {
-            return DecorateBinding::cast(node).map(Self::DecorateBinding);
-        }
-        None
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        match self {
-            Self::ServiceBinding(it) => it.syntax(),
-            Self::DecorateBinding(it) => it.syntax(),
-        }
-    }
-}
-
-/// ```text
-/// ServiceBinding = Attribute* 'override'? ('each' Lifetime? | Lifetime) TypeParamList? service:Type ('per' kind:Type)? ('=' value:BindingValue)? ';'
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ServiceBinding {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl ServiceBinding {
-    pub fn attributes(&self) -> AstChildren<Attribute> {
-        support::children(&self.syntax)
-    }
-    pub fn override_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::OverrideKw])
-    }
-    pub fn each_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::EachKw])
-    }
-    pub fn lifetime(&self) -> Option<Lifetime> {
-        support::child(&self.syntax)
-    }
-    pub fn type_param_list(&self) -> Option<TypeParamList> {
-        support::child(&self.syntax)
-    }
-    pub fn service(&self) -> Option<Type> {
-        support::child_between(&self.syntax, &[], &[SyntaxKind::PerKw])
-    }
-    pub fn per_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::PerKw])
-    }
-    pub fn kind(&self) -> Option<Type> {
-        support::child_between(&self.syntax, &[SyntaxKind::PerKw], &[])
-    }
-    pub fn eq_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Eq])
-    }
-    pub fn value(&self) -> Option<BindingValue> {
-        support::child(&self.syntax)
-    }
-    pub fn semicolon_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Semicolon])
-    }
-}
-
-impl AstNode for ServiceBinding {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::ServiceBinding
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// DecorateBinding = Attribute* 'decorate' TypeParamList? service:Type 'with' decorator:Type ';'
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DecorateBinding {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl DecorateBinding {
-    pub fn attributes(&self) -> AstChildren<Attribute> {
-        support::children(&self.syntax)
-    }
-    pub fn decorate_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::DecorateKw])
-    }
-    pub fn type_param_list(&self) -> Option<TypeParamList> {
-        support::child(&self.syntax)
-    }
-    pub fn service(&self) -> Option<Type> {
-        support::child_between(&self.syntax, &[], &[SyntaxKind::WithKw])
-    }
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::WithKw])
-    }
-    pub fn decorator(&self) -> Option<Type> {
-        support::child_between(&self.syntax, &[SyntaxKind::WithKw], &[])
-    }
-    pub fn semicolon_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::Semicolon])
-    }
-}
-
-impl AstNode for DecorateBinding {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::DecorateBinding
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// Lifetime = kind:('singleton' | 'scoped' | 'transient')
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Lifetime {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl Lifetime {
-    pub fn kind(&self) -> Option<SyntaxToken> {
-        support::token(
-            &self.syntax,
-            &[
-                SyntaxKind::SingletonKw,
-                SyntaxKind::ScopedKw,
-                SyntaxKind::TransientKw,
-            ],
-        )
-    }
-}
-
-impl AstNode for Lifetime {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::Lifetime
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self { syntax: node })
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-
-/// ```text
-/// BindingValue = Type | LambdaExpr
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum BindingValue {
-    Type(Type),
-    LambdaExpr(LambdaExpr),
-}
-
-impl AstNode for BindingValue {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        Type::can_cast(kind) || LambdaExpr::can_cast(kind)
-    }
-
-    fn cast(node: SyntaxNode) -> Option<Self> {
-        let kind = node.kind();
-        if Type::can_cast(kind) {
-            return Type::cast(node).map(Self::Type);
-        }
-        if LambdaExpr::can_cast(kind) {
-            return LambdaExpr::cast(node).map(Self::LambdaExpr);
-        }
-        None
-    }
-
-    fn syntax(&self) -> &SyntaxNode {
-        match self {
-            Self::Type(it) => it.syntax(),
-            Self::LambdaExpr(it) => it.syntax(),
-        }
-    }
-}
-
-/// ```text
-/// LambdaExpr = CaptureList? Modifier* (LambdaParam | LambdaParamList) '=>' (Block | Expr)
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LambdaExpr {
-    pub(crate) syntax: SyntaxNode,
-}
-
-impl LambdaExpr {
-    pub fn capture_list(&self) -> Option<CaptureList> {
-        support::child(&self.syntax)
-    }
-    pub fn modifiers(&self) -> AstChildren<Modifier> {
-        support::children(&self.syntax)
-    }
-    pub fn lambda_param(&self) -> Option<LambdaParam> {
-        support::child(&self.syntax)
-    }
-    pub fn lambda_param_list(&self) -> Option<LambdaParamList> {
-        support::child(&self.syntax)
-    }
-    pub fn fat_arrow_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::FatArrow])
-    }
-    pub fn block(&self) -> Option<Block> {
-        support::child(&self.syntax)
-    }
-    pub fn expr(&self) -> Option<Expr> {
-        support::child(&self.syntax)
-    }
-}
-
-impl AstNode for LambdaExpr {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::LambdaExpr
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -5651,6 +5345,52 @@ impl AssignExpr {
 impl AstNode for AssignExpr {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::AssignExpr
+    }
+
+    fn cast(node: SyntaxNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self { syntax: node })
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+
+/// ```text
+/// LambdaExpr = CaptureList? Modifier* (LambdaParam | LambdaParamList) '=>' (Block | Expr)
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LambdaExpr {
+    pub(crate) syntax: SyntaxNode,
+}
+
+impl LambdaExpr {
+    pub fn capture_list(&self) -> Option<CaptureList> {
+        support::child(&self.syntax)
+    }
+    pub fn modifiers(&self) -> AstChildren<Modifier> {
+        support::children(&self.syntax)
+    }
+    pub fn lambda_param(&self) -> Option<LambdaParam> {
+        support::child(&self.syntax)
+    }
+    pub fn lambda_param_list(&self) -> Option<LambdaParamList> {
+        support::child(&self.syntax)
+    }
+    pub fn fat_arrow_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::FatArrow])
+    }
+    pub fn block(&self) -> Option<Block> {
+        support::child(&self.syntax)
+    }
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+}
+
+impl AstNode for LambdaExpr {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::LambdaExpr
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {

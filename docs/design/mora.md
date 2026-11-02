@@ -2549,7 +2549,7 @@ app.MapPost("/users", async (req: Request, users: IUserStore, audit: IAuditLog, 
 await app.RunAsync("127.0.0.1:8080")?;
 ```
 
-**Blocks and bindings.**
+**Blocks and bindings.** The fragment below joins the ungrammar of §14.4 when M6.9 adds its parser.
 
 ```ebnf
 ServicesDecl = Attribute* Modifier* "services" Identifier ( ":" Path ( "," Path )* )? "{" Binding* "}" ;

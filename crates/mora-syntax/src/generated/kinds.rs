@@ -418,8 +418,6 @@ pub enum SyntaxKind {
     MacroDecl,
     /// A `ExtensionDecl` node.
     ExtensionDecl,
-    /// A `ServicesDecl` node.
-    ServicesDecl,
     /// A `FunctionDecl` node.
     FunctionDecl,
     /// A `FieldDecl` node.
@@ -460,14 +458,6 @@ pub enum SyntaxKind {
     Block,
     /// A `Param` node.
     Param,
-    /// A `ServiceBinding` node.
-    ServiceBinding,
-    /// A `DecorateBinding` node.
-    DecorateBinding,
-    /// A `Lifetime` node.
-    Lifetime,
-    /// A `LambdaExpr` node.
-    LambdaExpr,
     /// A `GetterDecl` node.
     GetterDecl,
     /// A `IndexerDecl` node.
@@ -630,6 +620,8 @@ pub enum SyntaxKind {
     ConditionalExpr,
     /// A `AssignExpr` node.
     AssignExpr,
+    /// A `LambdaExpr` node.
+    LambdaExpr,
     /// A `NewExpr` node.
     NewExpr,
     /// A `NewArrayExpr` node.
@@ -918,7 +910,6 @@ impl SyntaxKind {
         InterfaceDecl,
         MacroDecl,
         ExtensionDecl,
-        ServicesDecl,
         FunctionDecl,
         FieldDecl,
         Modifier,
@@ -939,10 +930,6 @@ impl SyntaxKind {
         AddsClause,
         Block,
         Param,
-        ServiceBinding,
-        DecorateBinding,
-        Lifetime,
-        LambdaExpr,
         GetterDecl,
         IndexerDecl,
         ConstructorDecl,
@@ -1024,6 +1011,7 @@ impl SyntaxKind {
         AsExpr,
         ConditionalExpr,
         AssignExpr,
+        LambdaExpr,
         NewExpr,
         NewArrayExpr,
         StackallocExpr,
