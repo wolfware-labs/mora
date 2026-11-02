@@ -3,6 +3,12 @@ error[MR0127]: cannot find `Stores` in `UsersApi`
   |
 1 | using UsersApi.Stores; //~ ERROR MR0127
   |                ^^^^^^ not found
+  |
+help: did you mean `Store`?
+  |
+1 - using UsersApi.Stores; //~ ERROR MR0127
+1 + using UsersApi.Store; //~ ERROR MR0127
+  |
 
 error[MR0127]: cannot find `Missing` in `UsersApi.Store`
  --> src/Program.mr:2:22

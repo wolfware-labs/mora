@@ -1,0 +1,131 @@
+error[MR0129]: `Secret` is visible only in `UsersApi.Store`, not in `UsersApi.Billing`
+ --> src/Billing/Invoice.mr:2:38
+  |
+2 | internal Bill(secret: UsersApi.Store.Secret) { //~ ERROR MR0129
+  |                                      ^^^^^^ not visible here
+  |
+ ::: src/Store/Vault.mr:2:8
+  |
+2 | struct Secret {
+  |        ------ declared here
+  |
+  = note: a declaration without a visibility modifier is visible only in its folder; mark it `internal` to use it from `UsersApi.Billing`
+help: mark `Secret` `internal`
+ --> src/Store/Vault.mr:2:1
+  |
+2 | internal struct Secret {
+  | ++++++++
+
+error[MR0123]: `Peek` is visible in its project, but its signature mentions `Inner`, which is visible only inside its type
+  --> src/Store/Tokens.mr:14:20
+   |
+ 7 |     private struct Inner {
+   |                    ----- declared here
+...
+14 |     public Peek(): Inner { //~ ERROR MR0123
+   |                    ^^^^^ less visible than `Peek`
+   |
+   = note: code that can use a member must be able to name the types in its signature; make the type more visible or the member less visible
+help: mark `Inner` `internal`
+   |
+ 7 -     private struct Inner {
+ 7 +     internal struct Inner {
+   |
+
+error[MR0123]: `Issue` is visible in its folder, but its signature mentions `Token`, which is visible only in its file
+  --> src/Store/Tokens.mr:19:10
+   |
+ 1 | file struct Token {
+   |             ----- declared here
+...
+19 | Issue(): Token { //~ ERROR MR0123
+   |          ^^^^^ less visible than `Issue`
+   |
+   = note: code that can use a member must be able to name the types in its signature; make the type more visible or the member less visible
+
+error[MR0123]: `Unbox` is visible in its project, but its signature mentions `Box`, which is visible only in its folder
+  --> src/Store/Tokens.mr:34:21
+   |
+29 | struct Box {
+   |        --- declared here
+...
+34 | internal Unbox(box: Box): Box.Item { //~ ERROR MR0123 //~ ERROR MR0123
+   |                     ^^^ less visible than `Unbox`
+   |
+   = note: code that can use a member must be able to name the types in its signature; make the type more visible or the member less visible
+help: mark `Box` `internal`
+   |
+29 | internal struct Box {
+   | ++++++++
+
+error[MR0123]: `Unbox` is visible in its project, but its signature mentions `Item`, which is visible only in its folder
+  --> src/Store/Tokens.mr:34:31
+   |
+30 |     public struct Item {
+   |                   ---- declared here
+...
+34 | internal Unbox(box: Box): Box.Item { //~ ERROR MR0123 //~ ERROR MR0123
+   |                               ^^^^ less visible than `Unbox`
+   |
+   = note: code that can use a member must be able to name the types in its signature; make the type more visible or the member less visible
+
+error[MR0123]: `Current` is visible everywhere, but its signature mentions `Secret`, which is visible only in its folder
+  --> src/Store/Vault.mr:11:21
+   |
+ 2 | struct Secret {
+   |        ------ declared here
+...
+11 |     public Current: Secret; //~ ERROR MR0123
+   |                     ^^^^^^ less visible than `Current`
+   |
+   = note: code that can use a member must be able to name the types in its signature; make the type more visible or the member less visible
+help: mark `Secret` `public`
+   |
+ 2 | public struct Secret {
+   | ++++++
+
+error[MR0123]: `Open` is visible everywhere, but its signature mentions `Key`, which is visible only in its project
+  --> src/Store/Vault.mr:15:22
+   |
+ 6 | internal struct Key {
+   |                 --- declared here
+...
+15 |     public Open(key: Key): Secret { //~ ERROR MR0123 //~ ERROR MR0123
+   |                      ^^^ less visible than `Open`
+   |
+   = note: code that can use a member must be able to name the types in its signature; make the type more visible or the member less visible
+help: mark `Key` `public`
+   |
+ 6 - internal struct Key {
+ 6 + public struct Key {
+   |
+
+error[MR0123]: `Open` is visible everywhere, but its signature mentions `Secret`, which is visible only in its folder
+  --> src/Store/Vault.mr:15:28
+   |
+ 2 | struct Secret {
+   |        ------ declared here
+...
+15 |     public Open(key: Key): Secret { //~ ERROR MR0123 //~ ERROR MR0123
+   |                            ^^^^^^ less visible than `Open`
+   |
+   = note: code that can use a member must be able to name the types in its signature; make the type more visible or the member less visible
+help: mark `Secret` `public`
+   |
+ 2 | public struct Secret {
+   | ++++++
+
+error[MR0123]: `Unlock` is visible in its project, but its signature mentions `Secret`, which is visible only in its folder
+  --> src/Store/Vault.mr:33:42
+   |
+ 2 | struct Secret {
+   |        ------ declared here
+...
+33 | internal Unlock(vault: Vault, key: Key): Secret { //~ ERROR MR0123
+   |                                          ^^^^^^ less visible than `Unlock`
+   |
+   = note: code that can use a member must be able to name the types in its signature; make the type more visible or the member less visible
+help: mark `Secret` `internal`
+   |
+ 2 | internal struct Secret {
+   | ++++++++

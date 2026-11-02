@@ -1,0 +1,35 @@
+// Names in signatures that name no type, with a suggestion of the closest
+// visible name when one is close enough.
+//@ project name=users-api
+//@ file src/Program.mr
+let count = 1;
+//@ file src/Store/User.mr
+internal struct User {
+    public Id: int;
+    public Name: strng; //~ ERROR MR0127
+}
+
+internal Find(id: int): Usr { //~ ERROR MR0127
+    return new User { Id = id, Name = "" };
+}
+
+internal Count(users: List<Usr>): int { //~ ERROR MR0127
+    return 0;
+}
+
+internal Load(id: UsersApi.Stor.User): User { //~ ERROR MR0127
+    return new User { Id = 0, Name = "" };
+}
+
+internal Parse(text: string): Qwertyuiop { //~ ERROR MR0127
+    return none;
+}
+
+// A folder is a namespace, not a type, and so is a function.
+internal Open(store: Store): User { //~ ERROR MR0127
+    return new User { Id = 0, Name = "" };
+}
+
+internal Again(find: Find): User { //~ ERROR MR0127
+    return new User { Id = 0, Name = "" };
+}

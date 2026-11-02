@@ -1,0 +1,81 @@
+// A signature that mentions a type less visible than its member (§4.5).
+//@ project name=users-api
+//@ file src/Program.mr
+let count = 1;
+//@ file src/Store/Vault.mr
+// Visible in the folder `UsersApi.Store`.
+struct Secret {
+    public Value: string;
+}
+
+internal struct Key {
+    public Id: int;
+}
+
+public struct Vault {
+    public Current: Secret; //~ ERROR MR0123
+    // A field without a modifier is visible in the folder, like `Secret`.
+    Last: Secret;
+
+    public Open(key: Key): Secret { //~ ERROR MR0123 //~ ERROR MR0123
+        return Last;
+    }
+
+    internal Rotate(key: Key) {
+    }
+}
+
+// A `public` member of an unmarked type is visible in the folder, so it
+// may mention a type visible in the folder.
+struct Shelf {
+    public Top: Secret;
+
+    public Take(): Secret {
+        return Top;
+    }
+}
+
+internal Unlock(vault: Vault, key: Key): Secret { //~ ERROR MR0123
+    return vault.Open(key);
+}
+//@ file src/Store/Tokens.mr
+file struct Token {
+    public Text: string;
+}
+
+// A `private` nested type is visible inside the type around it.
+internal struct Wrapper {
+    private struct Inner {
+    }
+
+    private Wrap(inner: Inner): Inner {
+        return inner;
+    }
+
+    public Peek(): Inner { //~ ERROR MR0123
+        return new Inner {};
+    }
+}
+
+Issue(): Token { //~ ERROR MR0123
+    return new Token { Text = "" };
+}
+
+file Check(token: Token): bool {
+    return true;
+}
+
+// Marking `Item` would not help: the type around it is unmarked, so the
+// error offers no fix.
+struct Box {
+    public struct Item {
+    }
+}
+
+internal Unbox(box: Box): Box.Item { //~ ERROR MR0123 //~ ERROR MR0123
+    return new Box.Item {};
+}
+//@ file src/Billing/Invoice.mr
+// Another folder: `Secret` is not visible here at all.
+internal Bill(secret: UsersApi.Store.Secret) { //~ ERROR MR0129
+}

@@ -1,0 +1,43 @@
+error[MR0146]: `Name` is already declared in `User`
+ --> tests/ui/members/member_names.mr:6:12
+  |
+4 |     public Name: string;
+  |            ---- first declared here
+5 |     Address: string;
+6 |     public Name: string; //~ ERROR MR0146
+  |            ^^^^ declared again here
+  |
+  = note: the members of a type share one set of names; only methods may share a name, as overloads
+
+error[MR0146]: `Address` is already declared in `User`
+ --> tests/ui/members/member_names.mr:8:12
+  |
+5 |     Address: string;
+  |     ------- first declared here
+...
+8 |     struct Address { //~ ERROR MR0146
+  |            ^^^^^^^ declared again here
+  |
+  = note: the members of a type share one set of names; only methods may share a name, as overloads
+
+error[MR0146]: `Count` is already declared in `User`
+  --> tests/ui/members/member_names.mr:16:12
+   |
+12 |     public Count(): int {
+   |            ----- first declared here
+...
+16 |     public Count: int; //~ ERROR MR0146
+   |            ^^^^^ declared again here
+   |
+   = note: the members of a type share one set of names; only methods may share a name, as overloads
+
+error[MR0146]: `Load` is already declared in `Store`
+  --> tests/ui/members/member_names.mr:32:11
+   |
+28 |     public Load(): int {
+   |            ---- first declared here
+...
+32 |     class Load { //~ ERROR MR0146
+   |           ^^^^ declared again here
+   |
+   = note: the members of a type share one set of names; only methods may share a name, as overloads

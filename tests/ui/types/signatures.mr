@@ -1,0 +1,61 @@
+// Signatures whose types all resolve: primitives, tuples, structs, nested
+// types, type parameters, and types that later parts of the compiler give
+// meaning to.
+//@ project name=users-api
+//@ file src/Program.mr
+using Std.Json;
+
+let count = 1;
+
+Read(value: JsonValue, raw: Std.Text.StringBuilder): Console? {
+    return none;
+}
+//@ file src/Store/User.mr
+internal struct User {
+    public Id: int;
+    public Name: string;
+    public Pair: (Id: int, Name: string);
+    public Point: (float, double);
+    public Grouped: (int);
+    public Nothing: ();
+    Home: Address;
+
+    struct Address {
+        public Line: string;
+    }
+
+    private struct Hidden {
+    }
+
+    private Mark(hidden: Hidden): Address {
+        return Home;
+    }
+}
+
+internal struct Box<T> {
+    public Value: T;
+
+    public Get(): T {
+        return Value;
+    }
+}
+
+internal class Repository {
+    public Find(id: long): User? {
+        return none;
+    }
+}
+
+internal First<T>(items: T[], compare: (T, T) => int): T {
+    return items[0];
+}
+
+internal Sizes(a: bool, b: byte, c: sbyte, d: short, e: ushort, f: uint, g: ulong, h: nint, i: nuint, j: char): Box<User> {
+    return new Box<User> { Value = new User {} };
+}
+
+internal async Save(ref user: User, move repository: Repository, params ids: ReadOnlySpan<int>): Result<(), string> {
+    return Ok(());
+}
+
+const Max: int = 5;

@@ -342,3 +342,181 @@ fn path_of(namespaces: &Arena<Namespace>, id: NamespaceId) -> String {
     segments.reverse();
     segments.join(".")
 }
+
+#[cfg(test)]
+mod tests {
+    use mora_span::{Project, ProjectKind};
+    use salsa::Setter;
+
+    use crate::test_db::{TestDb, app, codes, file_named, resolve};
+    use crate::*;
+
+    #[test]
+    fn an_edit_inside_a_body_does_not_rebuild_the_def_map() {
+        let mut db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                ("src/Program.mr", "using UsersApi.Store;\nlet x = 1;\n"),
+                (
+                    "src/Store/UserStore.mr",
+                    "internal class UserStore {\n    public Count(): int {\n        return 1;\n    }\n}\n",
+                ),
+            ],
+        );
+        assert_eq!(diagnostics(&db, project), &[]);
+        db.take_executed();
+
+        // The edit makes the file longer, so every range after it moves.
+        let store = file_named(&db, project, "src/Store/UserStore.mr");
+        let text = "internal class UserStore {\n    public Count(): int {\n        let n = 40 + 2;\n        \
+                    return n;\n    }\n}\n";
+        store.set_text(&mut db).to(text.into());
+        assert_eq!(diagnostics(&db, project), &[]);
+        let executed = db.take_executed();
+        let ran = |query: &str| {
+            executed
+                .iter()
+                .any(|key| key.starts_with(&format!("{query}(")))
+        };
+        assert!(ran("parse"), "{executed:?}");
+        assert!(ran("lowered"), "{executed:?}");
+        assert!(!ran("def_map"), "{executed:?}");
+        assert!(!ran("imports"), "{executed:?}");
+
+        // A new declaration changes the item tree, so the def map is rebuilt.
+        store
+            .set_text(&mut db)
+            .to("internal class UserStore {}\ninternal class Cache {}\n".into());
+        def_map(&db, project);
+        let executed = db.take_executed();
+        assert!(
+            executed.iter().any(|key| key.starts_with("def_map(")),
+            "{executed:?}"
+        );
+    }
+
+    #[test]
+    fn folders_give_namespaces() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                ("src/Program.mr", ""),
+                ("src/Store/UserStore.mr", ""),
+                ("src/http-client/Retry.mr", ""),
+                ("src/http-client/auth/Token.mr", ""),
+            ],
+        );
+        let map = def_map(&db, project);
+        let namespace = |path: &str| {
+            let file = file_named(&db, project, path);
+            map.namespace_path(map.file_namespace(file).unwrap())
+        };
+        assert_eq!(namespace("src/Program.mr"), "UsersApi");
+        assert_eq!(namespace("src/Store/UserStore.mr"), "UsersApi.Store");
+        assert_eq!(namespace("src/http-client/Retry.mr"), "UsersApi.HttpClient");
+        assert_eq!(
+            namespace("src/http-client/auth/Token.mr"),
+            "UsersApi.HttpClient.Auth"
+        );
+        assert_eq!(map.folder_problems(), &[]);
+    }
+
+    #[test]
+    fn bad_and_clashing_folders_are_reported() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                ("src/2d/Shape.mr", ""),
+                ("src/HttpClient/A.mr", ""),
+                ("src/http-client/B.mr", ""),
+            ],
+        );
+        let problems = def_map(&db, project).folder_problems();
+        assert!(matches!(
+            &problems[0],
+            FolderProblem::Invalid { folder, .. } if folder == "src/2d"
+        ));
+        assert!(matches!(
+            &problems[1],
+            FolderProblem::Clash { folder, other, namespace, .. }
+                if folder == "src/http-client"
+                    && other == "src/HttpClient"
+                    && namespace == "UsersApi.HttpClient"
+        ));
+        assert_eq!(codes(diagnostics(&db, project)), ["MR0121", "MR0121"]);
+    }
+
+    #[test]
+    fn entry_points() {
+        let db = TestDb::new();
+        let entry = |files: &[(&str, &str)]| {
+            let project = app(&db, files);
+            (
+                def_map(&db, project).entry_point(),
+                codes(diagnostics(&db, project)),
+            )
+        };
+        let (point, reported) = entry(&[("src/Program.mr", "let x = 1;\nHelper() {}\n")]);
+        assert!(matches!(point, EntryPoint::Statements(_)), "{point:?}");
+        assert!(reported.is_empty());
+
+        // Only a function counts, not a type named `Main`.
+        let (point, _) = entry(&[("src/Program.mr", "let x = 1;\nclass Main {}\n")]);
+        assert!(matches!(point, EntryPoint::Statements(_)), "{point:?}");
+
+        let (point, reported) = entry(&[("src/App.mr", "class App {\n    static Main() {}\n}\n")]);
+        assert!(matches!(point, EntryPoint::Main(_)), "{point:?}");
+        assert!(reported.is_empty());
+
+        // An instance method named `Main` is not an entry point.
+        let (point, _) = entry(&[("src/App.mr", "class App {\n    Main() {}\n}\n")]);
+        assert_eq!(point, EntryPoint::None);
+
+        let (point, reported) = entry(&[("src/Program.mr", "let x = 1;\nMain() {}\n")]);
+        assert_eq!(point, EntryPoint::Conflict);
+        assert_eq!(reported, ["MR0124"]);
+
+        let (_, reported) = entry(&[("src/A.mr", "Main() {}\n"), ("src/B.mr", "Main() {}\n")]);
+        assert_eq!(reported, ["MR0124"]);
+
+        let (_, reported) = entry(&[
+            ("src/Program.mr", "let x = 1;\n"),
+            ("src/Util.mr", "let y = 2;\n"),
+        ]);
+        assert_eq!(reported, ["MR0125"]);
+
+        let lib = db.project(
+            "lib",
+            ProjectKind::Lib,
+            &[("src/Lib.mr", "let x = 1;\n")],
+            Vec::new(),
+        );
+        assert_eq!(def_map(&db, lib).entry_point(), EntryPoint::None);
+        assert_eq!(codes(diagnostics(&db, lib)), ["MR0125"]);
+    }
+
+    #[test]
+    fn a_dotted_root_namespace_is_a_chain() {
+        let db = TestDb::new();
+        let file = db.file("src/Store/A.mr", "internal class A {}\n");
+        let project = Project::new(
+            &db,
+            "users".into(),
+            vec![file],
+            "Acme.Users".into(),
+            ProjectKind::Lib,
+            "src/Program.mr".into(),
+            Vec::new(),
+        );
+        let map = def_map(&db, project);
+        assert_eq!(map.namespace(map.outermost()).name, "Acme");
+        assert_eq!(map.namespace_path(map.root()), "Acme.Users");
+        assert_eq!(
+            resolve(&db, project, "src/Store/A.mr", "Acme.Users.Store.A"),
+            Ok("Acme.Users.Store.A".into())
+        );
+    }
+}
