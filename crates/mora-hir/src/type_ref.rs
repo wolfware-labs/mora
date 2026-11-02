@@ -170,18 +170,11 @@ impl LowerTypes {
     fn field(&mut self, field: &ast::FieldDecl) -> Option<FieldRef> {
         let declarator = field.variable_declarator()?;
         let name = declarator.name()?.ident_token()?;
-        let mut visibility = Visibility::Folder;
-        for token in field.modifiers().filter_map(|modifier| modifier.kind()) {
-            let written = match token.kind() {
-                SyntaxKind::PrivateKw => Visibility::Private,
-                SyntaxKind::FileKw => Visibility::File,
-                SyntaxKind::InternalKw => Visibility::Internal,
-                SyntaxKind::PublicKw => Visibility::Public,
-                _ => continue,
-            };
-            visibility = written;
-            break;
-        }
+        let visibility = field
+            .modifiers()
+            .filter_map(|modifier| modifier.kind())
+            .find_map(|token| visibility(token.kind()))
+            .unwrap_or(Visibility::Folder);
         self.source.fields.push(name.text_range());
         Some(FieldRef {
             name: ident_name(name.text()).into_owned(),
@@ -203,13 +196,14 @@ impl LowerTypes {
             ast::Type::PredefinedType(it) => it
                 .kind()
                 .map_or(TypeRef::Missing, |token| predefined(token.kind())),
-            ast::Type::PathType(it) => self.path(it),
+            ast::Type::PathType(it) => self.path(it).unwrap_or(TypeRef::Missing),
             ast::Type::TupleType(it) => self.tuple(it),
             ast::Type::ArrayType(it) => TypeRef::Array(self.boxed(it.ty())),
             ast::Type::OptionalType(it) => TypeRef::Optional(self.boxed(it.ty())),
             ast::Type::WeakType(it) => TypeRef::Weak(self.boxed(it.ty())),
             ast::Type::AnyType(it) => {
-                let path = it.path_type().map_or(TypeRef::Missing, |it| self.path(&it));
+                let path = it.path_type().and_then(|it| self.path(&it));
+                let path = path.unwrap_or(TypeRef::Missing);
                 TypeRef::Any(Box::new(path))
             }
             ast::Type::FnType(it) => {
@@ -248,28 +242,21 @@ impl LowerTypes {
         TypeRef::Tuple(elems)
     }
 
-    fn path(&mut self, path: &ast::PathType) -> TypeRef {
+    /// A path, `None` when the parser recovered from a missing name.
+    fn path(&mut self, path: &ast::PathType) -> Option<TypeRef> {
         let mut segments = Vec::new();
         let mut ranges = Vec::new();
         let mut generic = false;
         let mut arg_lists = Vec::new();
-        for segment in path
-            .path()
-            .into_iter()
-            .flat_map(|path| path.path_segments())
-        {
-            let Some(token) = segment.name_ref().and_then(|name| name.ident_token()) else {
-                return TypeRef::Missing;
-            };
+        // The parser gives every path at least one segment.
+        for segment in path.path()?.path_segments() {
+            let token = segment.name_ref()?.ident_token()?;
             segments.push(ident_name(token.text()).into_owned());
             ranges.push(token.text_range());
             if let Some(list) = segment.generic_arg_list() {
                 generic = true;
                 arg_lists.push(list);
             }
-        }
-        if segments.is_empty() {
-            return TypeRef::Missing;
         }
         // The path takes its index before its arguments, so paths are
         // numbered in the order of the text.
@@ -280,12 +267,23 @@ impl LowerTypes {
             .flat_map(|list| list.types())
             .map(|ty| self.ty(&ty))
             .collect();
-        TypeRef::Path(PathRef {
+        Some(TypeRef::Path(PathRef {
             segments,
             generic,
             args,
             index,
-        })
+        }))
+    }
+}
+
+/// The visibility a modifier keyword writes, if it writes one.
+fn visibility(kind: SyntaxKind) -> Option<Visibility> {
+    match kind {
+        SyntaxKind::PrivateKw => Some(Visibility::Private),
+        SyntaxKind::FileKw => Some(Visibility::File),
+        SyntaxKind::InternalKw => Some(Visibility::Internal),
+        SyntaxKind::PublicKw => Some(Visibility::Public),
+        _ => None,
     }
 }
 

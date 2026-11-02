@@ -101,10 +101,9 @@ fn signatures(db: &dyn Db, project: Project, file: SourceFile, out: &mut Vec<Dia
                     resolve_error(db, *scope, name, span, kind.clone(), true)
                 }
                 SignatureErrorKind::NotAType(resolved) => {
-                    let what = match full_name(db, resolved) {
-                        Some(full) => format!("{} `{full}`", kind_name(db, resolved)),
-                        None => kind_name(db, resolved).to_owned(),
-                    };
+                    // A namespace, an item or overloads, which all have a name.
+                    let full = full_name(db, resolved).unwrap_or_default();
+                    let what = format!("{} `{full}`", kind_name(db, resolved));
                     Diagnostic::error(
                         codes::MR0127,
                         format!("`{name}` is not a type"),

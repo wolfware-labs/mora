@@ -152,7 +152,7 @@ fn structs_are_nominal_and_list_their_fields() {
         &[(
             "src/Program.mr",
             "struct Point {\n    public X: int;\n    private mut Y: Point;\n    file Z: float;\n    \
-             internal W: char;\n    V: bool;\n    Length(): int => X;\n}\n\
+             internal W: char;\n    mut static V: bool;\n    Length(): int => X;\n}\n\
              static Origin: Point = new Point {};\nF(p: Point) {}\n",
         )],
     );
@@ -195,7 +195,7 @@ fn later_constructs_are_unsupported_with_their_parts() {
             "src/Program.mr",
             "class C {}\nunion U { A }\nenum E { A }\ninterface I {}\nstruct G<T> {}\n\
              F(a: int[], b: int?, c: (int, bool) => string, d: weak C, e: any I, \
-             f: C, g: U, h: E, i: I, j: G, k: G<int>, l: S<int>, m: Std.Json.JsonValue) {}\n\
+             f: C, g: U, h: E, i: I, j: G, k: G<int>, l: S<int>, m: Std.Json.JsonValue, n: $t) {}\n\
              struct S {}\n",
         )],
     );
@@ -220,6 +220,7 @@ fn later_constructs_are_unsupported_with_their_parts() {
             (Construct::Generic, 1),
             (Construct::Generic, 1),
             (Construct::External, 0),
+            (Construct::Splice, 0),
         ]
     );
     let class = function(signature_of(&db, project, "src/Program.mr", "F")).params[5]
@@ -325,14 +326,14 @@ fn ambiguous_and_hidden_types_in_signatures_are_reported() {
         &[
             (
                 "src/Program.mr",
-                "class A {}\nstruct A {}\nF(a: A, b: UsersApi.Store.Hidden, c: List<Missing>) {}\n",
+                "class A {}\nstruct A {}\nF(a: A, b: UsersApi.Store.Hidden, c: List<Missing>, d: Mising<Usr>) {}\n",
             ),
             ("src/Store/Hidden.mr", "file struct Hidden {}\n"),
         ],
     );
     assert_eq!(
         codes(diagnostics(&db, project)),
-        ["MR0128", "MR0129", "MR0127"]
+        ["MR0128", "MR0129", "MR0127", "MR0127", "MR0127"]
     );
 }
 
@@ -580,5 +581,88 @@ fn an_edit_inside_a_body_does_not_recompute_signatures() {
             .iter()
             .any(|key| key.starts_with("item_signature(")),
         "{executed:?}"
+    );
+}
+
+#[test]
+fn less_visible_types_name_the_member_and_offer_a_fix_when_it_helps() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[(
+            "src/Store/A.mr",
+            "struct Secret {}\ninternal struct Key {}\nstruct Box {\n    public struct Item {}\n}\n\
+             public struct Vault {\n    public Current: Secret;\n    internal Kept: Secret;\n    \
+             Last: Secret;\n}\npublic Open(key: Key) {}\ninternal Unbox(item: Box.Item) {}\n\
+             file struct Token {}\nIssue(t: Token) {}\n\
+             struct W {\n    private struct In {}\n    public P(i: In) {}\n}\n",
+        )],
+    );
+    let reported: Vec<_> = diagnostics(&db, project)
+        .iter()
+        .map(|d| {
+            (
+                d.code.to_string(),
+                d.message.clone(),
+                d.fixes.first().map(|fix| fix.message.clone()),
+            )
+        })
+        .collect();
+    let expected = [
+        (
+            "`Current` is visible everywhere, but its signature mentions `Secret`, which is visible only in its folder",
+            Some("mark `Secret` `public`"),
+        ),
+        (
+            "`Kept` is visible in its project, but its signature mentions `Secret`, which is visible only in its folder",
+            Some("mark `Secret` `internal`"),
+        ),
+        (
+            "`Open` is visible everywhere, but its signature mentions `Key`, which is visible only in its project",
+            Some("mark `Key` `public`"),
+        ),
+        (
+            "`Unbox` is visible in its project, but its signature mentions `Item`, which is visible only in its folder",
+            None,
+        ),
+        (
+            "`Issue` is visible in its folder, but its signature mentions `Token`, which is visible only in its file",
+            None,
+        ),
+        (
+            "`P` is visible in its folder, but its signature mentions `In`, which is visible only inside its type",
+            None,
+        ),
+    ];
+    let expected: Vec<_> = expected
+        .iter()
+        .map(|(message, fix)| {
+            (
+                "MR0123".to_owned(),
+                (*message).to_owned(),
+                fix.map(str::to_owned),
+            )
+        })
+        .collect();
+    assert_eq!(reported, expected);
+}
+
+#[test]
+fn type_keywords_are_suggested_only_for_a_first_segment_in_a_type() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[(
+            "src/Program.mr",
+            "using strng;\nF(a: strng, b: UsersApi.strng) {}\n",
+        )],
+    );
+    let fixes: Vec<_> = diagnostics(&db, project)
+        .iter()
+        .map(|d| d.fixes.first().map(|fix| fix.message.clone()))
+        .collect();
+    assert_eq!(
+        fixes,
+        [None, Some("did you mean `string`?".to_owned()), None]
     );
 }

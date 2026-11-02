@@ -72,21 +72,18 @@ fn item_signature(
         file,
         item,
     };
-    let data = tree.item(item);
     let mut type_params = Vec::new();
     for ty in enclosing_types(tree, Some(item)) {
         type_params.extend(refs[index(ty)].type_params.iter().cloned());
     }
-    let within = match data.kind {
-        ItemKind::Function | ItemKind::Field => data.parent,
-        _ => Some(item),
-    };
     let mut lower = LowerTypes {
         db,
         scope: Scope {
             project,
             file,
-            within,
+            // A function or a value has no members, so looking up from
+            // inside it is looking up from the type around it.
+            within: Some(item),
         },
         type_params,
         field: None,

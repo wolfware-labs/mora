@@ -14,7 +14,9 @@ pub struct Scope {
     pub project: Project,
     /// The file.
     pub file: SourceFile,
-    /// The innermost type the use is inside, `None` at namespace level.
+    /// The innermost item the use is inside, `None` at namespace level.
+    /// Only types have members, so inside a function is the same as inside
+    /// the type around it.
     pub within: Option<ItemIdx>,
 }
 
