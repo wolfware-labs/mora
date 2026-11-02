@@ -2891,7 +2891,7 @@ Editor plugins, CI scripts and coding agents read the toolchain's output, so the
 
 **Stable JSON.** Every JSON object the toolchain prints carries `schema`, a name and a version such as `mora.diagnostic/1`. The version grows when a field is removed or changes meaning. A new field does not change it, so readers ignore fields they do not know. JSON output is deterministic: the same sources and options give the same bytes, with diagnostics ordered by file path, then the start of the primary span, then code. Schemas change only in a toolchain release, and its notes list the change.
 
-**`mora docs --llm`** prints a compact Markdown reference meant for a model's context: a summary of the grammar generated from the ungrammar (§14.4), the standard library's public signatures with the first line of each doc comment and each function's effects (§6.14), and every registered diagnostic code with its summary and, where it has a page, the failing and fixed examples. It describes Mora alone and compares it with no other language (D-59). Its first line names the toolchain version, and the text depends on nothing else, so it can be cached per version. The build generates it from the sources of the API reference (§15) and of the error pages (§17.6), so it cannot drift from them, and embeds it in the `mora` executable, so it works offline. The documentation site serves the same text as `llms.txt` at its root (OQ-18).
+**`mora docs --llm`** prints a compact Markdown reference meant for a model's context: a summary of the grammar generated from the ungrammar (§14.4), the standard library's public signatures with the first line of each doc comment and each function's effects (§6.14), and every registered diagnostic code with its summary and, where it has a page, the failing and fixed examples. It describes Mora alone and compares it with no other language (D-59). Its first line names the toolchain version, and the text depends on nothing else, so it can be cached per version. The build generates it from the sources of the API reference (§15) and of the error pages (§17.6), so it cannot drift from them, and embeds it in the `mora` executable, so it works offline. The documentation site serves the same text as `llms.txt` at its root (D-130).
 
 **Error pages as data.** For each release the documentation site publishes the pages of `docs/errors/` as one JSON Lines file, `mora-errors.jsonl`, with one object per page: `schema` (`mora.errors/1`), `code`, `summary`, the explanation, and the failing and fixed examples. These are the examples §20.4 compiles, so each failing example is known to fail and each fixed one to pass.
 
@@ -3051,7 +3051,7 @@ What each channel verifies:
 | Homebrew, winget | The checksum pinned in the formula or manifest | The tap and the winget repository, which are updated by the release workflow |
 | Manual download | `SHA256SUMS` | `cosign verify-blob` with the certificate identity above, documented on the install page |
 
-The domain is OQ-18.
+The domain is `moralang.org` (D-130).
 
 ## 20. Testing and quality
 
@@ -3288,7 +3288,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-127 | `RunScoped(f)` opens a scope and every function that reaches it is a root with its own generated wiring; HTTP handlers and other runners are wrappers over it; nested scopes use `Scope<K>` and `per K`; scoped services, scopes and their lazy functions cannot escape the root | user | 16.1, 16.4 |
 | D-128 | Wiring costs nothing beyond the services: a generated scope struct in the root's frame or future, eager construction, direct calls and destructors for teardown; laziness is an explicit `() => T`; factories may be async and fail; decorators, generic bindings with declared parameters, tests by overriding blocks with `uses none`, and plugins [post-MVP] complete the model; the checks run in `mora check` and the language server | user | 16.4 |
 | D-129 | The pattern-matching construct is spelled `match`, a contextual keyword that starts a `match` only before a parenthesized scrutinee and `{`; `switch` is not a keyword | user | 3.4, 7.7, 14.4 |
-| D-130 | The project domain is `moralang.org`; installers and project links use it | user | 19.3 |
+| D-130 | The project domain is `moralang.org`; installers and project links use it | user | 17.10, 19.3 |
 
 ## 24. Open questions
 
