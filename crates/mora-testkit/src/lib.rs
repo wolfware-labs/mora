@@ -9,10 +9,11 @@
 // Test and tooling code may unwrap (CONTRIBUTING.md, Code rules).
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+pub mod case;
 mod compiler;
 mod diff;
 pub mod harness;
 pub mod run;
 pub mod ui;
 
-pub use compiler::{Backend, Checked, Compiler, Output, SyntaxOnly, Unbuilt, compiler};
+pub use compiler::{Backend, Checked, Compiler, FrontEnd, Output, Unbuilt, compiler};

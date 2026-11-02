@@ -466,7 +466,7 @@ F();
             };
             Checked {
                 files,
-                file,
+                sources: vec![file],
                 diagnostics,
             }
         }

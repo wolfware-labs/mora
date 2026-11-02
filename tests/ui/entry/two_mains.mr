@@ -1,0 +1,16 @@
+// An app has one `Main`.
+//@ file src/App.mr
+class App {
+    static Main() {
+        return;
+    }
+
+    // An instance method is not an entry point.
+    Main(args: string[]) {
+        return;
+    }
+}
+//@ file src/Tools/Main.mr
+Main(args: string[]): int { //~ ERROR MR0124
+    return 0;
+}

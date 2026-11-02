@@ -3,6 +3,7 @@
 //! `.stderr` snapshot of the rendered output.
 
 use mora_diag::{Code, Severity, Sources, render};
+use mora_span::FileId;
 
 use crate::compiler::{Checked, Compiler};
 use crate::diff::diff;
@@ -79,15 +80,11 @@ pub struct UiOutcome {
 }
 
 /// Compiles `text` as `path` and matches the diagnostics against the
-/// annotations.
+/// annotations of each file the case describes.
 pub fn check(compiler: &dyn Compiler, path: &str, text: &str) -> UiOutcome {
     let checked = compiler.check(path, text);
-    let problems = match annotations(text) {
-        Ok(expected) => compare(&expected, &checked),
-        Err(malformed) => malformed,
-    };
     UiOutcome {
-        problems,
+        problems: compare(&checked),
         rendered: rendered(&checked),
     }
 }
@@ -124,16 +121,37 @@ pub fn rendered(checked: &Checked) -> String {
     out
 }
 
-/// Pairs reported diagnostics with annotations by line, severity and code.
-fn compare(expected: &[Annotation], checked: &Checked) -> Vec<String> {
-    let mut unmatched: Vec<Annotation> = expected.to_vec();
+/// Pairs reported diagnostics with the annotations of the files they are
+/// in, by line, severity and code. With more than one file, each problem
+/// names its file.
+fn compare(checked: &Checked) -> Vec<String> {
+    let several = checked.sources.len() > 1;
+    let at = |file: FileId, line: usize| {
+        if several {
+            format!("{}:{line}", checked.files.path(file))
+        } else {
+            format!("line {line}")
+        }
+    };
+    let mut unmatched: Vec<(FileId, Annotation)> = Vec::new();
     let mut problems = Vec::new();
+    for &file in &checked.sources {
+        match annotations(checked.files.text(file)) {
+            Ok(found) => unmatched.extend(found.into_iter().map(|a| (file, a))),
+            Err(malformed) if several => problems.extend(
+                malformed
+                    .into_iter()
+                    .map(|problem| format!("{}: {problem}", checked.files.path(file))),
+            ),
+            Err(malformed) => problems.extend(malformed),
+        }
+    }
     for diagnostic in &checked.diagnostics {
         let span = diagnostic.primary.span;
         let severity = diagnostic.severity;
         let code = diagnostic.code;
         let what = format!("{} {code}: {}", name(severity), diagnostic.message);
-        if span.file != checked.file {
+        if !checked.sources.contains(&span.file) {
             let path = checked.files.path(span.file);
             problems.push(format!("unexpected {what} (reported in {path})"));
             continue;
@@ -148,17 +166,20 @@ fn compare(expected: &[Annotation], checked: &Checked) -> Vec<String> {
             severity,
             code,
         };
-        match unmatched.iter().position(|a| *a == wanted) {
-            Some(at) => {
-                unmatched.remove(at);
+        match unmatched
+            .iter()
+            .position(|&(f, a)| f == span.file && a == wanted)
+        {
+            Some(index) => {
+                unmatched.remove(index);
             }
-            None => problems.push(format!("line {line}: unexpected {what}")),
+            None => problems.push(format!("{}: unexpected {what}", at(span.file, line))),
         }
     }
-    for missing in unmatched {
+    for (file, missing) in unmatched {
         problems.push(format!(
-            "line {}: expected {} {}, not reported",
-            missing.line,
+            "{}: expected {} {}, not reported",
+            at(file, missing.line),
             name(missing.severity),
             missing.code
         ));
@@ -179,6 +200,8 @@ mod tests {
 
     // Parsed, not `codes::MRnnnn`: `cargo xtask error-codes` counts those in
     // `src` as reported codes, which need a page.
+    use mora_diag::Files;
+
     fn code(text: &str) -> Code {
         text.parse().unwrap()
     }
@@ -195,6 +218,79 @@ mod tests {
                 (3, Severity::Error, code("MR0320")),
                 (3, Severity::Warning, code("MR2002")),
             ]
+        );
+    }
+
+    /// A check of two files, with one diagnostic at the start of each line
+    /// listed in `at` as `(file, line, code)`.
+    fn two_files(texts: [&str; 2], at: &[(usize, usize, &str)]) -> Checked {
+        use mora_diag::{Diagnostic, Label};
+        use mora_span::{Span, TextRange};
+
+        let mut files = Files::new();
+        let sources = vec![
+            files.add("src/A.mr", texts[0]),
+            files.add("src/B.mr", texts[1]),
+        ];
+        let diagnostics = at
+            .iter()
+            .map(|&(file, line, text)| {
+                let start = files
+                    .line_index(sources[file])
+                    .offset(mora_span::LineCol {
+                        line: line as u32 - 1,
+                        col: 0,
+                    })
+                    .unwrap();
+                let span = Span::new(sources[file], TextRange::empty(start));
+                Diagnostic::error(code(text), "fake", Label::unlabeled(span))
+            })
+            .collect();
+        Checked {
+            files,
+            sources,
+            diagnostics,
+        }
+    }
+
+    #[test]
+    fn each_file_matches_its_own_annotations() {
+        let texts = ["a //~ ERROR MR0300\n", "b\nc //~ ERROR MR0301\n"];
+        let checked = two_files(texts, &[(0, 1, "MR0300"), (1, 2, "MR0301")]);
+        assert_eq!(compare(&checked), Vec::<String>::new());
+
+        // The annotation of one file does not match a diagnostic in the other.
+        let checked = two_files(texts, &[(1, 1, "MR0300"), (1, 2, "MR0301")]);
+        assert_eq!(
+            compare(&checked),
+            [
+                "src/B.mr:1: unexpected error MR0300: fake",
+                "src/A.mr:1: expected error MR0300, not reported",
+            ]
+        );
+    }
+
+    #[test]
+    fn malformed_annotations_name_their_file() {
+        let checked = two_files(["a\n", "b //~ NOTE MR0300\n"], &[]);
+        assert_eq!(
+            compare(&checked),
+            ["src/B.mr: line 1: `//~` must be followed by ERROR or WARNING, not `NOTE`"]
+        );
+    }
+
+    #[test]
+    fn one_file_keeps_the_short_form() {
+        let mut files = Files::new();
+        let sources = vec![files.add("tests/ui/a.mr", "a //~ NOTE MR0300\n")];
+        let checked = Checked {
+            files,
+            sources,
+            diagnostics: Vec::new(),
+        };
+        assert_eq!(
+            compare(&checked),
+            ["line 1: `//~` must be followed by ERROR or WARNING, not `NOTE`"]
         );
     }
 

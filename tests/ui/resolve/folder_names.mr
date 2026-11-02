@@ -1,0 +1,12 @@
+// A folder whose name in PascalCase is not an identifier, and two sibling
+// folders that give the same namespace.
+//@ project name=users-api kind=lib
+//@ file src/2d/Shape.mr
+internal class Shape { //~ ERROR MR0121
+}
+//@ file src/HttpClient/Retry.mr
+internal class Retry {
+}
+//@ file src/http-client/Timeout.mr
+internal class Timeout { //~ ERROR MR0121
+}

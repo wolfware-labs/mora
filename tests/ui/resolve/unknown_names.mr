@@ -1,0 +1,13 @@
+// A `using` directive whose path names nothing.
+//@ project name=users-api
+//@ file src/Program.mr
+using UsersApi.Stores; //~ ERROR MR0127
+using UsersApi.Store.Missing; //~ ERROR MR0127
+using static UsersApi.Store.UserStore.Nested; //~ ERROR MR0127
+using Cache = Caching.Memory; //~ ERROR MR0127
+using UsersApi.Store;
+
+let store = new UserStore();
+//@ file src/Store/UserStore.mr
+internal class UserStore {
+}

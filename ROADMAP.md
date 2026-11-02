@@ -277,23 +277,24 @@ Withdrawn by D-59: the compiler knows only Mora syntax, so code in another langu
 
 Spec: [§4](docs/design/mora.md#4-program-structure), [§14.5](docs/design/mora.md#145-name-resolution-and-types). Crates: `mora-hir`, `mora-syntax`. Blocked by: M1.3.
 
-Per-file item trees and the project def map: namespaces from folders with `MR0121` (D-96), nested types, `using`, `using static`, aliases, `global using`, the implicit prelude, the folder-default visibility of §4.5 (D-97), dependency names for path dependencies (resolved in M3.14), and entry point detection with `MR0124` and `MR0125`.
+Per-file item trees and the project def map: namespaces from folders with `MR0121` (D-96), nested types, `using`, `using static`, aliases, `global using`, the implicit prelude, the folder-default visibility of §4.5 (D-97), dependency names for path dependencies (resolved in M3.14), and entry point detection with `MR0124` and `MR0125`. The paths of `using` directives are resolved here, with `MR0127`, `MR0128` and `MR0129`; names in signatures and bodies use the same lookup from M1.7 on.
 
 Done when:
 
-- UI tests for ambiguous names, inaccessible members across folders (`MR0123`), folder names (`MR0121`) and both entry-point errors.
+- UI tests for unknown names (`MR0127`), ambiguous names (`MR0128`), inaccessible items across folders (`MR0129`), folder names (`MR0121`) and both entry-point errors (`MR0124`, `MR0125`).
 - A `salsa` test shows that editing a function body does not recompute the def map.
 
 ### M1.7 Types and signatures
 
-Spec: [§5.1](docs/design/mora.md#51-kinds-of-type), [§5.2](docs/design/mora.md#52-primitive-types), [§5.5](docs/design/mora.md#55-tuples), [§6.2](docs/design/mora.md#62-structs). Crates: `mora-hir`. Blocked by: M1.6.
+Spec: [§4.5](docs/design/mora.md#45-visibility), [§5.1](docs/design/mora.md#51-kinds-of-type), [§5.2](docs/design/mora.md#52-primitive-types), [§5.5](docs/design/mora.md#55-tuples), [§6.2](docs/design/mora.md#62-structs). Crates: `mora-hir`. Blocked by: M1.6.
 
-The type representation for primitives, `string`, unit, tuples, structs and function signatures (generic and class types arrive in M2 and M3), lowering of syntax types to types, and the signature query per item.
+The type representation for primitives, `string`, unit, tuples, structs and function signatures (generic and class types arrive in M2 and M3), lowering of syntax types to types, and the signature query per item, which checks that a signature mentions no type less visible than its member (`MR0123`).
 
 Done when:
 
 - Unit tests resolve each primitive keyword and tuple form to its type.
 - Unknown type names report an error with a suggestion of the closest name.
+- A UI test for a signature that mentions a type less visible than the member (`MR0123`).
 
 ### M1.8 Body lowering to HIR
 

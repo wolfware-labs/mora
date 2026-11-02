@@ -13,6 +13,8 @@ Every diagnostic code has an entry in the registry, `crates/mora-diag/src/regist
 
 The check fails when a used code has no page, a page has no registered code, a code sits outside its range, the registry and the spec disagree, or a crate names a code in a way the check cannot follow.
 
+An example is one file, the entry file of an app named `app`, whose root namespace is `App`. An example that needs several files splits itself with `//@ file src/...` lines, and `//@ project kind=lib` makes it a library; `tests/ui/README.md` describes these lines.
+
 ## Page template
 
 The page has a title, a short explanation, and two sections in this order. The failing example's first line names the code it must report (`// error:` for errors, `// warning:` for warnings and lints). The fixed example's first line gives the output it must print. `cargo xtask error-codes` checks these first lines and the layout; `cargo xtask spec-examples` compiles and runs both examples (§20.4); while the compiler cannot build them yet, list their ids (`MRnnnn#1`, `MRnnnn#2`) in `tests/spec-examples.pending`.

@@ -1,5 +1,7 @@
 use mora_diag::{Diagnostic, Files};
-use mora_span::FileId;
+use mora_span::{FileId, Project, SourceFile};
+
+use crate::case;
 
 /// What the harnesses need from a compiler. The driver implements it once it
 /// can compile; the self-tests implement it with a fake.
@@ -19,9 +21,9 @@ pub trait Compiler: Sync {
 }
 
 /// The compiler the suites and `cargo xtask spec-examples` use. It is
-/// [`SyntaxOnly`] until the driver can compile a file (M1.16).
+/// [`FrontEnd`] until the driver can compile a file (M1.16).
 pub fn compiler() -> &'static dyn Compiler {
-    &SyntaxOnly
+    &FrontEnd
 }
 
 /// A compiler that can do nothing: it has no backend, so run cases fail
@@ -43,22 +45,72 @@ impl Compiler for Unbuilt {
     }
 }
 
-/// Stands in for the driver until it can compile: checking a file reports
-/// its lexical and syntax errors only. It has no backend.
-pub struct SyntaxOnly;
+/// Stands in for the driver until it can compile: checking a case reports
+/// its lexical and syntax errors and the errors of name resolution and
+/// entry points. A case may describe several files (see [`crate::case`]);
+/// the standard library is not loaded, so names under `Std` are not
+/// checked. It has no backend.
+pub struct FrontEnd;
 
-impl Compiler for SyntaxOnly {
+/// The analysis database of one check.
+#[salsa::db]
+#[derive(Clone, Default)]
+struct Database {
+    storage: salsa::Storage<Self>,
+}
+
+#[salsa::db]
+impl salsa::Database for Database {}
+
+#[salsa::db]
+impl mora_span::Db for Database {}
+
+impl Compiler for FrontEnd {
     fn check(&self, path: &str, text: &str) -> Checked {
+        let case = case::split(path, text).unwrap_or_else(|problem| panic!("{problem}"));
+        let db = Database::default();
         let mut files = Files::new();
-        let file = files.add(path, text);
-        let diagnostics = mora_syntax::parse(text)
-            .errors()
+        let mut sources = Vec::new();
+        let mut inputs = Vec::new();
+        for file in &case.files {
+            let id = files.add(&file.shown, &file.text);
+            sources.push(id);
+            inputs.push(SourceFile::new(
+                &db,
+                id,
+                file.path.clone(),
+                file.text.clone(),
+            ));
+        }
+        let namespace = case
+            .namespace
+            .clone()
+            .or_else(|| mora_hir::pascal_case(&case.name))
+            .unwrap_or_else(|| panic!("the project name `{}` gives no namespace", case.name));
+        let project = Project::new(
+            &db,
+            case.name.clone(),
+            inputs.clone(),
+            namespace,
+            case.kind,
+            case.entry.clone(),
+            Vec::new(),
+        );
+        let mut diagnostics: Vec<_> = inputs
             .iter()
-            .map(|error| error.to_diagnostic(file))
+            .flat_map(|&file| {
+                let id = file.id(&db);
+                mora_hir::parse(&db, file)
+                    .errors()
+                    .iter()
+                    .map(move |error| error.to_diagnostic(id))
+                    .collect::<Vec<_>>()
+            })
             .collect();
+        diagnostics.extend(mora_hir::diagnostics(&db, project).iter().cloned());
         Checked {
             files,
-            file,
+            sources,
             diagnostics,
         }
     }
@@ -77,8 +129,9 @@ impl Compiler for SyntaxOnly {
 pub struct Checked {
     /// Every file the diagnostics point into.
     pub files: Files,
-    /// The file compiled; its diagnostics are matched against annotations.
-    pub file: FileId,
+    /// The files compiled, in the order of the case; their diagnostics are
+    /// matched against their annotations.
+    pub sources: Vec<FileId>,
     /// What the compiler reported, in the order it reported it.
     pub diagnostics: Vec<Diagnostic>,
 }

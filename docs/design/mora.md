@@ -389,7 +389,7 @@ TopLevelItem    = Attribute* Modifier* ( TypeDecl | FunctionDecl | ConstDecl | S
 - **Namespaces come from folders** (D-96). The project's **root namespace** is its `[project] namespace` value, which defaults to the project name in PascalCase (`users-api` gives `UsersApi`). A file directly under `src/` is in the root namespace; a file under a folder of `src/` is in the root namespace followed by each folder name in PascalCase: `src/Store/UserStore.mr` is in `UsersApi.Store`, and `src/http-client/Retry.mr` is in `UsersApi.HttpClient`. A file never names its namespace, so moving a file is how its items change namespace.
 - A folder name that does not give a valid identifier in PascalCase (`src/2d/`), or two sibling folders that give the same one (`src/http-client/` and `src/HttpClient/`), is error `MR0121`.
 - Code in a namespace finds the items of that namespace and of every enclosing one by simple name (§14.5), among those visible to it (§4.5): a file in `UsersApi.Store` finds the `internal` and `public` items of `UsersApi`. Items of a nested namespace are reached through it, `Store.UserStore`, or opened with `using UsersApi.Store;`.
-- **Statements** are allowed at top level only in the entry file (§4.6).
+- **Statements** are allowed at top level only in the entry file (§4.6); elsewhere they are error `MR0125`.
 - **Functions** may be declared directly in a namespace, as in the tour's `Area`. They behave as static methods of the namespace. The `static` modifier is allowed there and has no effect.
 
 ### 4.3 Using directives
@@ -432,14 +432,14 @@ The folder is the default boundary (D-97). A declaration without a visibility mo
 - A type's members default to the folder, like top-level items, so `private` is written only where a member should stay inside its type.
 - A declaration is never visible beyond the type that contains it: its **effective visibility** is the narrower of its own and its type's. A `public` member of an unmarked type is visible in the folder.
 - A member's signature MUST NOT mention a type whose effective visibility is narrower than the member's effective visibility (`MR0123`): a `public` member of an unmarked type may mention a type visible in the folder.
-- Moving a file to another folder can make an unmarked item invisible to code that used it. The error names both folders and offers a fix that marks the item `internal`.
+- Naming a declaration that is not visible from the use is error `MR0129`. Moving a file to another folder can make an unmarked item invisible to code that used it; the error then names both folders and offers a fix that marks the item `internal`.
 
 ### 4.6 Entry point
 
 An app has exactly one entry point:
 
 - **Top-level statements** in the entry file (`src/Program.mr` unless `[project] entry` names another). The statements form the body of a generated `Main`. `args` is in scope with type `string[]`. If any statement contains `await`, the generated `Main` is async (§12.2).
-- **Or** one function named `Main` declared anywhere in the project, with one of these signatures, optionally `async`: `Main()`, `Main(args: string[])`, `Main(...): int`, `Main(...): Result<(), E>`, `Main(...): Result<int, E>`. An omitted return type means `()`.
+- **Or** one function named `Main` declared anywhere in the project, at namespace level or as a `static` method of a type other than an interface, with one of these signatures, optionally `async`: `Main()`, `Main(args: string[])`, `Main(...): int`, `Main(...): Result<(), E>`, `Main(...): Result<int, E>`. An omitted return type means `()`.
 
 The return type of generated `Main` is inferred: `()` when no statement uses `?` or `return`, otherwise the type that the `return` statements and `?` operators require (for example `Result<(), IoError>`).
 
@@ -451,7 +451,7 @@ The return type of generated `Main` is inferred: `()` when no statement uses `?`
 | Panics | 101 | Panic message, location and, in debug builds, a backtrace on stderr (§11.4) |
 | `Environment.Exit(code)` | `code` | Destructors of live values do not run |
 
-Having both top-level statements and a `Main`, or more than one `Main`, is error `MR0124`. A library with top-level statements is error `MR0125`.
+Having both top-level statements and a `Main`, or more than one `Main`, is error `MR0124`. Top-level statements in a library, or in an app's file other than the entry file, are error `MR0125`.
 
 ### 4.7 Static state
 
@@ -2046,7 +2046,9 @@ Inputs are file contents, the project graph and the target configuration. Every 
 
 ### 14.5 Name resolution and types
 
-Name lookup searches, in order: locals and parameters, then members of enclosing types, then the enclosing namespaces from innermost to outermost, then `using` directives, then the prelude. Type checking is bidirectional: types flow inward from targets (lambdas, `new()`, collection expressions, `none`, union case names, integer literals) and outward from expressions. Type arguments of generic methods are inferred as §8.1 describes. There is no whole-function type inference: `let` and `var` locals take the type of their initializer.
+A simple name, or the first segment of a path, is looked up from where it is used, in this order: locals and parameters; members of the enclosing types; the enclosing namespaces, from the innermost out; the global names, which are the first segment of the project's root namespace, the names of its dependencies (§4.4) and `Std`; the names that the file's `using` directives and the project's `global using` directives open (§4.3); and last the prelude. Each later segment is looked up in what the segments before it name. A level counts only the declarations visible from the use (§4.5), and the first level that has one decides. Two declarations at that level are ambiguous, error `MR0128`, unless all of them are functions, which form a set of overloads; two types with one name in one namespace are therefore reported where the name is used. A name that no level has is error `MR0127`, and a name that only declarations invisible from the use have is error `MR0129`. The path of a `using` directive is looked up without the last two levels, so no directive depends on another.
+
+Type checking is bidirectional: types flow inward from targets (lambdas, `new()`, collection expressions, `none`, union case names, integer literals) and outward from expressions. Type arguments of a generic call are inferred as §8.1 describes. There is no whole-function type inference: `let` and `var` locals take the type of their initializer.
 
 Macro expansion (§9) sits between signature resolution and body checking. `mora-hir` asks for expansions through a `MacroRunner` interface that `mora-macro` implements, so the HIR layer does not depend on code generation. Expanded members become ordinary HIR items, so later phases do not know they were generated.
 

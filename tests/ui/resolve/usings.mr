@@ -1,0 +1,28 @@
+// Every form of `using` directive, resolved without errors.
+//@ project name=users-api
+//@ file src/Program.mr
+using Std.Collections;
+using static Std.Math;
+using UsersApi.Store;
+using Users = UsersApi.Store.UserStore;
+using static UsersApi.Store.UserStore;
+
+let store = new Users();
+//@ file src/Store/UserStore.mr
+global using UsersApi.Api;
+
+internal class UserStore {
+    internal class Entry {
+    }
+}
+//@ file src/Api/Handler.mr
+using Store.UserStore.Entry;
+using Store;
+
+internal class Handler {
+}
+//@ file src/http-client/Retry.mr
+using UsersApi.HttpClient.Retry;
+
+internal class Retry {
+}

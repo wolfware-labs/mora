@@ -42,8 +42,8 @@ exclude_re = [
     # it starts a declaration, which the attributed-statement arms never take.
     '^crates/mora-syntax/src/parser/items\.rs:231:30: replace > with >= in declaration$',
     # The placeholder compiler has no backends either way.
-    '^crates/mora-testkit/src/compiler\.rs:38:9: replace <impl Compiler for Unbuilt>::backends -> &\[Backend\] with Vec::leak\(Vec::new\(\)\)$',
-    '^crates/mora-testkit/src/compiler\.rs:67:9: replace <impl Compiler for SyntaxOnly>::backends -> &\[Backend\] with Vec::leak\(Vec::new\(\)\)$',
+    '^crates/mora-testkit/src/compiler\.rs:40:9: replace <impl Compiler for Unbuilt>::backends -> &\[Backend\] with Vec::leak\(Vec::new\(\)\)$',
+    '^crates/mora-testkit/src/compiler\.rs:119:9: replace <impl Compiler for FrontEnd>::backends -> &\[Backend\] with Vec::leak\(Vec::new\(\)\)$',
     # Width of a separator line; any width reads the same.
     '^crates/mora-testkit/src/diff\.rs:32:87: replace \+ with \* in diff$',
     # Codegen paths that produce the same text: the widened ranges only add
