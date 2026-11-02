@@ -1039,6 +1039,26 @@ fn every_kind_is_named_in_an_ambiguity() {
 }
 
 #[test]
+fn an_ambiguity_counts_each_overload() {
+    let db = TestDb::new();
+    let project = app(
+        &db,
+        &[
+            ("src/Program.mr", "using UsersApi.K.F;\n"),
+            ("src/K/A.mr", "internal class F {}\n"),
+            ("src/K/B.mr", "internal F() {}\ninternal F(x: int) {}\n"),
+        ],
+    );
+    let diagnostics = diagnostics(&db, project);
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(
+        diagnostics[0].primary.message.as_deref(),
+        Some("`F` names 3 declarations")
+    );
+    assert_eq!(diagnostics[0].secondary.len(), 3);
+}
+
+#[test]
 fn different_declarations_ask_for_more_of_the_path() {
     let db = TestDb::new();
     let core = db.project(

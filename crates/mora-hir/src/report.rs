@@ -103,13 +103,18 @@ fn ambiguous(db: &dyn Db, name: &str, span: Span, candidates: &[Resolved]) -> Di
         "write more of the path to choose one"
     };
     let note = format!("it could be {}; {remedy}", described.join(" or "));
+    // An overload set is one candidate but several declarations.
+    let declarations: usize = candidates
+        .iter()
+        .map(|candidate| match candidate {
+            Resolved::Functions(items) => items.len(),
+            _ => 1,
+        })
+        .sum();
     let mut diagnostic = Diagnostic::error(
         codes::MR0128,
         format!("`{name}` is ambiguous"),
-        Label::new(
-            span,
-            format!("`{name}` names {} declarations", candidates.len()),
-        ),
+        Label::new(span, format!("`{name}` names {declarations} declarations")),
     )
     .with_note(note);
     for candidate in candidates {
