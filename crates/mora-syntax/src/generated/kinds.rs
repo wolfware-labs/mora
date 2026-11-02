@@ -368,6 +368,20 @@ pub enum SyntaxKind {
     OldKw,
     /// The contextual keyword `result`: an identifier the parser marks in position.
     ResultKw,
+    /// The contextual keyword `services`: an identifier the parser marks in position.
+    ServicesKw,
+    /// The contextual keyword `singleton`: an identifier the parser marks in position.
+    SingletonKw,
+    /// The contextual keyword `scoped`: an identifier the parser marks in position.
+    ScopedKw,
+    /// The contextual keyword `transient`: an identifier the parser marks in position.
+    TransientKw,
+    /// The contextual keyword `per`: an identifier the parser marks in position.
+    PerKw,
+    /// The contextual keyword `override`: an identifier the parser marks in position.
+    OverrideKw,
+    /// The contextual keyword `decorate`: an identifier the parser marks in position.
+    DecorateKw,
     /// The contextual keyword `_`: an identifier the parser marks in position.
     Underscore,
     /// Text the parser could not fit into the grammar.
@@ -869,6 +883,13 @@ impl SyntaxKind {
         AlsoKw,
         OldKw,
         ResultKw,
+        ServicesKw,
+        SingletonKw,
+        ScopedKw,
+        TransientKw,
+        PerKw,
+        OverrideKw,
+        DecorateKw,
         Underscore,
         Error,
         Name,
@@ -1194,6 +1215,13 @@ impl SyntaxKind {
         AlsoKw,
         OldKw,
         ResultKw,
+        ServicesKw,
+        SingletonKw,
+        ScopedKw,
+        TransientKw,
+        PerKw,
+        OverrideKw,
+        DecorateKw,
         Underscore,
     ];
 
@@ -1369,6 +1397,13 @@ impl SyntaxKind {
             AlsoKw => "also",
             OldKw => "old",
             ResultKw => "result",
+            ServicesKw => "services",
+            SingletonKw => "singleton",
+            ScopedKw => "scoped",
+            TransientKw => "transient",
+            PerKw => "per",
+            OverrideKw => "override",
+            DecorateKw => "decorate",
             Underscore => "_",
             _ => return None,
         })
@@ -1486,6 +1521,13 @@ impl SyntaxKind {
             "also" => AlsoKw,
             "old" => OldKw,
             "result" => ResultKw,
+            "services" => ServicesKw,
+            "singleton" => SingletonKw,
+            "scoped" => ScopedKw,
+            "transient" => TransientKw,
+            "per" => PerKw,
+            "override" => OverrideKw,
+            "decorate" => DecorateKw,
             "_" => Underscore,
             _ => return None,
         })
