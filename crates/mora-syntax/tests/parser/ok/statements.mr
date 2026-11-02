@@ -19,13 +19,13 @@ Run(items: List<int>, counts: Dictionary<string, int>) {
     foreach (ref var cell in span) { }
     foreach (let n: int in items) { }
 
-    switch (total) {
+    match (total) {
         0 or 1 when count > 0 => Log("small"),
         > 100 => { Log("big"); }
         let x when x < 0 => Log("negative"),
         _ => Log("other"),
     }
-    let size = switch (total) { 0 => "none", _ => "some" };
+    let size = match (total) { 0 => "none", _ => "some" };
     let check: (int) => bool = n => n > limit;
 
     Square(n: int): int => n * n;

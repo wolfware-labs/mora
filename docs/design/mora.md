@@ -173,7 +173,7 @@ app.MapGet("/users", async (req: Request) => Results.Json(store.All()));
 
 app.MapGet("/users/{id}", async (req: Request) => {
     let id = req.RouteValue<int>("id")?;
-    return switch (store.Find(id)) {
+    return match (store.Find(id)) {
         User u => Results.Json(u),
         none => Results.NotFound(),
     };
@@ -214,7 +214,7 @@ What the program relies on, with the section that defines each:
 | `req.RouteValue<int>("id")?` | `Result` propagation; `HttpError` becomes a 400 response | §11.2, §16.2 |
 | `await ...ReadJsonAsync<NewUser>()?` | `?` applies to the awaited value | §7.4 |
 | `return Results.NotFound();` in a lambda that returns `Result<Response, HttpError>` | Implicit `Ok` wrapping through a user-defined conversion | §11.3 |
-| `switch (x) { User u => ..., none => ... }` | Exhaustive pattern match over `User?` | §7.7 |
+| `match (x) { User u => ..., none => ... }` | Exhaustive pattern match over `User?` | §7.7 |
 | `await app.RunAsync(...)?` at top level | Async entry point whose error ends the process with exit code 1 | §4.6 |
 
 Expected behaviour, which the integration test checks byte for byte:
@@ -262,7 +262,7 @@ public union Shape {
     Rect(Width: float, Height: float),
 }
 
-public static Area(s: Shape): float => switch (s) {
+public static Area(s: Shape): float => match (s) {
     Circle(let r) => MathF.PI * r * r,
     Rect(let w, let h) => w * h,
 };
@@ -307,13 +307,13 @@ abstract as async await bool break byte char class const continue default do
 double else enum extern false float for foreach if import in indirect int
 interface internal is lazy let long macro move mut new nint none nuint operator
 out params private public ref return sbyte shared short sizeof stackalloc static
-string struct switch this true uint ulong union unique unsafe ushort using var
+string struct this true uint ulong union unique unsafe ushort using var
 weak where while yield
 ```
 
 `out` has no meaning in the MVP; it stays reserved for variance annotations (§8.8). `import` has no meaning in the MVP either; it stays reserved for inline imports in scripts (§18.5).
 
-Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (indexer accessors, §6.9); `stored` (modifier, §6.9); `ns` (inside `mut(...)`, §6.9); `uses` (after a signature or a function type, §6.14); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, post-MVP, §18.5); `type` (associated types, §8.7); `allows` (`allows move`, `allows ref struct`, §8.2); `any` (`any IShape`, §8.4); `newtype` (declaration start, §6.12); `extension` (declaration start, §6.9); `test` (section position, §15.9); `contract` (section position, §6.13), and inside a contract section `invariant`, `requires`, `fails`, `ensures`, `also`, `old` and `result`; `services` (declaration start, §16.4), and inside a `services` block `singleton`, `scoped`, `transient`, `per`, `override` and `decorate`; `_` (discards in patterns and deconstruction, §7.8).
+Contextual keywords (keywords only in the listed position): `get`, `set`, `value` (indexer accessors, §6.9); `stored` (modifier, §6.9); `ns` (inside `mut(...)`, §6.9); `uses` (after a signature or a function type, §6.14); `match` (before a parenthesized scrutinee and `{`, §7.7, §14.4); `when` (patterns); `and`, `or`, `not` (patterns); `with` (expressions); `file` (modifiers); `nameof` (expression); `global` (`global using`); `arena` (`using arena`, post-MVP); `args` (top-level statements); `code` and `adds` (macros, §9); `from` (`import ... from`, post-MVP, §18.5); `type` (associated types, §8.7); `allows` (`allows move`, `allows ref struct`, §8.2); `any` (`any IShape`, §8.4); `newtype` (declaration start, §6.12); `extension` (declaration start, §6.9); `test` (section position, §15.9); `contract` (section position, §6.13), and inside a contract section `invariant`, `requires`, `fails`, `ensures`, `also`, `old` and `result`; `services` (declaration start, §16.4), and inside a `services` block `singleton`, `scoped`, `transient`, `per`, `override` and `decorate`; `_` (discards in patterns and deconstruction, §7.8).
 
 The compiler knows only Mora's syntax (D-59). A word that is not a keyword is an identifier, and code written in another language's syntax gets the ordinary syntax error, `MR0110`.
 
@@ -725,7 +725,7 @@ public union Json {
 ```
 
 - A union is a value type holding exactly one of its **cases**. Cases are separated by commas. Members, if any, follow a `;` after the last case.
-- A case has zero or more positional fields. Cases are not types: `Json.Bool` is a constructor, and `Bool(let b)` is a pattern. Within code where the expected type is the union (a `switch` on it, an assignment to it, a return from a function that returns it), cases may be named without the union prefix (D-16). Elsewhere, write `Json.Bool(true)`.
+- A case has zero or more positional fields. Cases are not types: `Json.Bool` is a constructor, and `Bool(let b)` is a pattern. Within code where the expected type is the union (a `match` on it, an assignment to it, a return from a function that returns it), cases may be named without the union prefix (D-16). Elsewhere, write `Json.Bool(true)`.
 - A union is copyable when every case field is copyable, and move-only otherwise.
 - **Recursion.** A union that contains itself without indirection has infinite size and is error `MR0150`. Mark the case `indirect` (or the whole union `indirect union`): its fields then live in an immutable, reference-counted heap cell. `List<Json>` in the example already gives indirection.
 - `@NonExhaustive` requires code in other projects to include a `_` arm when matching, so that adding a case is not a breaking change (§18.4).
@@ -734,7 +734,7 @@ public union Json {
 
 `enum Color { Red, Green, Blue = 10 }` declares a closed set of named integer constants backed by `int`, or by another integer type with `enum Color : byte`. Enums are copyable value types with equality, hashing and `IDisplay` (prints the name).
 
-An enum is **closed**: `switch` over it is checked for exhaustiveness, and the cast `(Color)7` panics when 7 is not a declared value. `Color.TryFrom(7)` returns `Color?`. An enum marked `@Flags` is open: any combination of its bits is valid, bitwise operators are defined, and switches over it are not checked for exhaustiveness.
+An enum is **closed**: `match` over it is checked for exhaustiveness, and the cast `(Color)7` panics when 7 is not a declared value. `Color.TryFrom(7)` returns `Color?`. An enum marked `@Flags` is open: any combination of its bits is valid, bitwise operators are defined, and a `match` over it is not checked for exhaustiveness.
 
 ### 6.8 Interfaces
 
@@ -1022,7 +1022,7 @@ From highest to lowest:
 
 | Level | Operators | Associativity |
 |---|---|---|
-| Primary | `x.y`, `x?.y`, `f(x)`, `a[i]`, `a?[i]`, `x++`, `x--`, `new`, `nameof`, `default`, `sizeof`, `switch (x) { ... }`, postfix `x?` (propagation) | left |
+| Primary | `x.y`, `x?.y`, `f(x)`, `a[i]`, `a?[i]`, `x++`, `x--`, `new`, `nameof`, `default`, `sizeof`, `match (x) { ... }`, postfix `x?` (propagation) | left |
 | Unary | `+x`, `-x`, `!x`, `~x`, `++x`, `--x`, `^x`, `(T)x`, `await x` | right |
 | Range | `x..y`, `x..`, `..y`, `..` | none |
 | `with` | `x with { ... }` | left |
@@ -1083,12 +1083,12 @@ static (x: int) => x + 1                 // captures nothing
 
 Parameter and return types are inferred from the target function type. A parameter with a written type puts the name first, `(x: int)` (§6.9). Capture rules and escaping are in §10.9. A lambda's body may use `return`, `?` and, if it is `async`, `await`.
 
-### 7.7 `switch` expressions and statements
+### 7.7 `match` expressions and statements
 
-There is one `switch`, written the same way as a statement and as an expression (D-89):
+There is one `match`, written the same way as a statement and as an expression (D-89, D-129):
 
 ```mora
-switch (command) {
+match (command) {
     "start" => Start(),
     "stop" when force => Kill(),
     "stop" => {
@@ -1098,15 +1098,16 @@ switch (command) {
     _ => Console.WriteLine($"unknown command {command}"),
 }
 
-let status = switch (store.Find(id)) {
+let status = match (store.Find(id)) {
     User u => Results.Json(u),
     none => Results.NotFound(),
 };
 ```
 
-- `switch (e) { arms }` evaluates the first arm whose pattern matches and whose guard is true. An arm is `pattern [when guard] => body`, where the body is an expression or a block. A comma separates arms; after a block it may be left out.
-- At the start of a statement, a `switch` is a statement and the arms' values are discarded. Anywhere else it is an expression of primary precedence: its result type is the best common type of the arms, or the target type. In an expression, a block arm has type `()` unless it always returns or panics, so a block that produces a value is written as a separate function.
-- The arms MUST be exhaustive in both positions (`MR0170`, §7.8); `_ => ...` covers the rest. There is no fall-through, and no `case`, `default:` or `break` inside a `switch`.
+- `match (e) { arms }` evaluates the first arm whose pattern matches and whose guard is true. An arm is `pattern [when guard] => body`, where the body is an expression or a block. A comma separates arms; after a block it may be left out.
+- At the start of a statement, a `match` is a statement and the arms' values are discarded. Anywhere else it is an expression of primary precedence: its result type is the best common type of the arms, or the target type. In an expression, a block arm has type `()` unless it always returns or panics, so a block that produces a value is written as a separate function.
+- The arms MUST be exhaustive in both positions (`MR0170`, §7.8); `_ => ...` covers the rest. There is no fall-through, and no `case`, `default:` or `break` inside a `match`.
+- `match` is a contextual keyword (§3.4). It starts a `match` only when a parenthesized scrutinee and then `{` follow it (§14.4). Anywhere else it is an identifier, so `let match = pattern.Match(text);`, a field named `match` and a call `match(x)` are valid.
 
 ### 7.8 Patterns
 
@@ -1126,7 +1127,7 @@ let status = switch (store.Find(id)) {
 
 `e is pattern` is a `bool` expression; bindings in it are definitely assigned where the expression is known to be true.
 
-**Exhaustiveness.** A `switch` over a type with finitely many shapes (`bool`, enums without `@Flags`, unions, options, results, tuples of those) MUST cover every value. The compiler checks this with the usefulness algorithm of Maranget (§25). Error `MR0170` lists one missing value, for example `missing case: Rect(_, _)`. An arm that can never match is warning `MR2010`. Matching on integers or strings requires a `_` arm unless the patterns cover every value (for example all 256 `byte` values).
+**Exhaustiveness.** A `match` over a type with finitely many shapes (`bool`, enums without `@Flags`, unions, options, results, tuples of those) MUST cover every value. The compiler checks this with the usefulness algorithm of Maranget (§25). Error `MR0170` lists one missing value, for example `missing case: Rect(_, _)`. An arm that can never match is warning `MR2010`. Matching on integers or strings requires a `_` arm unless the patterns cover every value (for example all 256 `byte` values).
 
 ### 7.9 Collection expressions
 
@@ -1151,7 +1152,7 @@ Reassigning a `let` local is error `MR0182`. Lint `prefer-let` (warn by default)
 
 ### 7.11 Statements
 
-`if`/`else`, `while`, `do`/`while`, `for`, `foreach`, `break`, `continue`, `return`, blocks, local functions, expression statements (calls, assignments, increments, `await`) and `switch`. `foreach (let x in xs)`, `foreach (var x in xs)`, `foreach (let x: T in xs)` and `foreach (ref var x in span)` iterate anything with a `GetEnumerator()` method whose result implements `IEnumerator<T>` (§15.5). Mutating a collection while a `foreach` runs over it panics (§10.10). `yield return` iterators are post-MVP (OQ-9). `using arena { }` is post-MVP (§10.12).
+`if`/`else`, `while`, `do`/`while`, `for`, `foreach`, `break`, `continue`, `return`, blocks, local functions, expression statements (calls, assignments, increments, `await`) and `match`. `foreach (let x in xs)`, `foreach (var x in xs)`, `foreach (let x: T in xs)` and `foreach (ref var x in span)` iterate anything with a `GetEnumerator()` method whose result implements `IEnumerator<T>` (§15.5). Mutating a collection while a `foreach` runs over it panics (§10.10). `yield return` iterators are post-MVP (OQ-9). `using arena { }` is post-MVP (§10.12).
 
 ### 7.12 Arithmetic
 
@@ -1687,7 +1688,7 @@ public union AppError {
     Io(@From Inner: IoError),
     Json(@From Inner: JsonError);
 
-    public ToString(): string => switch (this) {
+    public ToString(): string => match (this) {
         NotFound(let w) => $"{w} not found",
         Io(let e) => $"I/O error: {e}",
         Json(let e) => $"bad JSON: {e}",
@@ -2040,7 +2041,7 @@ Inputs are file contents, the project graph and the target configuration. Every 
 - The nodes of the tree and their children are written down in `crates/mora-syntax/mora.ungram`, in the notation of `ungrammar`. `cargo xtask codegen` generates `SyntaxKind` from it and from the keyword lists of §3.4, together with a typed view per node (`ast::StructDecl` with `name()`, `member_list()` and so on), and CI fails when the generated code is stale.
 - The parser is hand-written recursive descent with Pratt parsing for expressions. It produces a `rowan` green tree that keeps every token and every piece of trivia, so the formatter and the LSP work on the same tree and `print(parse(text)) == text` for every input, valid or not.
 - The parser never stops at the first error. It recovers at statement and member boundaries and marks missing nodes, so the LSP can analyze code that is being typed. A token the grammar does not allow where it appears, or a missing one, is error `MR0110`, whose message names what was expected. Code written in another language's syntax gets this error too, with no dedicated code or fix (D-59).
-- Three ambiguities are settled by fixed rules. A generic argument list `<...>` is chosen when the token after the closing `>` is one of `( ) ] } : ; , . ? == != | ^ && || & [`. A parenthesized sequence of tokens followed by an operand is a cast `(T)x` when the tokens form a type and either they cannot form an expression, as in `(int)-x` or `(int?)x`, or the token after `)` is `~`, `!`, `(`, an identifier other than `with`, a literal (including `true`, `false` and `none`), or a keyword other than `as` and `is`; otherwise it is a parenthesized expression, so `(a) - b` subtracts. The postfix `?` is settled by §7.4.
+- Four ambiguities are settled by fixed rules. A generic argument list `<...>` is chosen when the token after the closing `>` is one of `( ) ] } : ; , . ? == != | ^ && || & [`. A parenthesized sequence of tokens followed by an operand is a cast `(T)x` when the tokens form a type and either they cannot form an expression, as in `(int)-x` or `(int?)x`, or the token after `)` is `~`, `!`, `(`, an identifier other than `with`, a literal (including `true`, `false` and `none`), or a keyword other than `as` and `is`; otherwise it is a parenthesized expression, so `(a) - b` subtracts. The word `match` followed by `(` starts a `match` (§7.7) when the parentheses, balanced, are followed by `{`; otherwise it is an identifier, so `match(x);` is a call, since a call is never followed by `{`. Where a statement can start, with or without attributes before it, this rule also wins over a function named `match` with a block body and no return type, so such a function is written with one: `match(x: int): () { ... }`. The postfix `?` is settled by §7.4.
 - A statement that starts with `let` or `var` declares a local (§7.10). Any other statement starts with a keyword or is an expression statement. No declaration starts with a type, so the parser never has to guess whether a statement such as `a < b > c;` declares a variable or compares values.
 - **Parsing never needs types** (D-115). Every construct parses from its tokens alone: the rules above and in §7.4 settle every choice the grammar leaves open, and no parse depends on what a name refers to. A language change that would need name or type information to parse is not accepted.
 - **The ungrammar is the normative grammar** (D-115). `mora.ungram`, with the keyword lists of §3.4 that code generation also reads, defines the syntax. The EBNF fragments in this document summarize it, and where they differ the ungrammar wins and the fragment is corrected. `mora docs --llm` and the documentation site publish it (§17.10). Besides the fuzz target of §20.1, a second target generates programs from the ungrammar, adding parentheses wherever the rules above would read the text another way, parses each one, and checks that no error is reported, that the tree has the shape the program was generated from, and that printing the tree gives the text back.
@@ -2594,7 +2595,7 @@ services App : LibBase {
   scoped IUserStore = (cfg: StoreConfig) => cfg.UseSql ? SqlUserStore : MemoryUserStore;
   ```
 
-  Every result of the body, through the arms of conditional and `switch` expressions, MUST name an implementation type. The parameters are injected. When the binding is built, the body picks a type and the wiring builds that implementation with its own dependencies; the others are not built. `App.IUserStore` is then a closed union of the candidates that the compiler generates, and a call on it is a `switch` with a direct call in each arm, so it inlines and its effects stay precise (§6.14). Each candidate is checked as if it were bound alone.
+  Every result of the body, through the arms of conditional and `match` expressions, MUST name an implementation type. The parameters are injected. When the binding is built, the body picks a type and the wiring builds that implementation with its own dependencies; the others are not built. `App.IUserStore` is then a closed union of the candidates that the compiler generates, and a call on it compiles to a MIR `Switch` (§14.7) with a direct call in each arm, so it inlines and its effects stay precise (§6.14). Each candidate is checked as if it were bound alone.
 - **Open-ended**, a factory that returns `any IUserStore`. Consumers receive the `any` value (§8.4), and only calls on this service are dynamic.
 - **Optional**, a factory whose result is an option and returns `none` when the service is absent. Consumers MUST declare `IUserStore?`; a consumer that declares `IUserStore` is `MR0703`.
 
@@ -2880,7 +2881,7 @@ The MVP server supports: diagnostics on change (debounced, 100 ms), hover with t
 
 ### 17.9 VS Code extension
 
-Published as `wolfware.mora` on the Visual Studio Marketplace and on Open VSX. It contains a TextMate grammar for `.mr` files, language configuration (brackets, comments, auto-closing), snippets for common shapes (`class`, `struct`, `union`, `switch`, `@Test`), and an LSP client that starts `mora lsp` from the `mora` executable on `PATH` or a configured path. The extension shows the toolchain version in the status bar and offers to install the toolchain when it is missing.
+Published as `wolfware.mora` on the Visual Studio Marketplace and on Open VSX. It contains a TextMate grammar for `.mr` files, language configuration (brackets, comments, auto-closing), snippets for common shapes (`class`, `struct`, `union`, `match`, `@Test`), and an LSP client that starts `mora lsp` from the `mora` executable on `PATH` or a configured path. The extension shows the toolchain version in the status bar and offers to install the toolchain when it is missing.
 
 ### 17.10 Tools for programs and agents
 
@@ -3244,7 +3245,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-86 | Rejected: pointer compression and packing `bool` fields into bits; Mora has no contiguous heap base, and each field must stay addressable for `ref` | user | 13.5 |
 | D-87 | Rejected: automatic string interning, a hidden hashing cost and a global table that keeps strings alive | user | 13.4 |
 | D-88 | Rejected: copy-on-write value collections; collections stay reference types, mutated in place | user | 15.3 |
-| D-89 | One `switch` with arms, `switch (e) { p => e, ... }`, as a statement and as an expression; `case` labels and the postfix `x switch { }` are removed | user | 7.7 |
+| D-89 | One `match` with arms, `match (e) { p => e, ... }`, as a statement and as an expression; there are no `case` labels and no postfix form. Amended by D-129 | user | 7.7 |
 | D-90 | `==` and `!=` come from `IEquatable<T>` and the relational operators from `IComparable<T>`; declaring a comparison operator is `MR0238` | user | 6.9, 8.5 |
 | D-91 | A value converts implicitly only through the standard-library interface `IFrom<S>`, which the standard library's own types implement like any other; `implicit operator` and `explicit operator` are removed | user | 5.10, 11.3 |
 | D-92 | Function types use the lambda arrow, `(A, B) => R`; `Func`, `Action` and named delegate types are removed, and `->` gets a fix to `=>` | user | 5.8 |
@@ -3284,6 +3285,7 @@ Source: **user** means decided by the project owner in the design discussion; **
 | D-126 | Services are singleton, scoped or transient; singletons are built at host startup and immortal; singleton and scoped implementations are classes; a captive dependency is a compile error that prints the chain; collections are `+=` elements consumed as `ReadOnlySpan<any I>` or `ReadOnlyMemory<any I>` | user | 16.4 |
 | D-127 | `RunScoped(f)` opens a scope and every function that reaches it is a root with its own generated wiring; HTTP handlers and other runners are wrappers over it; nested scopes use `Scope<K>` and `per K`; scoped services, scopes and their lazy functions cannot escape the root | user | 16.1, 16.4 |
 | D-128 | Wiring costs nothing beyond the services: a generated scope struct in the root's frame or future, eager construction, direct calls and destructors for teardown; laziness is an explicit `() => T`; factories may be async and fail; decorators, generic bindings with declared parameters, tests by overriding blocks with `uses none`, and plugins [post-MVP] complete the model; the checks run in `mora check` and the language server | user | 16.4 |
+| D-129 | The pattern-matching construct is spelled `match`, a contextual keyword that starts a `match` only before a parenthesized scrutinee and `{`; `switch` is not a keyword | user | 3.4, 7.7, 14.4 |
 
 ## 24. Open questions
 

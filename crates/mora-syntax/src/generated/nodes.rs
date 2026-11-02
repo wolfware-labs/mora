@@ -421,7 +421,7 @@ impl AstNode for Item {
 }
 
 /// ```text
-/// Stmt = Block | LocalDeclStmt | DeconstructStmt | LocalFunctionStmt | ExprStmt | EmptyStmt | IfStmt | WhileStmt | DoWhileStmt | ForStmt | ForeachStmt | BreakStmt | ContinueStmt | ReturnStmt | SwitchStmt | AttributedStmt | UnsafeStmt
+/// Stmt = Block | LocalDeclStmt | DeconstructStmt | LocalFunctionStmt | ExprStmt | EmptyStmt | IfStmt | WhileStmt | DoWhileStmt | ForStmt | ForeachStmt | BreakStmt | ContinueStmt | ReturnStmt | MatchStmt | AttributedStmt | UnsafeStmt
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
@@ -439,7 +439,7 @@ pub enum Stmt {
     BreakStmt(BreakStmt),
     ContinueStmt(ContinueStmt),
     ReturnStmt(ReturnStmt),
-    SwitchStmt(SwitchStmt),
+    MatchStmt(MatchStmt),
     AttributedStmt(AttributedStmt),
     UnsafeStmt(UnsafeStmt),
 }
@@ -460,7 +460,7 @@ impl AstNode for Stmt {
             || BreakStmt::can_cast(kind)
             || ContinueStmt::can_cast(kind)
             || ReturnStmt::can_cast(kind)
-            || SwitchStmt::can_cast(kind)
+            || MatchStmt::can_cast(kind)
             || AttributedStmt::can_cast(kind)
             || UnsafeStmt::can_cast(kind)
     }
@@ -509,8 +509,8 @@ impl AstNode for Stmt {
         if ReturnStmt::can_cast(kind) {
             return ReturnStmt::cast(node).map(Self::ReturnStmt);
         }
-        if SwitchStmt::can_cast(kind) {
-            return SwitchStmt::cast(node).map(Self::SwitchStmt);
+        if MatchStmt::can_cast(kind) {
+            return MatchStmt::cast(node).map(Self::MatchStmt);
         }
         if AttributedStmt::can_cast(kind) {
             return AttributedStmt::cast(node).map(Self::AttributedStmt);
@@ -537,7 +537,7 @@ impl AstNode for Stmt {
             Self::BreakStmt(it) => it.syntax(),
             Self::ContinueStmt(it) => it.syntax(),
             Self::ReturnStmt(it) => it.syntax(),
-            Self::SwitchStmt(it) => it.syntax(),
+            Self::MatchStmt(it) => it.syntax(),
             Self::AttributedStmt(it) => it.syntax(),
             Self::UnsafeStmt(it) => it.syntax(),
         }
@@ -1281,7 +1281,7 @@ impl AstNode for AttributeArg {
 }
 
 /// ```text
-/// Expr = LiteralExpr | InterpString | PathExpr | PredefinedTypeExpr | ThisExpr | ParenExpr | TupleExpr | CollectionExpr | MemberExpr | CallExpr | IndexExpr | PostfixExpr | PropagateExpr | PrefixExpr | CastExpr | AwaitExpr | RangeExpr | SwitchExpr | WithExpr | BinExpr | IsExpr | AsExpr | ConditionalExpr | AssignExpr | LambdaExpr | NewExpr | NewArrayExpr | StackallocExpr | DefaultExpr | NameofExpr | SizeofExpr | QuoteExpr | MacroCallExpr | SpliceExpr
+/// Expr = LiteralExpr | InterpString | PathExpr | PredefinedTypeExpr | ThisExpr | ParenExpr | TupleExpr | CollectionExpr | MemberExpr | CallExpr | IndexExpr | PostfixExpr | PropagateExpr | PrefixExpr | CastExpr | AwaitExpr | RangeExpr | MatchExpr | WithExpr | BinExpr | IsExpr | AsExpr | ConditionalExpr | AssignExpr | LambdaExpr | NewExpr | NewArrayExpr | StackallocExpr | DefaultExpr | NameofExpr | SizeofExpr | QuoteExpr | MacroCallExpr | SpliceExpr
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
@@ -1302,7 +1302,7 @@ pub enum Expr {
     CastExpr(CastExpr),
     AwaitExpr(AwaitExpr),
     RangeExpr(RangeExpr),
-    SwitchExpr(SwitchExpr),
+    MatchExpr(MatchExpr),
     WithExpr(WithExpr),
     BinExpr(BinExpr),
     IsExpr(IsExpr),
@@ -1340,7 +1340,7 @@ impl AstNode for Expr {
             || CastExpr::can_cast(kind)
             || AwaitExpr::can_cast(kind)
             || RangeExpr::can_cast(kind)
-            || SwitchExpr::can_cast(kind)
+            || MatchExpr::can_cast(kind)
             || WithExpr::can_cast(kind)
             || BinExpr::can_cast(kind)
             || IsExpr::can_cast(kind)
@@ -1412,8 +1412,8 @@ impl AstNode for Expr {
         if RangeExpr::can_cast(kind) {
             return RangeExpr::cast(node).map(Self::RangeExpr);
         }
-        if SwitchExpr::can_cast(kind) {
-            return SwitchExpr::cast(node).map(Self::SwitchExpr);
+        if MatchExpr::can_cast(kind) {
+            return MatchExpr::cast(node).map(Self::MatchExpr);
         }
         if WithExpr::can_cast(kind) {
             return WithExpr::cast(node).map(Self::WithExpr);
@@ -1485,7 +1485,7 @@ impl AstNode for Expr {
             Self::CastExpr(it) => it.syntax(),
             Self::AwaitExpr(it) => it.syntax(),
             Self::RangeExpr(it) => it.syntax(),
-            Self::SwitchExpr(it) => it.syntax(),
+            Self::MatchExpr(it) => it.syntax(),
             Self::WithExpr(it) => it.syntax(),
             Self::BinExpr(it) => it.syntax(),
             Self::IsExpr(it) => it.syntax(),
@@ -3889,16 +3889,16 @@ impl AstNode for ReturnStmt {
 }
 
 /// ```text
-/// SwitchStmt = 'switch' '(' scrutinee:Expr ')' SwitchArmList
+/// MatchStmt = 'match' '(' scrutinee:Expr ')' MatchArmList
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SwitchStmt {
+pub struct MatchStmt {
     pub(crate) syntax: SyntaxNode,
 }
 
-impl SwitchStmt {
-    pub fn switch_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::SwitchKw])
+impl MatchStmt {
+    pub fn match_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::MatchKw])
     }
     pub fn l_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::LParen])
@@ -3909,14 +3909,14 @@ impl SwitchStmt {
     pub fn r_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::RParen])
     }
-    pub fn switch_arm_list(&self) -> Option<SwitchArmList> {
+    pub fn match_arm_list(&self) -> Option<MatchArmList> {
         support::child(&self.syntax)
     }
 }
 
-impl AstNode for SwitchStmt {
+impl AstNode for MatchStmt {
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SwitchStmt
+        kind == SyntaxKind::MatchStmt
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -4293,24 +4293,24 @@ impl AstNode for ForInitExprs {
 }
 
 /// ```text
-/// SwitchArmList = '{' (SwitchArm ',' | SwitchBlockArm ','?)* SwitchArm? '}'
+/// MatchArmList = '{' (MatchArm ',' | MatchBlockArm ','?)* MatchArm? '}'
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SwitchArmList {
+pub struct MatchArmList {
     pub(crate) syntax: SyntaxNode,
 }
 
-impl SwitchArmList {
+impl MatchArmList {
     pub fn l_brace_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::LBrace])
     }
-    pub fn switch_arms(&self) -> AstChildren<SwitchArm> {
+    pub fn match_arms(&self) -> AstChildren<MatchArm> {
         support::children(&self.syntax)
     }
-    pub fn switch_block_arms(&self) -> AstChildren<SwitchBlockArm> {
+    pub fn match_block_arms(&self) -> AstChildren<MatchBlockArm> {
         support::children(&self.syntax)
     }
-    pub fn switch_arm(&self) -> Option<SwitchArm> {
+    pub fn match_arm(&self) -> Option<MatchArm> {
         support::child(&self.syntax)
     }
     pub fn r_brace_token(&self) -> Option<SyntaxToken> {
@@ -4318,9 +4318,9 @@ impl SwitchArmList {
     }
 }
 
-impl AstNode for SwitchArmList {
+impl AstNode for MatchArmList {
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SwitchArmList
+        kind == SyntaxKind::MatchArmList
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -4962,16 +4962,16 @@ impl AstNode for RangeExpr {
 }
 
 /// ```text
-/// SwitchExpr = 'switch' '(' scrutinee:Expr ')' SwitchArmList
+/// MatchExpr = 'match' '(' scrutinee:Expr ')' MatchArmList
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SwitchExpr {
+pub struct MatchExpr {
     pub(crate) syntax: SyntaxNode,
 }
 
-impl SwitchExpr {
-    pub fn switch_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, &[SyntaxKind::SwitchKw])
+impl MatchExpr {
+    pub fn match_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, &[SyntaxKind::MatchKw])
     }
     pub fn l_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::LParen])
@@ -4982,14 +4982,14 @@ impl SwitchExpr {
     pub fn r_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, &[SyntaxKind::RParen])
     }
-    pub fn switch_arm_list(&self) -> Option<SwitchArmList> {
+    pub fn match_arm_list(&self) -> Option<MatchArmList> {
         support::child(&self.syntax)
     }
 }
 
-impl AstNode for SwitchExpr {
+impl AstNode for MatchExpr {
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SwitchExpr
+        kind == SyntaxKind::MatchExpr
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -5945,14 +5945,14 @@ impl AstNode for Arg {
 }
 
 /// ```text
-/// SwitchArm = Pattern WhenClause? '=>' Expr
+/// MatchArm = Pattern WhenClause? '=>' Expr
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SwitchArm {
+pub struct MatchArm {
     pub(crate) syntax: SyntaxNode,
 }
 
-impl SwitchArm {
+impl MatchArm {
     pub fn pattern(&self) -> Option<Pattern> {
         support::child(&self.syntax)
     }
@@ -5967,9 +5967,9 @@ impl SwitchArm {
     }
 }
 
-impl AstNode for SwitchArm {
+impl AstNode for MatchArm {
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SwitchArm
+        kind == SyntaxKind::MatchArm
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -5982,14 +5982,14 @@ impl AstNode for SwitchArm {
 }
 
 /// ```text
-/// SwitchBlockArm = Pattern WhenClause? '=>' Block
+/// MatchBlockArm = Pattern WhenClause? '=>' Block
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SwitchBlockArm {
+pub struct MatchBlockArm {
     pub(crate) syntax: SyntaxNode,
 }
 
-impl SwitchBlockArm {
+impl MatchBlockArm {
     pub fn pattern(&self) -> Option<Pattern> {
         support::child(&self.syntax)
     }
@@ -6004,9 +6004,9 @@ impl SwitchBlockArm {
     }
 }
 
-impl AstNode for SwitchBlockArm {
+impl AstNode for MatchBlockArm {
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SwitchBlockArm
+        kind == SyntaxKind::MatchBlockArm
     }
 
     fn cast(node: SyntaxNode) -> Option<Self> {

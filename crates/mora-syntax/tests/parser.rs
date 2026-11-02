@@ -267,8 +267,8 @@ fn precedence_follows_section_7_1() {
     assert_eq!(shape("a..b"), "RangeExpr(P, P)");
     assert_eq!(shape("a + b..c"), "BinExpr(P, RangeExpr(P, P))");
     assert_eq!(
-        shape("a * switch (b) { _ => 0 }"),
-        "BinExpr(P, SwitchExpr(P, SwitchArmList(SwitchArm(DiscardPattern, LiteralExpr))))"
+        shape("a * match (b) { _ => 0 }"),
+        "BinExpr(P, MatchExpr(P, MatchArmList(MatchArm(DiscardPattern, LiteralExpr))))"
     );
     assert_eq!(
         shape("a == b is int"),
@@ -347,18 +347,18 @@ fn patterns_follow_section_7_8() {
 }
 
 #[test]
-fn switch_arm_names_are_not_lambdas() {
+fn match_arm_names_are_not_lambdas() {
     assert_eq!(
-        shape("switch (s) { None => 0, ok => 1 }"),
-        "SwitchExpr(P, SwitchArmList(SwitchArm(ConstantPattern(P), LiteralExpr), SwitchArm(ConstantPattern(P), LiteralExpr)))"
+        shape("match (s) { None => 0, ok => 1 }"),
+        "MatchExpr(P, MatchArmList(MatchArm(ConstantPattern(P), LiteralExpr), MatchArm(ConstantPattern(P), LiteralExpr)))"
     );
     assert_eq!(
-        shape("switch (n) { _ when ok => 1 }"),
-        "SwitchExpr(P, SwitchArmList(SwitchArm(DiscardPattern, WhenClause(P), LiteralExpr)))"
+        shape("match (n) { _ when ok => 1 }"),
+        "MatchExpr(P, MatchArmList(MatchArm(DiscardPattern, WhenClause(P), LiteralExpr)))"
     );
     assert_eq!(
-        shape("switch (n) { _ when xs.Any(x => x > 0) => 1 }"),
-        "SwitchExpr(P, SwitchArmList(SwitchArm(DiscardPattern, WhenClause(CallExpr(MemberExpr(P, NameRef))), LiteralExpr)))"
+        shape("match (n) { _ when xs.Any(x => x > 0) => 1 }"),
+        "MatchExpr(P, MatchArmList(MatchArm(DiscardPattern, WhenClause(CallExpr(MemberExpr(P, NameRef))), LiteralExpr)))"
     );
 }
 

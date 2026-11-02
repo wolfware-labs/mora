@@ -46,7 +46,7 @@ fn every_keyword_and_punctuation_lexes_as_itself() {
         assert_eq!(tokens(text), [(kind, text)], "{text}");
         assert!(errors(text).is_empty(), "{text}");
     }
-    assert_eq!(SyntaxKind::KEYWORDS.len(), 69);
+    assert_eq!(SyntaxKind::KEYWORDS.len(), 68);
 }
 
 #[test]
@@ -65,6 +65,12 @@ fn contextual_keywords_are_identifiers() {
 fn removed_keywords_are_identifiers() {
     assert_eq!(tokens("namespace"), [(K::Ident, "namespace")]);
     assert_eq!(SyntaxKind::keyword("namespace"), None);
+    // D-129: `switch` is an identifier, and `match` is contextual.
+    assert_eq!(tokens("switch"), [(K::Ident, "switch")]);
+    assert_eq!(SyntaxKind::keyword("switch"), None);
+    assert_eq!(tokens("match"), [(K::Ident, "match")]);
+    assert!(SyntaxKind::CONTEXTUAL_KEYWORDS.contains(&K::MatchKw));
+    assert!(!SyntaxKind::KEYWORDS.contains(&K::MatchKw));
 }
 
 #[test]
