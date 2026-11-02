@@ -470,14 +470,13 @@ mod tests {
     #[test]
     fn item_trees_keep_every_kind_of_declaration() {
         let db = TestDb::new();
-        let file = db.file(
-        "src/A.mr",
-        "union Shape { Circle(r: float), Square(side: float); static Unit(): Shape => Circle(1.0); }\n\
-         interface IShape {\n    Area(): float;\n}\n\
-         macro Log(x: Expr) {\n}\n\
-         extension (s: Shape) {\n}\n\
-         class Square {\n    IShape.Area(): float => 1.0;\n    X: int;\n}\n",
-    );
+        let text = "union Shape { Circle(r: float), Square(side: float); \
+                    static Unit(): Shape => Circle(1.0); }\n\
+                    interface IShape {\n    Area(): float;\n}\n\
+                    macro Log(x: Expr) {\n}\n\
+                    extension (s: Shape) {\n}\n\
+                    class Square {\n    IShape.Area(): float => 1.0;\n    X: int;\n}\n";
+        let file = db.file("src/A.mr", text);
         let tree = item_tree(&db, file);
         let summary: Vec<_> = tree
             .items()

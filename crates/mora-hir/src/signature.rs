@@ -556,11 +556,10 @@ mod tests {
         db.take_executed();
 
         // The edit makes the body longer, so every range after it moves.
-        store.set_text(&mut db).to(
-        "internal struct User {\n    public Id: int;\n}\n\
-         internal Find(id: int): User {\n    let user = new User { Id = id + 1 };\n    return user;\n}\n"
-            .into(),
-    );
+        let text = "internal struct User {\n    public Id: int;\n}\n\
+                    internal Find(id: int): User {\n    let user = new User { Id = id + 1 };\n    \
+                    return user;\n}\n";
+        store.set_text(&mut db).to(text.into());
         assert_eq!(diagnostics(&db, project), &[]);
         assert_eq!(signature(&db, find), &before);
         let executed = db.take_executed();

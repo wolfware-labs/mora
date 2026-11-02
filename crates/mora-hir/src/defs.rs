@@ -369,10 +369,9 @@ mod tests {
 
         // The edit makes the file longer, so every range after it moves.
         let store = file_named(&db, project, "src/Store/UserStore.mr");
-        store.set_text(&mut db).to(
-        "internal class UserStore {\n    public Count(): int {\n        let n = 40 + 2;\n        return n;\n    }\n}\n"
-            .into(),
-    );
+        let text = "internal class UserStore {\n    public Count(): int {\n        let n = 40 + 2;\n        \
+                    return n;\n    }\n}\n";
+        store.set_text(&mut db).to(text.into());
         assert_eq!(diagnostics(&db, project), &[]);
         let executed = db.take_executed();
         let ran = |query: &str| {
