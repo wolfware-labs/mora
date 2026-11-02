@@ -82,8 +82,6 @@ pub(crate) struct FieldRef {
 pub(crate) struct SignatureSource {
     /// The range of each segment of each path, indexed by [`PathRef::index`].
     pub(crate) paths: Vec<Vec<TextRange>>,
-    /// The name of each field of a struct, in order.
-    pub(crate) fields: Vec<TextRange>,
 }
 
 /// The signature of the declaration `node`, which the item tree keeps.
@@ -175,7 +173,6 @@ impl LowerTypes {
             .filter_map(|modifier| modifier.kind())
             .find_map(|token| visibility(token.kind()))
             .unwrap_or(Visibility::Folder);
-        self.source.fields.push(name.text_range());
         Some(FieldRef {
             name: ident_name(name.text()).into_owned(),
             visibility,

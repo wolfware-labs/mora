@@ -193,6 +193,16 @@ impl LowerTypes<'_> {
         })
     }
 
+    /// Reports `error` and gives the error type. The generic arguments are
+    /// still lowered, so the names in them are checked too.
+    fn fail(&mut self, error: SignatureError, args: &[TypeRef]) -> Ty {
+        self.errors.push(error);
+        for arg in args {
+            self.ty(arg);
+        }
+        Ty::Error
+    }
+
     fn path(&mut self, path: &PathRef) -> Ty {
         if self.type_params.contains(&path.segments[0]) {
             return self.unsupported(Construct::TypeParam, None, &path.args);
@@ -207,12 +217,7 @@ impl LowerTypes<'_> {
             Ok(resolved) => resolved,
             Err(failed) => {
                 let kind = SignatureErrorKind::Resolve(self.scope, failed.kind);
-                self.errors.push(error(failed.segment, kind));
-                // The arguments are still checked.
-                for arg in &path.args {
-                    self.ty(arg);
-                }
-                return Ty::Error;
+                return self.fail(error(failed.segment, kind), &path.args);
             }
         };
         let last = path.segments.len() - 1;
@@ -220,9 +225,7 @@ impl LowerTypes<'_> {
             Resolved::Item(item) => item,
             Resolved::External => return self.unsupported(Construct::External, None, &path.args),
             other => {
-                self.errors
-                    .push(error(last, SignatureErrorKind::NotAType(other)));
-                return Ty::Error;
+                return self.fail(error(last, SignatureErrorKind::NotAType(other)), &path.args);
             }
         };
         let construct = match crate::resolve::item_data(self.db, item).kind {
@@ -232,11 +235,8 @@ impl LowerTypes<'_> {
             ItemKind::Enum => Construct::Enum,
             ItemKind::Interface => Construct::Interface,
             ItemKind::Function | ItemKind::Macro | ItemKind::Field => {
-                self.errors.push(error(
-                    last,
-                    SignatureErrorKind::NotAType(Resolved::Item(item)),
-                ));
-                return Ty::Error;
+                let kind = SignatureErrorKind::NotAType(Resolved::Item(item));
+                return self.fail(error(last, kind), &path.args);
             }
         };
         if effective_visibility(self.db, item) < self.member {
@@ -586,6 +586,34 @@ mod tests {
                 .iter()
                 .any(|key| key.starts_with("item_signature(")),
             "{executed:?}"
+        );
+    }
+
+    #[test]
+    fn only_namespace_level_fields_have_a_value_signature() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[(
+                "src/Program.mr",
+                "class Account {\n    public Balance: long;\n    static Count: int;\n}\n\
+                 static Total: long = 0;\n",
+            )],
+        );
+        let file = file_named(&db, project, "src/Program.mr");
+        // A class's fields are not items, so they have no signature of their own.
+        let names: Vec<_> = item_tree(&db, file)
+            .items()
+            .map(|(_, item)| item.name.as_str())
+            .collect();
+        assert_eq!(names, ["Account", "Total"]);
+        assert_eq!(
+            signature_of(&db, project, "src/Program.mr", "Account"),
+            Signature::None
+        );
+        assert_eq!(
+            signature_of(&db, project, "src/Program.mr", "Total"),
+            Signature::Value(Ty::Primitive(Primitive::Long))
         );
     }
 }

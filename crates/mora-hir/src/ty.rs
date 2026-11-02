@@ -104,7 +104,9 @@ pub enum Signature {
     Function(FnSignature),
     /// A struct and its fields.
     Struct(Vec<Field>),
-    /// A `const` or `static` at namespace level, and its type.
+    /// A `const` or `static` at namespace level, and its type. A field
+    /// declared in a type is not an item: a struct lists it in
+    /// [`Signature::Struct`], and a class's fields are not lowered yet.
     Value(Ty),
     /// An item whose signature a later part of the compiler lowers.
     None,

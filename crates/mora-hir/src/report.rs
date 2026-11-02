@@ -878,4 +878,33 @@ mod tests {
             [None, Some("did you mean `string`?".to_owned()), None]
         );
     }
+
+    #[test]
+    fn names_in_the_arguments_of_a_non_type_are_checked() {
+        let db = TestDb::new();
+        let project = app(
+            &db,
+            &[
+                (
+                    "src/Program.mr",
+                    "const Max: int = 1;\nF() {}\n\
+                     G(a: Max<Usr>, b: F<Usr>, c: Store<Usr>, d: Mising<Usr>) {}\n",
+                ),
+                ("src/Store/A.mr", ""),
+            ],
+        );
+        assert_eq!(
+            messages(diagnostics(&db, project)),
+            [
+                "`Max` is not a type",
+                "cannot find `Usr`",
+                "`F` is not a type",
+                "cannot find `Usr`",
+                "`Store` is not a type",
+                "cannot find `Usr`",
+                "cannot find `Mising`",
+                "cannot find `Usr`",
+            ]
+        );
+    }
 }

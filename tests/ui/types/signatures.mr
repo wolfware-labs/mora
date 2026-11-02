@@ -18,7 +18,7 @@ internal struct User {
     public Point: (float, double);
     public Grouped: (int);
     public Nothing: ();
-    Address: Address;
+    Home: Address;
 
     struct Address {
         public Line: string;
@@ -28,7 +28,7 @@ internal struct User {
     }
 
     private Mark(hidden: Hidden): Address {
-        return Address;
+        return Home;
     }
 }
 
