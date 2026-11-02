@@ -142,6 +142,13 @@ fn declaration(p: &mut Parser<'_>, cx: Context<'_>) -> bool {
             // without modifiers, only a function has a shape, so tokens
             // taken without one are attributes before a statement.
             let statement = cx == Context::TopLevel && modifiers.is_empty();
+            // `@Cfg(Debug = true) match (x) { ... }` is a statement, not a
+            // function `match`, as it is without attributes (§14.4).
+            if statement && exprs::at_match(p) {
+                stmts::statement(p);
+                m.complete(p, K::AttributedStmt);
+                return true;
+            }
             match shape(p, cx, !modifiers.is_empty()) {
                 Some(shape) => member_with_shape(p, m, shape),
                 _ if p.pos() == start => {

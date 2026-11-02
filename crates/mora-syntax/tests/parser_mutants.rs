@@ -418,6 +418,72 @@ fn a_match_statement_is_not_a_function() {
     );
 }
 
+#[test]
+fn an_attributed_match_is_a_statement() {
+    assert_eq!(
+        outline("@Cfg(Debug = true) match (x) { _ => F(), }"),
+        ("SourceFile(AttributedStmt(Attribute(Path(PathSegment(NameRef)), AttributeArgList(AttributeArg(NameRef, LiteralExpr))), MatchStmt(P, MatchArmList(MatchArm(DiscardPattern, CallExpr(P))))))".into(), vec![])
+    );
+    assert_eq!(
+        outline("G() { @Cfg(Debug = true) match (x) { _ => F(), } }"),
+        (
+            "SourceFile(FunctionDecl(Name, ParamList, Block(AttributedStmt(Attribute(Path(PathSegment(NameRef)), AttributeArgList(AttributeArg(NameRef, LiteralExpr))), MatchStmt(P, MatchArmList(MatchArm(DiscardPattern, CallExpr(P))))))))".into(),
+            vec![]
+        )
+    );
+}
+
+#[test]
+fn attributed_and_modified_functions_are_still_declarations() {
+    assert_eq!(
+        outline("@Cfg(Debug = true) F(x: int) { }"),
+        (
+            "SourceFile(FunctionDecl(Attribute(Path(PathSegment(NameRef)), AttributeArgList(AttributeArg(NameRef, LiteralExpr))), Name, ParamList(Param(Name, PredefinedType)), Block))".into(),
+            vec![]
+        )
+    );
+    assert_eq!(
+        outline("@Cfg(Debug = true) match(x: int): () { }"),
+        (
+            "SourceFile(FunctionDecl(Attribute(Path(PathSegment(NameRef)), AttributeArgList(AttributeArg(NameRef, LiteralExpr))), Name, ParamList(Param(Name, PredefinedType)), TupleType, Block))".into(),
+            vec![]
+        )
+    );
+    // A modifier makes it a declaration, as for any other name.
+    assert_eq!(
+        outline("static match(x: int) { }"),
+        (
+            "SourceFile(FunctionDecl(Modifier, Name, ParamList(Param(Name, PredefinedType)), Block))".into(),
+            vec![]
+        )
+    );
+}
+
+// D-129: `switch` is an ordinary identifier.
+
+#[test]
+fn switch_is_an_identifier() {
+    assert_eq!(
+        outline("let switch = 1;"),
+        (
+            "SourceFile(LocalDeclStmt(LocalDecl(VariableDeclarator(Name, LiteralExpr))))".into(),
+            vec![]
+        )
+    );
+    assert_eq!(
+        outline("switch(x);"),
+        ("SourceFile(ExprStmt(CallExpr(P)))".into(), vec![])
+    );
+    // With arms it is a function named `switch`, with the ordinary errors.
+    assert_eq!(
+        outline("switch (x) { _ => 1 }"),
+        (
+            "SourceFile(FunctionDecl(Name, ParamList(Param(Name)), Block(ExprStmt(LambdaExpr(LambdaParam(Name), LiteralExpr)))))".into(),
+            vec!["expected `:` and a type".into(), "expected `;`".into()]
+        )
+    );
+}
+
 // return_stmt: a missing `;` is the only error.
 
 #[test]
