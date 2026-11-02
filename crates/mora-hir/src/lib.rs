@@ -21,6 +21,10 @@ mod items;
 mod name;
 mod report;
 mod resolve;
+mod signature;
+mod suggest;
+mod ty;
+mod type_ref;
 
 #[cfg(test)]
 mod tests;
@@ -36,4 +40,9 @@ pub use name::pascal_case;
 pub use report::diagnostics;
 pub use resolve::{
     ResolveError, ResolveErrorKind, Resolved, Scope, effective_visibility, is_visible, resolve_path,
+};
+pub use signature::signature;
+pub use ty::{
+    Construct, Field, FnSignature, Param, ParamMode, Primitive, Signature, TupleElem, Ty,
+    Unsupported,
 };

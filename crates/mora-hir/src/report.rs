@@ -2,11 +2,19 @@ use mora_diag::{Diagnostic, Fix, Label, TextEdit, codes};
 use mora_span::{Db, Project, ProjectKind, SourceFile, Span, TextRange, TextSize};
 
 use crate::defs::{DefMap, FolderProblem, ItemId, def_map};
-use crate::items::{ItemKind, Visibility, item_source_map, item_tree};
-use crate::resolve::{ResolveErrorKind, Resolved, STD, Scope, effective_visibility, resolve_using};
+use crate::items::{ItemKind, Visibility, item_source_map, item_tree, signature_sources};
+use crate::resolve::{
+    ResolveErrorKind, Resolved, STD, Scope, effective_visibility, enclosing_types, resolve_using,
+    visible_names,
+};
+use crate::signature::{SignatureErrorKind, signature, signature_errors};
+use crate::suggest::closest;
+use crate::ty::Signature;
+use crate::type_ref::TYPE_KEYWORDS;
 
 /// The diagnostics of a project's folders (`MR0121`), `using` directives
-/// (`MR0127`, `MR0128`, `MR0129`) and entry point (`MR0124`, `MR0125`).
+/// and signatures (`MR0127`, `MR0128`, `MR0129`, `MR0123`) and entry point
+/// (`MR0124`, `MR0125`).
 /// Lexical and syntax errors come from [`crate::parse`].
 #[salsa::tracked(returns(ref))]
 pub fn diagnostics(db: &dyn Db, project: Project) -> Vec<Diagnostic> {
@@ -17,6 +25,7 @@ pub fn diagnostics(db: &dyn Db, project: Project) -> Vec<Diagnostic> {
     }
     for file in map.files() {
         usings(db, project, file, &mut out);
+        signatures(db, project, file, &mut out);
     }
     entry_point(db, project, map, &mut out);
     out
@@ -62,27 +71,152 @@ fn folder(db: &dyn Db, problem: &FolderProblem) -> Diagnostic {
 fn usings(db: &dyn Db, project: Project, file: SourceFile, out: &mut Vec<Diagnostic>) {
     let tree = item_tree(db, file);
     let map = item_source_map(db, file);
-    let scope = Scope { project, file };
+    let scope = Scope::file(project, file);
     for (index, using) in tree.usings().iter().enumerate() {
         let Err(error) = resolve_using(db, scope, &using.path) else {
             continue;
         };
         let name = &using.path[error.segment];
         let span = Span::new(file.id(db), map.using(index).segments[error.segment]);
-        out.push(match error.kind {
-            ResolveErrorKind::Unresolved { within } => unresolved(db, name, span, within),
-            ResolveErrorKind::Ambiguous(candidates) => ambiguous(db, name, span, &candidates),
-            ResolveErrorKind::NotVisible(item) => not_visible(db, scope, name, span, item),
-        });
+        out.push(resolve_error(db, scope, name, span, error.kind, false));
     }
 }
 
-fn unresolved(db: &dyn Db, name: &str, span: Span, within: Option<Resolved>) -> Diagnostic {
+/// The errors in the types of the signatures of a file's items.
+fn signatures(db: &dyn Db, project: Project, file: SourceFile, out: &mut Vec<Diagnostic>) {
+    let sources = signature_sources(db, file);
+    for (idx, _) in item_tree(db, file).items() {
+        let item = ItemId {
+            project,
+            file,
+            item: idx,
+        };
+        let source = &sources[u32::from(idx.into_raw()) as usize];
+        for error in signature_errors(db, item) {
+            let range = source.paths[error.path][error.segment];
+            let name = &error.name;
+            let span = Span::new(file.id(db), range);
+            out.push(match &error.kind {
+                SignatureErrorKind::Resolve(scope, kind) => {
+                    resolve_error(db, *scope, name, span, kind.clone(), true)
+                }
+                SignatureErrorKind::NotAType(resolved) => {
+                    let what = match full_name(db, resolved) {
+                        Some(full) => format!("{} `{full}`", kind_name(db, resolved)),
+                        None => kind_name(db, resolved).to_owned(),
+                    };
+                    Diagnostic::error(
+                        codes::MR0127,
+                        format!("`{name}` is not a type"),
+                        Label::new(span, format!("this is {what}")),
+                    )
+                }
+                SignatureErrorKind::LessVisible { ty, field, member } => {
+                    let member_name = match (field, signature(db, item)) {
+                        (Some(field), Signature::Struct(fields)) => fields[*field].name.clone(),
+                        _ => item_tree(db, file).item(idx).name.clone(),
+                    };
+                    less_visible(db, name, span, *ty, &member_name, *member)
+                }
+            });
+        }
+    }
+}
+
+/// The diagnostic for a path that does not resolve from `scope`. A type
+/// position also suggests the keywords that name types.
+fn resolve_error(
+    db: &dyn Db,
+    scope: Scope,
+    name: &str,
+    span: Span,
+    kind: ResolveErrorKind,
+    in_type: bool,
+) -> Diagnostic {
+    match kind {
+        ResolveErrorKind::Unresolved { within } => {
+            let mut candidates = visible_names(db, scope, within.as_ref(), in_type);
+            if in_type && within.is_none() {
+                candidates.extend(TYPE_KEYWORDS.iter().map(|&keyword| keyword.to_owned()));
+                candidates.sort();
+            }
+            let suggestion = closest(name, &candidates);
+            unresolved(db, name, span, within, suggestion)
+        }
+        ResolveErrorKind::Ambiguous(candidates) => ambiguous(db, name, span, &candidates),
+        ResolveErrorKind::NotVisible(item) => not_visible(db, scope, name, span, item),
+    }
+}
+
+fn unresolved(
+    db: &dyn Db,
+    name: &str,
+    span: Span,
+    within: Option<Resolved>,
+    suggestion: Option<&str>,
+) -> Diagnostic {
     let message = match within.as_ref().and_then(|within| full_name(db, within)) {
         Some(within) => format!("cannot find `{name}` in `{within}`"),
         None => format!("cannot find `{name}`"),
     };
-    Diagnostic::error(codes::MR0127, message, Label::new(span, "not found"))
+    let diagnostic = Diagnostic::error(codes::MR0127, message, Label::new(span, "not found"));
+    match suggestion {
+        Some(suggestion) => diagnostic.with_fix(Fix::new(
+            format!("did you mean `{suggestion}`?"),
+            vec![TextEdit::replace(span, suggestion)],
+        )),
+        None => diagnostic,
+    }
+}
+
+/// `MR0123`: the signature of `member` mentions the type `ty`, which is
+/// visible in less of the program than the member.
+fn less_visible(
+    db: &dyn Db,
+    name: &str,
+    span: Span,
+    ty: ItemId,
+    member_name: &str,
+    member: Visibility,
+) -> Diagnostic {
+    let region = |visibility| match visibility {
+        Visibility::Public => "everywhere",
+        Visibility::Internal => "in its project",
+        Visibility::Folder => "in its folder",
+        Visibility::File => "in its file",
+        Visibility::Private => "inside its type",
+    };
+    let narrower = effective_visibility(db, ty);
+    let mut diagnostic = Diagnostic::error(
+        codes::MR0123,
+        format!(
+            "`{member_name}` is visible {}, but its signature mentions `{name}`, which is visible only {}",
+            region(member),
+            region(narrower),
+        ),
+        Label::new(span, format!("less visible than `{member_name}`")),
+    )
+    .with_secondary(Label::new(item_name_span(db, ty), "declared here"))
+    .with_note(
+        "code that can use a member must be able to name the types in its signature; \
+         make the type more visible or the member less visible",
+    );
+    // Marking the type helps only when the types around it are visible enough.
+    let tree = item_tree(db, ty.file);
+    let parents_allow = enclosing_types(tree, tree.item(ty.item).parent)
+        .all(|parent| tree.item(parent).visibility >= member);
+    let keyword = match member {
+        Visibility::Public => Some("public"),
+        Visibility::Internal => Some("internal"),
+        _ => None,
+    };
+    if let Some(keyword) = keyword.filter(|_| parents_allow) {
+        diagnostic = diagnostic.with_fix(Fix::new(
+            format!("mark `{name}` `{keyword}`"),
+            vec![widen(db, ty, keyword)],
+        ));
+    }
+    diagnostic
 }
 
 fn ambiguous(db: &dyn Db, name: &str, span: Span, candidates: &[Resolved]) -> Diagnostic {

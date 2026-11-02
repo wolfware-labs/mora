@@ -1,0 +1,61 @@
+error[MR0127]: cannot find `strng`
+ --> src/Store/User.mr:3:18
+  |
+3 |     public Name: strng; //~ ERROR MR0127
+  |                  ^^^^^ not found
+  |
+help: did you mean `string`?
+  |
+3 |     public Name: string; //~ ERROR MR0127
+  |                     +
+
+error[MR0127]: cannot find `Usr`
+ --> src/Store/User.mr:6:25
+  |
+6 | internal Find(id: int): Usr { //~ ERROR MR0127
+  |                         ^^^ not found
+  |
+help: did you mean `User`?
+  |
+6 | internal Find(id: int): User { //~ ERROR MR0127
+  |                           +
+
+error[MR0127]: cannot find `Usr`
+  --> src/Store/User.mr:10:28
+   |
+10 | internal Count(users: List<Usr>): int { //~ ERROR MR0127
+   |                            ^^^ not found
+   |
+help: did you mean `User`?
+   |
+10 | internal Count(users: List<User>): int { //~ ERROR MR0127
+   |                              +
+
+error[MR0127]: cannot find `Stor` in `UsersApi`
+  --> src/Store/User.mr:14:28
+   |
+14 | internal Load(id: UsersApi.Stor.User): User { //~ ERROR MR0127
+   |                            ^^^^ not found
+   |
+help: did you mean `Store`?
+   |
+14 | internal Load(id: UsersApi.Store.User): User { //~ ERROR MR0127
+   |                                +
+
+error[MR0127]: cannot find `Qwertyuiop`
+  --> src/Store/User.mr:18:31
+   |
+18 | internal Parse(text: string): Qwertyuiop { //~ ERROR MR0127
+   |                               ^^^^^^^^^^ not found
+
+error[MR0127]: `Store` is not a type
+  --> src/Store/User.mr:23:22
+   |
+23 | internal Open(store: Store): User { //~ ERROR MR0127
+   |                      ^^^^^ this is the namespace `UsersApi.Store`
+
+error[MR0127]: `Find` is not a type
+  --> src/Store/User.mr:27:22
+   |
+27 | internal Again(find: Find): User { //~ ERROR MR0127
+   |                      ^^^^ this is the function `UsersApi.Store.Find`

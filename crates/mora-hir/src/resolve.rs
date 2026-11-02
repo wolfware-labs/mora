@@ -1,18 +1,32 @@
 use mora_span::{Db, Project, SourceFile};
 
 use crate::defs::{ItemId, NamespaceRef, def_map};
-use crate::items::{Item, ItemKind, Visibility, item_tree};
+use crate::items::{Item, ItemIdx, ItemKind, ItemTree, Visibility, item_tree};
 
 /// The name of the standard library's root namespace (§4.4).
 pub(crate) const STD: &str = "Std";
 
-/// Where a name is looked up from: a file of a project, at namespace level.
+/// Where a name is looked up from: a file of a project, at namespace level
+/// or inside a type of the file.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Scope {
     /// The project the file belongs to.
     pub project: Project,
     /// The file.
     pub file: SourceFile,
+    /// The innermost type the use is inside, `None` at namespace level.
+    pub within: Option<ItemIdx>,
+}
+
+impl Scope {
+    /// Namespace level in `file`.
+    pub fn file(project: Project, file: SourceFile) -> Self {
+        Self {
+            project,
+            file,
+            within: None,
+        }
+    }
 }
 
 /// What a path names.
@@ -51,16 +65,22 @@ pub enum ResolveErrorKind {
 
 /// Looks `path` up from `scope`.
 ///
-/// The first segment is looked up in order (§14.5): the enclosing
-/// namespaces from the innermost out; then the global names, which are the
+/// The first segment is looked up in order (§14.5): the members of the
+/// enclosing types, from the innermost out; the enclosing namespaces from
+/// the innermost out; then the global names, which are the
 /// first segment of the project's root namespace, the dependencies' names
 /// and `Std`; then what the file's `using` directives and the project's
 /// `global using` directives open; then the prelude. The first level that
 /// has a visible declaration with the name decides: two there are
 /// ambiguous, unless all are functions, which are overloads. Each later
-/// segment is looked up in what the path names so far. Locals, parameters
-/// and members of enclosing types come before all of these; they belong to
-/// bodies, which have their own lookup.
+/// segment is looked up in what the path names so far. Locals and
+/// parameters come before all of these; they belong to bodies, which have
+/// their own lookup.
+///
+/// While the standard library is not loaded, a name that no level has is
+/// [`Resolved::External`] when it is a name of the prelude (§15.1) or the
+/// file has a `using` directive that opens a namespace or type of `Std`:
+/// nothing can tell whether `Std` declares it.
 pub fn resolve_path(db: &dyn Db, scope: Scope, path: &[String]) -> Result<Resolved, ResolveError> {
     resolve(db, scope, path, true)
 }
@@ -107,6 +127,21 @@ fn first_segment(
     with_imports: bool,
 ) -> Result<Resolved, ResolveErrorKind> {
     let mut hidden = None;
+    let tree = item_tree(db, scope.file);
+    for ty in enclosing_types(tree, scope.within) {
+        let found = type_members(
+            db,
+            ItemId {
+                project: scope.project,
+                file: scope.file,
+                item: ty,
+            },
+            name,
+        );
+        if let Some(found) = pick(db, scope, found, &mut hidden)? {
+            return Ok(found);
+        }
+    }
     let map = def_map(db, scope.project);
     let mut namespace = map.file_namespace(scope.file);
     while let Some(id) = namespace {
@@ -154,6 +189,11 @@ fn first_segment(
             if let Some(found) = pick(db, scope, found, &mut hidden)? {
                 return Ok(found);
             }
+        } else if hidden.is_none()
+            && !is_std(db, scope.project)
+            && (PRELUDE.contains(&name) || imports.opens_external)
+        {
+            return Ok(Resolved::External);
         }
     }
     Err(hidden.map_or(
@@ -330,6 +370,9 @@ pub(crate) struct Imports {
     namespaces: Vec<NamespaceRef>,
     /// `using static Type;`.
     types: Vec<ItemId>,
+    /// Whether a `using Namespace;` or `using static Type;` opens a part of
+    /// `Std` while the standard library is not loaded.
+    opens_external: bool,
 }
 
 /// The file's own directives and every `global using` of the project. A
@@ -343,10 +386,7 @@ pub(crate) fn imports(db: &dyn Db, project: Project, file: SourceFile) -> Import
             if other != file && !using.global {
                 continue;
             }
-            let scope = Scope {
-                project,
-                file: other,
-            };
+            let scope = Scope::file(project, other);
             let Ok(target) = resolve_using(db, scope, &using.path) else {
                 continue;
             };
@@ -357,6 +397,7 @@ pub(crate) fn imports(db: &dyn Db, project: Project, file: SourceFile) -> Import
                 }
                 // An item that is not a type has no members, so it opens nothing.
                 (None, true, Resolved::Item(ty)) => imports.types.push(ty),
+                (None, _, Resolved::External) => imports.opens_external = true,
                 _ => {}
             }
         }
@@ -387,8 +428,9 @@ pub fn effective_visibility(db: &dyn Db, item: ItemId) -> Visibility {
     visibility
 }
 
-/// Whether code at namespace level in `from` can see `item` (§4.5). A
-/// `private` member is visible only inside its type, so never from there.
+/// Whether code in `from` can see `item` (§4.5). A `private` member is
+/// visible only inside its type; when several types around it are
+/// `private`, inside the type of the innermost one.
 pub fn is_visible(db: &dyn Db, item: ItemId, from: Scope) -> bool {
     let same_project = item.project == from.project;
     match effective_visibility(db, item) {
@@ -398,7 +440,206 @@ pub fn is_visible(db: &dyn Db, item: ItemId, from: Scope) -> bool {
             let map = def_map(db, item.project);
             same_project && map.file_namespace(item.file) == map.file_namespace(from.file)
         }
-        Visibility::File => item.file == from.file,
-        Visibility::Private => false,
+        Visibility::File => same_project && item.file == from.file,
+        Visibility::Private => {
+            let tree = item_tree(db, item.file);
+            let owner = enclosing_types(tree, Some(item.item))
+                .find(|&idx| tree.item(idx).visibility == Visibility::Private)
+                .and_then(|idx| tree.item(idx).parent);
+            same_project
+                && item.file == from.file
+                && owner
+                    .is_some_and(|owner| enclosing_types(tree, from.within).any(|ty| ty == owner))
+        }
     }
+}
+
+/// `start` and the types around it, from the innermost out.
+pub(crate) fn enclosing_types(
+    tree: &ItemTree,
+    start: Option<ItemIdx>,
+) -> impl Iterator<Item = ItemIdx> + '_ {
+    std::iter::successors(start, |&idx| tree.item(idx).parent)
+}
+
+/// Whether `project` is the standard library itself.
+fn is_std(db: &dyn Db, project: Project) -> bool {
+    project.root_namespace(db) == STD
+}
+
+/// The names of the prelude (§15.1) that are types, functions or values,
+/// which stand in for it while the standard library is not loaded.
+const PRELUDE: &[&str] = &[
+    "Action",
+    "Clock",
+    "Console",
+    "Debug",
+    "Dictionary",
+    "Drop",
+    "Environment",
+    "Err",
+    "Func",
+    "Future",
+    "HashSet",
+    "Html",
+    "IClone",
+    "IComparable",
+    "IDefault",
+    "IDisplay",
+    "IEnumerable",
+    "IEnumerator",
+    "IEquatable",
+    "IError",
+    "IFrom",
+    "IFuture",
+    "IHashable",
+    "IHole",
+    "IInterpolate",
+    "INumber",
+    "IParse",
+    "Instant",
+    "List",
+    "Literal",
+    "Log",
+    "Math",
+    "MathF",
+    "MonoTime",
+    "Ok",
+    "Option",
+    "ReadOnlySpan",
+    "ReferenceEquals",
+    "Report",
+    "Result",
+    "Secret",
+    "Span",
+    "Task",
+    "TimeSpan",
+    "Todo",
+    "Trace",
+    "Unreachable",
+    "Url",
+    "panic",
+];
+
+/// The names a lookup of a first segment from `scope` could find, or, with
+/// `within`, of a later segment in what `within` names: every visible
+/// declaration's name, for suggesting one in place of a name that does not
+/// resolve. With `with_imports` unset, the names of the levels that `using`
+/// directives and the prelude add are left out, as [`resolve_using`] does.
+pub(crate) fn visible_names(
+    db: &dyn Db,
+    scope: Scope,
+    within: Option<&Resolved>,
+    with_imports: bool,
+) -> Vec<String> {
+    let mut names = Vec::new();
+    let add = |found: Vec<Resolved>, name: &str, names: &mut Vec<String>| {
+        let visible = found.iter().any(|candidate| match candidate {
+            Resolved::Item(item) => is_visible(db, *item, scope),
+            _ => true,
+        });
+        if visible {
+            names.push(name.to_owned());
+        }
+    };
+    let namespace_names = |namespace: NamespaceRef, children: bool| {
+        let data = def_map(db, namespace.project).namespace(namespace.id);
+        let mut found: Vec<&String> = data.items.keys().collect();
+        if children {
+            found.extend(data.children.keys());
+        }
+        found.into_iter().cloned().collect::<Vec<_>>()
+    };
+    let type_names = |ty: ItemId| {
+        let tree = item_tree(db, ty.file);
+        tree.item(ty.item)
+            .members
+            .iter()
+            .map(|&member| tree.item(member).name.clone())
+            .collect::<Vec<_>>()
+    };
+    match within {
+        Some(Resolved::Namespace(namespace)) => {
+            for name in namespace_names(*namespace, true) {
+                add(
+                    namespace_members(db, *namespace, &name, true),
+                    &name,
+                    &mut names,
+                );
+            }
+        }
+        Some(Resolved::Item(item)) => {
+            for name in type_names(*item) {
+                add(type_members(db, *item, &name), &name, &mut names);
+            }
+        }
+        Some(Resolved::Functions(_) | Resolved::External) => {}
+        None => {
+            let tree = item_tree(db, scope.file);
+            for ty in enclosing_types(tree, scope.within) {
+                let ty = ItemId {
+                    project: scope.project,
+                    file: scope.file,
+                    item: ty,
+                };
+                for name in type_names(ty) {
+                    add(type_members(db, ty, &name), &name, &mut names);
+                }
+            }
+            let map = def_map(db, scope.project);
+            let mut namespace = map.file_namespace(scope.file);
+            while let Some(id) = namespace {
+                let namespace_ref = NamespaceRef {
+                    project: scope.project,
+                    id,
+                };
+                for name in namespace_names(namespace_ref, true) {
+                    add(
+                        namespace_members(db, namespace_ref, &name, true),
+                        &name,
+                        &mut names,
+                    );
+                }
+                namespace = map.namespace(id).parent;
+            }
+            names.push(map.namespace(map.outermost()).name.clone());
+            names.push(STD.to_owned());
+            names.extend(
+                scope
+                    .project
+                    .dependencies(db)
+                    .iter()
+                    .map(|dependency| dependency.name.clone()),
+            );
+            if with_imports {
+                let imports = imports(db, scope.project, scope.file);
+                names.extend(imports.aliases.iter().map(|(alias, _)| alias.clone()));
+                for &namespace in &imports.namespaces {
+                    for name in namespace_names(namespace, false) {
+                        add(
+                            namespace_members(db, namespace, &name, false),
+                            &name,
+                            &mut names,
+                        );
+                    }
+                }
+                for &ty in &imports.types {
+                    for name in type_names(ty) {
+                        add(static_members(db, ty, &name), &name, &mut names);
+                    }
+                }
+                match dependency(db, scope.project, STD) {
+                    Some(std) => {
+                        for name in namespace_names(std, false) {
+                            add(namespace_members(db, std, &name, false), &name, &mut names);
+                        }
+                    }
+                    None => names.extend(PRELUDE.iter().map(|&name| name.to_owned())),
+                }
+            }
+        }
+    }
+    names.sort();
+    names.dedup();
+    names
 }

@@ -4,23 +4,55 @@ use mora_syntax::ast::{self, AstNode};
 use mora_syntax::lexer::ident_name;
 use mora_syntax::{Parse, SyntaxKind, SyntaxNode};
 
+use crate::type_ref::{self, SignatureRef, SignatureSource};
+
 /// The syntax tree of a file.
 #[salsa::tracked(returns(ref))]
 pub fn parse(db: &dyn Db, file: SourceFile) -> Parse {
     mora_syntax::parse(file.text(db))
 }
 
+/// Everything one walk over a file's declarations gives. The queries
+/// below each keep one part, so a change to one part leaves the others
+/// equal.
+#[salsa::tracked(returns(ref))]
+fn lowered(db: &dyn Db, file: SourceFile) -> Lowered {
+    lower(&parse(db, file).tree())
+}
+
 /// What a file declares, without positions: an edit that changes no
 /// declaration, such as one inside a function body, gives an equal tree.
 #[salsa::tracked(returns(ref))]
 pub fn item_tree(db: &dyn Db, file: SourceFile) -> ItemTree {
-    lower(&parse(db, file).tree()).0
+    lowered(db, file).tree.clone()
 }
 
 /// Where the parts of [`item_tree`] are in the text, for diagnostics.
 #[salsa::tracked(returns(ref))]
 pub fn item_source_map(db: &dyn Db, file: SourceFile) -> ItemSourceMap {
-    lower(&parse(db, file).tree()).1
+    lowered(db, file).map.clone()
+}
+
+/// The signatures of a file's items as written, indexed like
+/// [`ItemTree::items`], without positions.
+#[salsa::tracked(returns(ref))]
+pub(crate) fn signature_refs(db: &dyn Db, file: SourceFile) -> Vec<SignatureRef> {
+    lowered(db, file).signatures.clone()
+}
+
+/// Where the paths of [`signature_refs`] are, for diagnostics.
+#[salsa::tracked(returns(ref))]
+pub(crate) fn signature_sources(db: &dyn Db, file: SourceFile) -> Vec<SignatureSource> {
+    lowered(db, file).signature_sources.clone()
+}
+
+/// The parts of a file that [`lower`] builds.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct Lowered {
+    tree: ItemTree,
+    map: ItemSourceMap,
+    signatures: Vec<SignatureRef>,
+    signature_sources: Vec<SignatureSource>,
 }
 
 /// An index into [`ItemTree::items`].
@@ -169,9 +201,10 @@ pub struct UsingSource {
     pub segments: Vec<TextRange>,
 }
 
-/// Builds the item tree and its source map in one walk, so their indexes agree.
-fn lower(file: &ast::SourceFile) -> (ItemTree, ItemSourceMap) {
-    let mut lower = Lower::default();
+/// Builds the item tree, the signatures and their source maps in one walk,
+/// so their indexes agree.
+fn lower(file: &ast::SourceFile) -> Lowered {
+    let mut lower = Lowered::default();
     for using in file.using_directives() {
         lower.using(&using);
     }
@@ -191,13 +224,7 @@ fn lower(file: &ast::SourceFile) -> (ItemTree, ItemSourceMap) {
             }
         }
     }
-    (lower.tree, lower.map)
-}
-
-#[derive(Default)]
-struct Lower {
-    tree: ItemTree,
-    map: ItemSourceMap,
+    lower
 }
 
 /// The parts of a declaration the item tree keeps.
@@ -208,7 +235,7 @@ struct Decl {
     members: Vec<ast::Member>,
 }
 
-impl Lower {
+impl Lowered {
     fn using(&mut self, using: &ast::UsingDirective) {
         // A directive without a path leaves nothing to resolve; the parser
         // has reported it.
@@ -278,6 +305,9 @@ impl Lower {
             modifiers_start: modifiers_start(node),
             visibility: visibility_range,
         });
+        let (signature, source) = type_ref::signature(node);
+        self.signatures.push(signature);
+        self.signature_sources.push(source);
         let members: Vec<_> = decl
             .members
             .iter()

@@ -6,6 +6,8 @@ use salsa::Setter;
 
 use crate::*;
 
+mod signatures;
+
 /// A database that records every query execution.
 #[salsa::db]
 #[derive(Clone)]
@@ -93,10 +95,7 @@ fn file_named(db: &TestDb, project: Project, path: &str) -> SourceFile {
 
 /// The full name of what `text` resolves to from the file at `from`.
 fn resolve(db: &TestDb, project: Project, from: &str, text: &str) -> Result<String, String> {
-    let scope = Scope {
-        project,
-        file: file_named(db, project, from),
-    };
+    let scope = Scope::file(project, file_named(db, project, from));
     match resolve_path(db, scope, &path(text)) {
         Ok(Resolved::Namespace(namespace)) => {
             Ok(def_map(db, namespace.project).namespace_path(namespace.id))
@@ -164,7 +163,7 @@ fn an_edit_inside_a_body_does_not_rebuild_the_def_map() {
             .any(|key| key.starts_with(&format!("{query}(")))
     };
     assert!(ran("parse"), "{executed:?}");
-    assert!(ran("item_tree"), "{executed:?}");
+    assert!(ran("lowered"), "{executed:?}");
     assert!(!ran("def_map"), "{executed:?}");
     assert!(!ran("imports"), "{executed:?}");
 
@@ -318,10 +317,7 @@ fn visibility_follows_the_folder_by_default() {
             ("src/Program.mr", ""),
         ],
     );
-    let scope = |path: &str| Scope {
-        project,
-        file: file_named(&db, project, path),
-    };
+    let scope = |path: &str| Scope::file(project, file_named(&db, project, path));
     let program = scope("src/Program.mr");
     let other = scope("src/Store/Other.mr");
     let store = scope("src/Store/UserStore.mr");
@@ -961,10 +957,7 @@ fn broken_usings_keep_what_they_name() {
 fn an_empty_path_does_not_resolve() {
     let db = TestDb::new();
     let project = app(&db, &[("src/Program.mr", "")]);
-    let scope = Scope {
-        project,
-        file: file_named(&db, project, "src/Program.mr"),
-    };
+    let scope = Scope::file(project, file_named(&db, project, "src/Program.mr"));
     let error = resolve_path(&db, scope, &[]).unwrap_err();
     assert_eq!(error.segment, 0);
     assert_eq!(error.kind, ResolveErrorKind::Unresolved { within: None });

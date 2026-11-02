@@ -46,10 +46,12 @@ impl Compiler for Unbuilt {
 }
 
 /// Stands in for the driver until it can compile: checking a case reports
-/// its lexical and syntax errors and the errors of name resolution and
-/// entry points. A case may describe several files (see [`crate::case`]);
-/// the standard library is not loaded, so names under `Std` are not
-/// checked. It has no backend.
+/// its lexical and syntax errors and the errors of name resolution,
+/// signatures and entry points. A case may describe several files (see
+/// [`crate::case`]); the standard library is not loaded, so names under
+/// `Std`, the names of the prelude and names in a file with a `using`
+/// directive of `Std` are not checked when nothing else declares them. It
+/// has no backend.
 pub struct FrontEnd;
 
 /// The analysis database of one check.
